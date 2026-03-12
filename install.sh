@@ -1,78 +1,81 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -e
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+# Void — developer disk space reclaimer
+# Install: curl -fsSL https://raw.githubusercontent.com/eladbash/void/main/install.sh | sh
 
 REPO="eladbash/void"
-APP_NAME="Void"
+APP_NAME="Void.app"
+INSTALL_DIR="/Applications"
 
-echo -e "${GREEN}Installing ${APP_NAME}...${NC}"
-
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
-
-case "${OS}" in
-  linux*)   PLATFORM="linux" ;;
-  darwin*)  PLATFORM="macos" ;;
-  *)        echo -e "${RED}Unsupported OS: ${OS}${NC}"; exit 1 ;;
+# ── Checks ──────────────────────────────────
+case "$(uname -s)" in
+  Darwin) ;;
+  *) echo "Error: Void is only supported on macOS." >&2; exit 1 ;;
 esac
 
-case "${ARCH}" in
-  x86_64|amd64)  ARCH="x86_64" ;;
-  arm64|aarch64) ARCH="aarch64" ;;
-  *)             echo -e "${RED}Unsupported architecture: ${ARCH}${NC}"; exit 1 ;;
+command -v curl >/dev/null 2>&1 || { echo "Error: curl is required." >&2; exit 1; }
+command -v hdiutil >/dev/null 2>&1 || { echo "Error: hdiutil is required." >&2; exit 1; }
+
+# ── Architecture ────────────────────────────
+ARCH="$(uname -m)"
+case "$ARCH" in
+  arm64)  ASSET_PATTERN="aarch64.dmg" ;;
+  x86_64) ASSET_PATTERN="x64.dmg" ;;
+  *)      echo "Error: Unsupported architecture: $ARCH" >&2; exit 1 ;;
 esac
 
-LATEST=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+# ── Fetch latest release ────────────────────
+echo "Fetching latest release..."
+RELEASE_URL="https://api.github.com/repos/${REPO}/releases/latest"
+RELEASE_JSON="$(curl -fsSL "$RELEASE_URL")"
 
-if [ -z "$LATEST" ]; then
-  echo -e "${RED}Failed to fetch latest release${NC}"
+DMG_URL="$(echo "$RELEASE_JSON" | grep -o "\"browser_download_url\": *\"[^\"]*${ASSET_PATTERN}\"" | head -1 | cut -d'"' -f4)"
+
+if [ -z "$DMG_URL" ]; then
+  echo "Error: Could not find a .dmg asset for $ARCH in the latest release." >&2
   exit 1
 fi
 
-echo -e "Latest version: ${YELLOW}${LATEST}${NC}"
+VERSION="$(echo "$RELEASE_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)"
+echo "Installing Void ${VERSION} for ${ARCH}..."
 
-case "${PLATFORM}-${ARCH}" in
-  macos-aarch64) ASSET_PATTERN="aarch64.dmg" ;;
-  macos-x86_64)  ASSET_PATTERN="x64.dmg" ;;
-  linux-x86_64)  ASSET_PATTERN="amd64.deb" ;;
-  linux-aarch64) ASSET_PATTERN="arm64.deb" ;;
-  *)             echo -e "${RED}No binary for ${PLATFORM}-${ARCH}${NC}"; exit 1 ;;
-esac
+# ── Download ────────────────────────────────
+TMP_DIR="$(mktemp -d)"
+DMG_PATH="${TMP_DIR}/Void.dmg"
+trap 'rm -rf "$TMP_DIR"' EXIT
 
-DOWNLOAD_URL=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep "browser_download_url" | grep "${ASSET_PATTERN}" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+curl -fSL --progress-bar -o "$DMG_PATH" "$DMG_URL"
 
-if [ -z "$DOWNLOAD_URL" ]; then
-  echo -e "${RED}Could not find download for your platform${NC}"
-  echo -e "Visit https://github.com/${REPO}/releases/latest to download manually"
-  exit 1
+# ── Mount & copy ────────────────────────────
+MOUNT_POINT="$(hdiutil attach -nobrowse -noautoopen "$DMG_PATH" 2>/dev/null | tail -1 | awk '{print $NF}')"
+
+if [ ! -d "${MOUNT_POINT}/${APP_NAME}" ]; then
+  APP_FOUND="$(find "$MOUNT_POINT" -maxdepth 2 -name "$APP_NAME" -type d | head -1)"
+  if [ -z "$APP_FOUND" ]; then
+    hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+    echo "Error: Could not find ${APP_NAME} in the DMG." >&2
+    exit 1
+  fi
+  MOUNT_APP="$APP_FOUND"
+else
+  MOUNT_APP="${MOUNT_POINT}/${APP_NAME}"
 fi
 
-TMPDIR=$(mktemp -d)
-FILENAME=$(basename "$DOWNLOAD_URL")
+if [ -d "${INSTALL_DIR}/${APP_NAME}" ]; then
+  echo "Removing existing installation..."
+  rm -rf "${INSTALL_DIR}/${APP_NAME}"
+fi
 
-echo -e "Downloading ${FILENAME}..."
-curl -fsSL -o "${TMPDIR}/${FILENAME}" "$DOWNLOAD_URL"
+echo "Copying to ${INSTALL_DIR}..."
+cp -R "$MOUNT_APP" "${INSTALL_DIR}/"
 
-case "${FILENAME}" in
-  *.dmg)
-    echo -e "${GREEN}Downloaded to ${TMPDIR}/${FILENAME}${NC}"
-    echo -e "Opening installer..."
-    open "${TMPDIR}/${FILENAME}"
-    ;;
-  *.deb)
-    echo -e "Installing .deb package..."
-    sudo dpkg -i "${TMPDIR}/${FILENAME}"
-    echo -e "${GREEN}${APP_NAME} installed successfully!${NC}"
-    ;;
-  *.AppImage)
-    chmod +x "${TMPDIR}/${FILENAME}"
-    sudo mv "${TMPDIR}/${FILENAME}" "/usr/local/bin/${APP_NAME}"
-    echo -e "${GREEN}${APP_NAME} installed to /usr/local/bin/${NC}"
-    ;;
-esac
+# ── Cleanup ─────────────────────────────────
+hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
 
-rm -rf "$TMPDIR" 2>/dev/null || true
+echo ""
+echo "Void ${VERSION} installed to ${INSTALL_DIR}/${APP_NAME}"
+
+# ── Launch ──────────────────────────────────
+echo "Opening Void..."
+open "${INSTALL_DIR}/${APP_NAME}"
