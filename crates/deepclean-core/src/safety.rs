@@ -78,10 +78,8 @@ impl SafetyChecker {
         }
 
         // Check for sentinel files inside the target directory
-        if canonical.is_dir() {
-            if self.contains_sentinel(&canonical) {
-                return false;
-            }
+        if canonical.is_dir() && self.contains_sentinel(&canonical) {
+            return false;
         }
 
         true

@@ -251,11 +251,10 @@ mod tests {
             ActionEvent::Failed { error, .. } => {
                 assert!(
                     error.contains("blocked") || error.contains("Path blocked"),
-                    "Expected safety block error, got: {}",
-                    error
+                    "Expected safety block error, got: {error}"
                 );
             }
-            other => panic!("Expected Failed event, got: {:?}", other),
+            other => panic!("Expected Failed event, got: {other:?}"),
         }
 
         // Channel should be closed
@@ -288,7 +287,7 @@ mod tests {
             ActionEvent::Completed { bytes_freed, .. } => {
                 assert_eq!(bytes_freed, 1024 + 2048);
             }
-            other => panic!("Expected Completed event, got: {:?}", other),
+            other => panic!("Expected Completed event, got: {other:?}"),
         }
 
         // Directory should be gone
@@ -319,7 +318,7 @@ mod tests {
             ActionEvent::Completed { bytes_freed, .. } => {
                 assert_eq!(bytes_freed, 4096);
             }
-            other => panic!("Expected Completed event, got: {:?}", other),
+            other => panic!("Expected Completed event, got: {other:?}"),
         }
 
         // File should be gone

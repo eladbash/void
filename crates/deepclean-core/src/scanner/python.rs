@@ -168,7 +168,7 @@ impl PythonScanner {
             project_root: parent.map(|p| p.to_path_buf()),
             available_actions: vec![CleanAction {
                 id: Uuid::new_v4(),
-                label: format!("Remove {}/", venv_name),
+                label: format!("Remove {venv_name}/"),
                 description: "Delete the virtual environment (recreate with `python -m venv`)"
                     .into(),
                 method: ActionMethod::RemoveDir {

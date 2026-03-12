@@ -142,7 +142,7 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
         actions.push(CleanAction {
             id: Uuid::new_v4(),
             label: "Move to Trash".into(),
-            description: format!("Move \"{}\" to the Trash", file_name),
+            description: format!("Move \"{file_name}\" to the Trash"),
             method: ActionMethod::Command {
                 program: "osascript".into(),
                 args: vec![
@@ -161,7 +161,7 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
         actions.push(CleanAction {
             id: Uuid::new_v4(),
             label: "Move to Recycle Bin".into(),
-            description: format!("Move \"{}\" to the Recycle Bin", file_name),
+            description: format!("Move \"{file_name}\" to the Recycle Bin"),
             method: ActionMethod::Command {
                 program: "powershell".into(),
                 args: vec![
@@ -184,7 +184,7 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
         actions.push(CleanAction {
             id: Uuid::new_v4(),
             label: "Delete permanently".into(),
-            description: format!("Permanently delete \"{}\"", file_name),
+            description: format!("Permanently delete \"{file_name}\""),
             method: ActionMethod::Command {
                 program: if cfg!(target_os = "macos") {
                     "rm"
@@ -210,7 +210,7 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
         actions.push(CleanAction {
             id: Uuid::new_v4(),
             label: "Delete permanently".into(),
-            description: format!("Permanently delete \"{}\"", file_name),
+            description: format!("Permanently delete \"{file_name}\""),
             method: ActionMethod::Command {
                 program: if cfg!(target_os = "macos") {
                     "rm"
@@ -309,7 +309,7 @@ async fn analyze_trash(path: &Path) -> Result<Option<CleanableItem>, ScanError> 
         size_display: ByteSize(size_bytes).to_string(),
         last_modified: staleness::most_recent_modification(path),
         days_stale: None,
-        project_name: Some(format!("Trash ({} items)", item_count)),
+        project_name: Some(format!("Trash ({item_count} items)")),
         project_root: None,
         available_actions: actions,
     }))

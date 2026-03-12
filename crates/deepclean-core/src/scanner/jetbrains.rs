@@ -65,7 +65,7 @@ impl EcosystemScanner for JetBrainsScanner {
             project_root: None,
             available_actions: vec![CleanAction {
                 id: Uuid::new_v4(),
-                label: format!("Remove {} cache", dir_name),
+                label: format!("Remove {dir_name} cache"),
                 description: "Delete IDE cache (rebuilt on next IDE launch)".into(),
                 method: ActionMethod::RemoveDir {
                     path: path.to_path_buf(),
@@ -137,12 +137,11 @@ fn prettify_ide_name(dir_name: &str) -> String {
     ];
 
     for (prefix, display) in &known {
-        if dir_name.starts_with(prefix) {
-            let version = &dir_name[prefix.len()..];
+        if let Some(version) = dir_name.strip_prefix(prefix) {
             if version.is_empty() {
                 return display.to_string();
             }
-            return format!("{} {}", display, version);
+            return format!("{display} {version}");
         }
     }
 

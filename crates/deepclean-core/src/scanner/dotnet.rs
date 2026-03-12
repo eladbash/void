@@ -95,8 +95,8 @@ impl DotNetScanner {
 
         let mut actions = vec![CleanAction {
             id: Uuid::new_v4(),
-            label: format!("Remove {}/", dir_name),
-            description: format!("Delete the {} directory", dir_name),
+            label: format!("Remove {dir_name}/"),
+            description: format!("Delete the {dir_name} directory"),
             method: ActionMethod::RemoveDir {
                 path: path.to_path_buf(),
             },

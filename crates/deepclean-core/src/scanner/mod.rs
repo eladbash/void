@@ -186,7 +186,7 @@ impl ScanOrchestrator {
                             paths_scanned.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         if count % 5000 == 0 && count > 0 {
                             let _ = tx.blocking_send(ScanEvent::Progress {
-                                message: format!("Scanning... {} paths examined", count),
+                                message: format!("Scanning... {count} paths examined"),
                                 paths_scanned: count,
                             });
                         }

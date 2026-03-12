@@ -171,8 +171,8 @@ impl AppleScanner {
                     }
                     actions.push(CleanAction {
                         id: Uuid::new_v4(),
-                        label: format!("Remove DerivedData/{}", subdir_name),
-                        description: format!("Delete DerivedData for project '{}'", subdir_name),
+                        label: format!("Remove DerivedData/{subdir_name}"),
+                        description: format!("Delete DerivedData for project '{subdir_name}'"),
                         method: ActionMethod::RemoveDir { path: subdir },
                         risk: RiskLevel::Safe,
                         estimated_savings_bytes: 0, // individual sizes not computed here

@@ -18,7 +18,7 @@ pub fn most_recent_modification(path: &Path) -> Option<DateTime<Utc>> {
         }
     }
 
-    newest.map(|t| DateTime::<Utc>::from(t))
+    newest.map(DateTime::<Utc>::from)
 }
 
 /// Compute the number of days since a given datetime.
