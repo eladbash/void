@@ -339,9 +339,9 @@
       <div class="subtitle">Developer disk space reclaimer</div>
     </div>
     <div class="actions">
-      <button class="btn-primary" id="scanBtn" onclick="startScan()">Scan Now</button>
-      <button class="btn-danger" id="cleanBtn" onclick="executeClean()" style="display:none">Clean Selected</button>
-      <button class="btn-icon" id="panelToggle" onclick="togglePanel()" title="Toggle stats panel">
+      <button class="btn-primary" id="scanBtn">Scan Now</button>
+      <button class="btn-danger" id="cleanBtn" style="display:none">Clean Selected</button>
+      <button class="btn-icon" id="panelToggle" title="Toggle stats panel">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="4" rx="1"/><rect x="14" y="10" width="7" height="11" rx="1"/><rect x="3" y="13" width="7" height="8" rx="1"/>
         </svg>
@@ -351,22 +351,22 @@
   <div class="progress-bar" id="progressBar"></div>
 
   <div class="toolbar" id="toolbar" style="display:none">
-    <div class="chip active" data-filter="all" onclick="setFilter('all', this)">All</div>
-    <div class="chip" data-filter="rust" onclick="setFilter('rust', this)">Rust</div>
-    <div class="chip" data-filter="node" onclick="setFilter('node', this)">Node.js</div>
-    <div class="chip" data-filter="apple" onclick="setFilter('apple', this)">Apple</div>
-    <div class="chip" data-filter="docker" onclick="setFilter('docker', this)">Docker</div>
-    <div class="chip" data-filter="go" onclick="setFilter('go', this)">Go</div>
-    <div class="chip" data-filter="system" onclick="setFilter('system', this)">System</div>
-    <div class="chip" data-filter="python" onclick="setFilter('python', this)">Python</div>
-    <div class="chip" data-filter="java" onclick="setFilter('java', this)">Java</div>
-    <div class="chip" data-filter="homebrew" onclick="setFilter('homebrew', this)">Homebrew</div>
-    <div class="chip" data-filter="jet_brains" onclick="setFilter('jet_brains', this)">JetBrains</div>
-    <div class="chip" data-filter="dot_net" onclick="setFilter('dot_net', this)">.NET</div>
+    <div class="chip active" data-filter="all">All</div>
+    <div class="chip" data-filter="rust">Rust</div>
+    <div class="chip" data-filter="node">Node.js</div>
+    <div class="chip" data-filter="apple">Apple</div>
+    <div class="chip" data-filter="docker">Docker</div>
+    <div class="chip" data-filter="go">Go</div>
+    <div class="chip" data-filter="system">System</div>
+    <div class="chip" data-filter="python">Python</div>
+    <div class="chip" data-filter="java">Java</div>
+    <div class="chip" data-filter="homebrew">Homebrew</div>
+    <div class="chip" data-filter="jet_brains">JetBrains</div>
+    <div class="chip" data-filter="dot_net">.NET</div>
     <div class="toolbar-separator"></div>
     <span class="sort-label">Sort:</span>
-    <div class="chip active" data-sort="size" onclick="setSort('size', this)">Size</div>
-    <div class="chip" data-sort="last_changed" onclick="setSort('last_changed', this)">Last Changed</div>
+    <div class="chip active" data-sort="size">Size</div>
+    <div class="chip" data-sort="last_changed">Last Changed</div>
   </div>
 
   <div class="main-content">
@@ -384,7 +384,7 @@
       <div class="panel-inner">
         <div class="panel-header">
           <h2>Stats</h2>
-          <button class="panel-close" onclick="togglePanel()">&times;</button>
+          <button class="panel-close" id="panelClose">&times;</button>
         </div>
         <div id="panelDonut"></div>
         <div id="panelBars" class="bar-chart"></div>
@@ -412,6 +412,26 @@
     };
 
     window.__void_scan = startScan;
+
+    // ---- Button event listeners ----
+    document.getElementById('scanBtn').addEventListener('click', startScan);
+    document.getElementById('cleanBtn').addEventListener('click', executeClean);
+    document.getElementById('panelToggle').addEventListener('click', togglePanel);
+    document.getElementById('panelClose').addEventListener('click', togglePanel);
+
+    // ---- Filter & sort chip listeners ----
+    document.querySelectorAll('.chip[data-filter]').forEach(chip => {
+      chip.addEventListener('click', () => setFilter(chip.dataset.filter, chip));
+    });
+    document.querySelectorAll('.chip[data-sort]').forEach(chip => {
+      chip.addEventListener('click', () => setSort(chip.dataset.sort, chip));
+    });
+
+    // ---- Checkbox delegation (for dynamically rendered items) ----
+    document.getElementById('results').addEventListener('change', (e) => {
+      const cb = e.target.closest('input[type="checkbox"][data-item-id]');
+      if (cb) toggleSelect(cb.dataset.itemId, cb.checked);
+    });
 
     function togglePanel() {
       panelOpen = !panelOpen;
@@ -465,7 +485,6 @@
             `Scan complete \u2014 found ${items.length} items` +
             (data.summary.scan_duration_ms ? ` in ${(data.summary.scan_duration_ms / 1000).toFixed(1)}s` : '');
           document.getElementById('toolbar').style.display = 'flex';
-          // Auto-open panel on first scan
           if (!panelOpen) togglePanel();
           break;
         case 'error':
@@ -603,7 +622,6 @@
         if (filter === 'all') return;
         chip.style.display = ecosWithItems.has(filter) ? '' : 'none';
       });
-      // If active filter has no items, reset to 'all'
       if (currentFilter !== 'all' && !ecosWithItems.has(currentFilter)) {
         currentFilter = 'all';
         document.querySelectorAll('.chip[data-filter]').forEach(c => c.classList.remove('active'));
@@ -626,8 +644,7 @@
 
       document.getElementById('results').innerHTML = filtered.map(item => `
         <div class="item">
-          <input type="checkbox" ${selected.has(item.id) ? 'checked' : ''}
-            onchange="toggleSelect('${item.id}', this.checked)">
+          <input type="checkbox" data-item-id="${item.id}" ${selected.has(item.id) ? 'checked' : ''}>
           <div class="info">
             <div class="path" data-fullpath="${escapeAttr(item.path)}">${shortenPath(item.path)}</div>
             ${item.project_name ? `<div class="project">${escapeHtml(item.project_name)}</div>` : ''}
@@ -746,7 +763,6 @@
       const r = anchor.getBoundingClientRect();
       tooltip.style.left = r.left + 'px';
       tooltip.style.top = (r.bottom + 6) + 'px';
-      // Keep tooltip within viewport
       const tr = tooltip.getBoundingClientRect();
       if (tr.right > window.innerWidth - 8) {
         tooltip.style.left = Math.max(8, window.innerWidth - tr.width - 8) + 'px';
