@@ -11,8 +11,8 @@ thiserror = "2"
 tracing = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
 ignore = "0.4"
-sysinfo = "0.33"
-bytesize = { version = "1", features = ["serde"] }
+sysinfo = "0.38"
+bytesize = { version = "2", features = ["serde"] }
 async-trait = "0.1"
 dirs = "6"
 deepclean-core = { path = "crates/deepclean-core" }
