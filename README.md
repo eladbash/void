@@ -20,7 +20,7 @@ A desktop app that finds and reclaims disk space from developer build artifacts 
 ### Quick Install (macOS/Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/eladbash/void/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/eladbash/void/main/install.sh | sh
 ```
 
 ### From Releases
