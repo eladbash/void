@@ -81,9 +81,7 @@ impl EcosystemScanner for RustScanner {
                     id: Uuid::new_v4(),
                     label: "Remove release builds only".into(),
                     description: "Delete target/release/ but keep debug builds".into(),
-                    method: ActionMethod::RemoveDir {
-                        path: release_dir,
-                    },
+                    method: ActionMethod::RemoveDir { path: release_dir },
                     risk: RiskLevel::Safe,
                     estimated_savings_bytes: release_size,
                 });

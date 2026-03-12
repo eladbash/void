@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use tokio::sync::mpsc;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use crate::error::ActionError;
 use crate::model::{ActionEvent, ActionMethod, CleanAction, CleanableItem};
@@ -237,9 +237,7 @@ mod tests {
 
         let executor = ActionExecutor::new(SafetyChecker::new(vec![]));
         let item = test_item(blocked_path.clone());
-        let action = test_action(ActionMethod::RemoveDir {
-            path: blocked_path,
-        });
+        let action = test_action(ActionMethod::RemoveDir { path: blocked_path });
 
         let mut rx = executor.execute_batch(vec![(item, action)]);
 

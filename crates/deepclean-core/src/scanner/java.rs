@@ -46,7 +46,9 @@ impl EcosystemScanner for JavaScanner {
             _ => {
                 if path_str.contains(".gradle/caches") || path_str.ends_with(".gradle/caches") {
                     self.analyze_gradle_cache(path).await
-                } else if path_str.contains(".m2/repository") || path_str.ends_with(".m2/repository") {
+                } else if path_str.contains(".m2/repository")
+                    || path_str.ends_with(".m2/repository")
+                {
                     self.analyze_maven_repo(path).await
                 } else {
                     Ok(None)
@@ -75,10 +77,7 @@ impl EcosystemScanner for JavaScanner {
 }
 
 impl JavaScanner {
-    async fn analyze_gradle_build(
-        &self,
-        path: &Path,
-    ) -> Result<Option<CleanableItem>, ScanError> {
+    async fn analyze_gradle_build(&self, path: &Path) -> Result<Option<CleanableItem>, ScanError> {
         let size_bytes = staleness::compute_dir_size(path).await;
         if size_bytes == 0 {
             return Ok(None);
@@ -149,10 +148,7 @@ impl JavaScanner {
         }))
     }
 
-    async fn analyze_gradle_cache(
-        &self,
-        path: &Path,
-    ) -> Result<Option<CleanableItem>, ScanError> {
+    async fn analyze_gradle_cache(&self, path: &Path) -> Result<Option<CleanableItem>, ScanError> {
         let size_bytes = staleness::compute_dir_size(path).await;
         if size_bytes == 0 {
             return Ok(None);
@@ -192,10 +188,7 @@ impl JavaScanner {
         }))
     }
 
-    async fn analyze_maven_repo(
-        &self,
-        path: &Path,
-    ) -> Result<Option<CleanableItem>, ScanError> {
+    async fn analyze_maven_repo(&self, path: &Path) -> Result<Option<CleanableItem>, ScanError> {
         let size_bytes = staleness::compute_dir_size(path).await;
         if size_bytes == 0 {
             return Ok(None);

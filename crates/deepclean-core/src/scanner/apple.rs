@@ -128,10 +128,7 @@ impl EcosystemScanner for AppleScanner {
 }
 
 impl AppleScanner {
-    async fn analyze_derived_data(
-        &self,
-        path: &Path,
-    ) -> Result<Option<CleanableItem>, ScanError> {
+    async fn analyze_derived_data(&self, path: &Path) -> Result<Option<CleanableItem>, ScanError> {
         let size_bytes = staleness::compute_dir_size(path).await;
         if size_bytes == 0 {
             return Ok(None);
@@ -175,10 +172,7 @@ impl AppleScanner {
                     actions.push(CleanAction {
                         id: Uuid::new_v4(),
                         label: format!("Remove DerivedData/{}", subdir_name),
-                        description: format!(
-                            "Delete DerivedData for project '{}'",
-                            subdir_name
-                        ),
+                        description: format!("Delete DerivedData for project '{}'", subdir_name),
                         method: ActionMethod::RemoveDir { path: subdir },
                         risk: RiskLevel::Safe,
                         estimated_savings_bytes: 0, // individual sizes not computed here
@@ -441,10 +435,7 @@ impl AppleScanner {
         }))
     }
 
-    async fn analyze_spm_cache(
-        &self,
-        path: &Path,
-    ) -> Result<Option<CleanableItem>, ScanError> {
+    async fn analyze_spm_cache(&self, path: &Path) -> Result<Option<CleanableItem>, ScanError> {
         let size_bytes = staleness::compute_dir_size(path).await;
         if size_bytes == 0 {
             return Ok(None);
@@ -506,8 +497,7 @@ impl AppleScanner {
                 id: Uuid::new_v4(),
                 label: "Remove DeviceSupport files".into(),
                 description:
-                    "Delete device support files (will re-download when device is connected)"
-                        .into(),
+                    "Delete device support files (will re-download when device is connected)".into(),
                 method: ActionMethod::RemoveDir {
                     path: path.to_path_buf(),
                 },
@@ -584,8 +574,11 @@ mod tests {
     #[test]
     fn detects_package_swift() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::write(tmp.path().join("Package.swift"), "// swift-tools-version:5.5")
-            .unwrap();
+        std::fs::write(
+            tmp.path().join("Package.swift"),
+            "// swift-tools-version:5.5",
+        )
+        .unwrap();
         assert!(is_xcode_project_dir(tmp.path()));
     }
 

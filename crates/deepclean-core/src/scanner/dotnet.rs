@@ -244,7 +244,11 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let project = tmp.path().join("MySolution");
         std::fs::create_dir_all(project.join("bin")).unwrap();
-        std::fs::write(project.join("MySolution.sln"), "Microsoft Visual Studio Solution").unwrap();
+        std::fs::write(
+            project.join("MySolution.sln"),
+            "Microsoft Visual Studio Solution",
+        )
+        .unwrap();
 
         let scanner = DotNetScanner;
         assert!(scanner.is_candidate("bin", &project.join("bin")));

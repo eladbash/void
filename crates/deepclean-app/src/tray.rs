@@ -15,9 +15,11 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     TrayIconBuilder::new()
-        .icon(app.default_window_icon().cloned().unwrap_or_else(|| {
-            tauri::image::Image::new(&[], 0, 0)
-        }))
+        .icon(
+            app.default_window_icon()
+                .cloned()
+                .unwrap_or_else(|| tauri::image::Image::new(&[], 0, 0)),
+        )
         .menu(&menu)
         .tooltip("Void")
         .on_menu_event(move |app, event| match event.id().as_ref() {

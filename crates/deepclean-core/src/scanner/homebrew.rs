@@ -137,7 +137,10 @@ mod tests {
     #[tokio::test]
     async fn analyze_nonexistent_returns_none() {
         let scanner = HomebrewScanner;
-        let result = scanner.analyze(Path::new("/nonexistent/path")).await.unwrap();
+        let result = scanner
+            .analyze(Path::new("/nonexistent/path"))
+            .await
+            .unwrap();
         assert!(result.is_none());
     }
 }

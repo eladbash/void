@@ -149,8 +149,7 @@ impl ScanOrchestrator {
 
         tokio::task::spawn_blocking(move || {
             let mut candidates: Vec<(Arc<dyn EcosystemScanner>, PathBuf)> = vec![];
-            let candidates_mutex =
-                std::sync::Mutex::new(&mut candidates);
+            let candidates_mutex = std::sync::Mutex::new(&mut candidates);
             let paths_scanned = std::sync::atomic::AtomicU64::new(0);
 
             for root in &config.scan_roots {

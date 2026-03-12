@@ -162,13 +162,19 @@ mod tests {
 
     #[test]
     fn prettify_known_ides() {
-        assert_eq!(prettify_ide_name("IntelliJIdea2024.1"), "IntelliJ IDEA 2024.1");
+        assert_eq!(
+            prettify_ide_name("IntelliJIdea2024.1"),
+            "IntelliJ IDEA 2024.1"
+        );
         assert_eq!(prettify_ide_name("PyCharm2024.1"), "PyCharm 2024.1");
         assert_eq!(prettify_ide_name("WebStorm2023.3"), "WebStorm 2023.3");
         assert_eq!(prettify_ide_name("CLion2024.2"), "CLion 2024.2");
         assert_eq!(prettify_ide_name("GoLand2024.1"), "GoLand 2024.1");
         assert_eq!(prettify_ide_name("RustRover2024.1"), "RustRover 2024.1");
-        assert_eq!(prettify_ide_name("AndroidStudio2024.1"), "Android Studio 2024.1");
+        assert_eq!(
+            prettify_ide_name("AndroidStudio2024.1"),
+            "Android Studio 2024.1"
+        );
     }
 
     #[test]

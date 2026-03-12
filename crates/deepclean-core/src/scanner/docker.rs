@@ -78,10 +78,7 @@ impl EcosystemScanner for DockerScanner {
 
                 actions.push(CleanAction {
                     id: Uuid::new_v4(),
-                    label: format!(
-                        "Prune {} ({} found)",
-                        resource.label, resource.count
-                    ),
+                    label: format!("Prune {} ({} found)", resource.label, resource.count),
                     description: format!(
                         "Run `docker {} prune{}` to clean up {}",
                         resource.prune_type, extra_desc, resource.label
@@ -270,16 +267,17 @@ fn count_unused_images() -> Option<usize> {
             if output.status.success() {
                 let full_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 // The short ID from `docker images -q` is the first 12 chars after "sha256:"
-                let short_id = full_id
-                    .strip_prefix("sha256:")
-                    .unwrap_or(&full_id);
+                let short_id = full_id.strip_prefix("sha256:").unwrap_or(&full_id);
                 let short_id = &short_id[..short_id.len().min(12)];
                 used_ids.insert(short_id.to_string());
             }
         }
     }
 
-    let unused = all_ids.iter().filter(|id| !used_ids.contains(id.as_str())).count();
+    let unused = all_ids
+        .iter()
+        .filter(|id| !used_ids.contains(id.as_str()))
+        .count();
     Some(unused)
 }
 

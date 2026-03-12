@@ -186,7 +186,12 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
             label: "Delete permanently".into(),
             description: format!("Permanently delete \"{}\"", file_name),
             method: ActionMethod::Command {
-                program: if cfg!(target_os = "macos") { "rm" } else { "powershell" }.into(),
+                program: if cfg!(target_os = "macos") {
+                    "rm"
+                } else {
+                    "powershell"
+                }
+                .into(),
                 args: if cfg!(target_os = "macos") {
                     vec!["-rf".into(), path.to_string_lossy().to_string()]
                 } else {
@@ -207,7 +212,12 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
             label: "Delete permanently".into(),
             description: format!("Permanently delete \"{}\"", file_name),
             method: ActionMethod::Command {
-                program: if cfg!(target_os = "macos") { "rm" } else { "powershell" }.into(),
+                program: if cfg!(target_os = "macos") {
+                    "rm"
+                } else {
+                    "powershell"
+                }
+                .into(),
                 args: if cfg!(target_os = "macos") {
                     vec![path.to_string_lossy().to_string()]
                 } else {

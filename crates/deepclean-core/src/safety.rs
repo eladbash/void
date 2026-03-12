@@ -88,7 +88,11 @@ impl SafetyChecker {
     }
 
     /// Upgrade risk for paths directly under home or symlinks.
-    pub fn validate_risk(&self, path: &Path, base_risk: crate::model::RiskLevel) -> crate::model::RiskLevel {
+    pub fn validate_risk(
+        &self,
+        path: &Path,
+        base_risk: crate::model::RiskLevel,
+    ) -> crate::model::RiskLevel {
         use crate::model::RiskLevel;
 
         let mut risk = base_risk;

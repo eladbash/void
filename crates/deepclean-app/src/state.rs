@@ -1,9 +1,9 @@
 use std::sync::Mutex;
 
+use deepclean_core::action::ActionExecutor;
 use deepclean_core::config::AppConfig;
 use deepclean_core::model::{CleanableItem, ScanSummary};
 use deepclean_core::safety::SafetyChecker;
-use deepclean_core::action::ActionExecutor;
 
 /// Application state managed by Tauri.
 pub struct AppState {

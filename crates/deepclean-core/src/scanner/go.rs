@@ -164,10 +164,7 @@ impl EcosystemScanner for GoScanner {
 
 /// Query a `go env` variable.
 fn go_env(var: &str) -> Option<String> {
-    let output = Command::new("go")
-        .args(["env", var])
-        .output()
-        .ok()?;
+    let output = Command::new("go").args(["env", var]).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -247,7 +244,10 @@ mod tests {
     #[tokio::test]
     async fn analyze_nonexistent_returns_none() {
         let scanner = GoScanner;
-        let result = scanner.analyze(Path::new("/nonexistent/path")).await.unwrap();
+        let result = scanner
+            .analyze(Path::new("/nonexistent/path"))
+            .await
+            .unwrap();
         assert!(result.is_none());
     }
 }

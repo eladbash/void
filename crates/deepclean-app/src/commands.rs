@@ -131,7 +131,11 @@ pub async fn execute_clean(
     let mut pairs = vec![];
     for sel in &request.selections {
         if let Some(item) = results.iter().find(|i| i.id == sel.item_id) {
-            if let Some(action) = item.available_actions.iter().find(|a| a.id == sel.action_id) {
+            if let Some(action) = item
+                .available_actions
+                .iter()
+                .find(|a| a.id == sel.action_id)
+            {
                 pairs.push((item.clone(), action.clone()));
             }
         }
@@ -162,7 +166,9 @@ pub async fn get_summary(state: State<'_, AppState>) -> Result<ScanSummary, Stri
 }
 
 #[tauri::command]
-pub async fn get_config(state: State<'_, AppState>) -> Result<deepclean_core::config::AppConfig, String> {
+pub async fn get_config(
+    state: State<'_, AppState>,
+) -> Result<deepclean_core::config::AppConfig, String> {
     let config = state.config.lock().unwrap().clone();
     Ok(config)
 }

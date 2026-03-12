@@ -98,7 +98,11 @@ impl PythonScanner {
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().to_string());
 
-        debug!("Found __pycache__ at {} ({})", path.display(), ByteSize(size_bytes));
+        debug!(
+            "Found __pycache__ at {} ({})",
+            path.display(),
+            ByteSize(size_bytes)
+        );
 
         Ok(Some(CleanableItem {
             id: Uuid::new_v4(),
@@ -144,7 +148,11 @@ impl PythonScanner {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "venv".into());
 
-        debug!("Found venv at {} ({})", path.display(), ByteSize(size_bytes));
+        debug!(
+            "Found venv at {} ({})",
+            path.display(),
+            ByteSize(size_bytes)
+        );
 
         Ok(Some(CleanableItem {
             id: Uuid::new_v4(),
@@ -161,7 +169,8 @@ impl PythonScanner {
             available_actions: vec![CleanAction {
                 id: Uuid::new_v4(),
                 label: format!("Remove {}/", venv_name),
-                description: "Delete the virtual environment (recreate with `python -m venv`)".into(),
+                description: "Delete the virtual environment (recreate with `python -m venv`)"
+                    .into(),
                 method: ActionMethod::RemoveDir {
                     path: path.to_path_buf(),
                 },
@@ -180,7 +189,11 @@ impl PythonScanner {
         let last_modified = staleness::most_recent_modification(path);
         let days_stale = last_modified.map(staleness::days_since);
 
-        debug!("Found pip cache at {} ({})", path.display(), ByteSize(size_bytes));
+        debug!(
+            "Found pip cache at {} ({})",
+            path.display(),
+            ByteSize(size_bytes)
+        );
 
         Ok(Some(CleanableItem {
             id: Uuid::new_v4(),
@@ -230,7 +243,11 @@ impl PythonScanner {
         let last_modified = staleness::most_recent_modification(path);
         let days_stale = last_modified.map(staleness::days_since);
 
-        debug!("Found conda cache at {} ({})", path.display(), ByteSize(size_bytes));
+        debug!(
+            "Found conda cache at {} ({})",
+            path.display(),
+            ByteSize(size_bytes)
+        );
 
         Ok(Some(CleanableItem {
             id: Uuid::new_v4(),
