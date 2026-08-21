@@ -114,7 +114,7 @@ impl ActionExecutor {
             }
             ActionMethod::Command { working_dir, .. } => {
                 if let Some(dir) = working_dir {
-                    if !self.safety.is_path_allowed(dir) {
+                    if !self.safety.is_workdir_allowed(dir) {
                         return Err(ActionError::PathBlocked(dir.display().to_string()));
                     }
                 }
@@ -351,6 +351,35 @@ mod tests {
         assert!(
             matches!(event, ActionEvent::Failed { .. }),
             "Expected Failed event for blocked working_dir"
+        );
+    }
+
+    #[tokio::test]
+    async fn allows_command_in_project_root_holding_secrets() {
+        // `cargo clean` runs in the project root; a `.env` sitting there means
+        // "don't delete this directory", not "don't run in it".
+        let tmp = tempfile::tempdir().unwrap();
+        let project = tmp.path().join("trading");
+        std::fs::create_dir_all(project.join("target")).unwrap();
+        std::fs::write(project.join(".env"), "SECRET=x").unwrap();
+
+        let executor = ActionExecutor::new(SafetyChecker::new(vec![]));
+        let item = test_item(project.join("target"));
+        let action = test_action(ActionMethod::Command {
+            program: "true".into(),
+            args: vec![],
+            working_dir: Some(project),
+        });
+
+        let mut rx = executor.execute_batch(vec![(item, action)]);
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(event, ActionEvent::Started { .. }));
+
+        let event = rx.recv().await.unwrap();
+        assert!(
+            matches!(event, ActionEvent::Completed { .. }),
+            "Expected Completed event, got: {event:?}"
         );
     }
 
