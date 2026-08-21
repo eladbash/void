@@ -2,6 +2,11 @@
 members = ["crates/deepclean-core", "crates/deepclean-app"]
 resolver = "2"
 
+[workspace.package]
+# Minimum supported Rust version. The binding constraint is sysinfo 0.39,
+# which requires 1.95; our own code compiles on older toolchains.
+rust-version = "1.95"
+
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

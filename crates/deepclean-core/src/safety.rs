@@ -47,8 +47,21 @@ impl SafetyChecker {
         ]
     }
 
-    /// Returns `true` if the path is safe to operate on.
+    /// Returns `true` if the path is safe to delete.
     pub fn is_path_allowed(&self, path: &Path) -> bool {
+        self.check_path(path, true)
+    }
+
+    /// Returns `true` if the path is safe to use as a command's working directory.
+    ///
+    /// Commands like `cargo clean` run *inside* a project root but never delete
+    /// it, so sentinel files there ("don't delete this directory") must not
+    /// block them.
+    pub fn is_workdir_allowed(&self, path: &Path) -> bool {
+        self.check_path(path, false)
+    }
+
+    fn check_path(&self, path: &Path, check_sentinels: bool) -> bool {
         let canonical = match path.canonicalize() {
             Ok(p) => p,
             Err(_) => path.to_path_buf(),
@@ -78,7 +91,7 @@ impl SafetyChecker {
         }
 
         // Check for sentinel files inside the target directory
-        if canonical.is_dir() && self.contains_sentinel(&canonical) {
+        if check_sentinels && canonical.is_dir() && self.contains_sentinel(&canonical) {
             return false;
         }
 
@@ -160,6 +173,32 @@ mod tests {
         let blocked = home.join("important-project");
         let checker = SafetyChecker::new(vec![blocked.clone()]);
         assert!(!checker.is_path_allowed(&blocked.join("target")));
+    }
+
+    #[test]
+    fn sentinel_does_not_block_command_working_dir() {
+        // A project root holding a `.env` must still be usable as the working
+        // dir for `cargo clean` — the command never deletes that directory.
+        let tmp = tempfile::tempdir().unwrap();
+        let project = tmp.path().join("trading");
+        std::fs::create_dir_all(project.join("target")).unwrap();
+        std::fs::write(project.join("Cargo.toml"), "[package]").unwrap();
+        std::fs::write(project.join(".env"), "SECRET=x").unwrap();
+
+        let checker = SafetyChecker::new(vec![]);
+        assert!(checker.is_workdir_allowed(&project));
+        // ...but deleting that same directory is still refused.
+        assert!(!checker.is_path_allowed(&project));
+    }
+
+    #[test]
+    fn blocked_paths_still_block_command_working_dir() {
+        let home = dirs::home_dir().unwrap();
+        let blocked = home.join("important-project");
+        let checker = SafetyChecker::new(vec![blocked.clone()]);
+        assert!(!checker.is_workdir_allowed(&blocked));
+        assert!(!checker.is_workdir_allowed(&home.join(".ssh")));
+        assert!(!checker.is_workdir_allowed(&home.join("Documents")));
     }
 
     #[test]
