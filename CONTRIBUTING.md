@@ -62,6 +62,18 @@ crates/
 3. Add the ecosystem variant to `Ecosystem` enum in `model.rs`
 4. Register it in `scanner/mod.rs` and `commands.rs`
 
+### Git Hooks
+
+Enable the repo's hooks once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The `pre-commit` hook runs `cargo fmt --check` — the same check as CI's `fmt`
+job — so formatting problems surface before you push. Bypass it for a single
+commit with `git commit --no-verify`.
+
 ## Code Style
 
 - Run `cargo fmt` before committing

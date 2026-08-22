@@ -67,63 +67,17 @@ impl EcosystemScanner for AppleScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        let mut locs = vec![];
-        if let Some(home) = dirs::home_dir() {
-            // Xcode DerivedData
-            let derived_data = home.join("Library/Developer/Xcode/DerivedData");
-            if derived_data.is_dir() {
-                locs.push(derived_data);
-            }
-
-            // Xcode Archives
-            let archives = home.join("Library/Developer/Xcode/Archives");
-            if archives.is_dir() {
-                locs.push(archives);
-            }
-
-            // iOS DeviceSupport
-            let device_support = home.join("Library/Developer/Xcode/iOS DeviceSupport");
-            if device_support.is_dir() {
-                locs.push(device_support);
-            }
-
-            // watchOS DeviceSupport
-            let watch_support = home.join("Library/Developer/Xcode/watchOS DeviceSupport");
-            if watch_support.is_dir() {
-                locs.push(watch_support);
-            }
-
-            // tvOS DeviceSupport
-            let tvos_support = home.join("Library/Developer/Xcode/tvOS DeviceSupport");
-            if tvos_support.is_dir() {
-                locs.push(tvos_support);
-            }
-
-            // iOS Simulator Devices
-            let sim_devices = home.join("Library/Developer/CoreSimulator/Devices");
-            if sim_devices.is_dir() {
-                locs.push(sim_devices);
-            }
-
-            // iOS Simulator Caches
-            let sim_caches = home.join("Library/Developer/CoreSimulator/Caches");
-            if sim_caches.is_dir() {
-                locs.push(sim_caches);
-            }
-
-            // CocoaPods cache
-            let cocoapods = home.join("Library/Caches/CocoaPods");
-            if cocoapods.is_dir() {
-                locs.push(cocoapods);
-            }
-
-            // Swift Package Manager global cache
-            let spm_cache = home.join("Library/org.swift.swiftpm");
-            if spm_cache.is_dir() {
-                locs.push(spm_cache);
-            }
-        }
-        locs
+        super::existing_home_dirs([
+            "Library/Developer/Xcode/DerivedData",
+            "Library/Developer/Xcode/Archives",
+            "Library/Developer/Xcode/iOS DeviceSupport",
+            "Library/Developer/Xcode/watchOS DeviceSupport",
+            "Library/Developer/Xcode/tvOS DeviceSupport",
+            "Library/Developer/CoreSimulator/Devices",
+            "Library/Developer/CoreSimulator/Caches",
+            "Library/Caches/CocoaPods",
+            "Library/org.swift.swiftpm", // Swift Package Manager
+        ])
     }
 }
 

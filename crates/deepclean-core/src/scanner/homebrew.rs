@@ -83,14 +83,7 @@ impl EcosystemScanner for HomebrewScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        let mut locs = vec![];
-        if let Some(home) = dirs::home_dir() {
-            let cache = home.join("Library/Caches/Homebrew");
-            if cache.is_dir() {
-                locs.push(cache);
-            }
-        }
-        locs
+        super::existing_home_dirs(["Library/Caches/Homebrew"])
     }
 }
 

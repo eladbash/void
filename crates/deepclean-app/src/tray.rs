@@ -14,12 +14,19 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .items(&[&scan_now, &open_dashboard, &separator, &quit])
         .build()?;
 
-    TrayIconBuilder::new()
-        .icon(
+    // macOS menu-bar icons must be template images: pure black plus alpha, so
+    // the system can tint them for a light or dark menu bar and invert them
+    // when clicked. The full-colour app icon does neither.
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/trayTemplate@2x.png"))
+        .unwrap_or_else(|_| {
             app.default_window_icon()
                 .cloned()
-                .unwrap_or_else(|| tauri::image::Image::new(&[], 0, 0)),
-        )
+                .unwrap_or_else(|| tauri::image::Image::new(&[], 0, 0))
+        });
+
+    TrayIconBuilder::new()
+        .icon(icon)
+        .icon_as_template(true)
         .menu(&menu)
         .tooltip("Void")
         .on_menu_event(move |app, event| match event.id().as_ref() {

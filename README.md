@@ -16,6 +16,11 @@ One scan, gigabytes back.
 
 [Download](https://github.com/eladbash/void/releases) · [Website](https://eladbash.github.io/void/) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shot-dark.png">
+  <img src="docs/shot-light.png" alt="Void's results screen: build artifacts grouped by ecosystem, each row showing its full path, age, size and risk level." width="900">
+</picture>
+
 </div>
 
 ---
@@ -36,6 +41,9 @@ a risk level before you click it. Nothing is deleted without your say-so.
 - **Safety first** — blocked-path lists, sentinel-file detection, and Safe / Caution / Danger classification on every action
 - **Fast** — multi-threaded filesystem walker with concurrent analysis, built on Tokio and the `ignore` crate
 - **Staleness aware** — surfaces artifacts untouched for longer than your threshold (30 days by default), so you clean what you're not using
+- **Nothing runs unseen** — every item shows the exact command or deletion it will perform, and you
+  pick which one when an artifact offers several
+- **Keeps a record** — each clean is stored locally with the paths, commands and bytes recovered
 - **Lives in your menu bar** — quick-scan and open the dashboard without leaving your workflow
 - **Yours to configure** — scan roots, enabled ecosystems, staleness thresholds, and paths Void must never touch
 
@@ -93,17 +101,37 @@ cargo tauri build    # produce a release bundle
 
 Deleting files is easy to get wrong, so Void is deliberately conservative:
 
-- **Never-touch paths** — `~/Documents`, `~/Desktop`, `~/Pictures`, `~/Library/Keychains`,
+- **Never-touch paths** — `~/Documents`, `~/Desktop`, `~/Pictures`, `~/Library/Keychains` and
   `~/Library/Preferences`, plus anything named `.ssh`, `.gnupg`, `.aws`, `.config`, or `.env`
-  anywhere in the path.
+  anywhere in the path. `~/Downloads` is protected as a folder, though individual files inside it
+  can be cleaned — that is what the System scanner is for.
+- **Commands are checked too** — an action that shells out to `rm`, `osascript` or PowerShell has
+  its arguments scanned against the same protected paths, and discovered filenames are escaped
+  before they are ever embedded in a script.
 - **Sentinel detection** — a directory containing `.env`, `credentials`, `secrets.y(a)ml`,
   `id_rsa`, or `id_ed25519` is excluded from deletion outright.
 - **Risk escalation** — paths directly under `$HOME` and symlinks are automatically promoted to
   a higher risk level.
+- **Risk follows the action** — an artifact can offer several cleanups at different risk levels;
+  Void shows the risk of the one that will actually run, and asks you to type `delete` before
+  anything permanent.
 - **Your own blocklist** — add any path in settings and Void will refuse to touch it.
 - **Nothing is automatic** — Void never deletes anything you haven't explicitly selected.
 
 Found a safety gap? Please report it privately — see [SECURITY.md](SECURITY.md).
+
+## Configuration
+
+Settings and clean history are plain JSON, written atomically next to the bundle identifier:
+
+| Platform | Location |
+|----------|----------|
+| macOS | `~/Library/Application Support/com.void.app/` |
+| Linux | `~/.config/com.void.app/` |
+| Windows | `%APPDATA%\com.void.app\` |
+
+Both files are safe to edit or delete by hand — a missing or unparseable file falls back to
+defaults rather than blocking launch.
 
 ## Project layout
 
@@ -112,6 +140,7 @@ crates/
   deepclean-core/   scanning engine, safety checker, action executor
   deepclean-app/    Tauri 2 desktop app, system tray, frontend
 docs/               project website (GitHub Pages)
+design/             design system and screen specifications
 ```
 
 ## Contributing

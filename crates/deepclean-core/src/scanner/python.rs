@@ -59,27 +59,11 @@ impl EcosystemScanner for PythonScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        let mut locs = vec![];
-        if let Some(home) = dirs::home_dir() {
-            // pip cache (Linux default)
-            let pip_cache = home.join(".cache/pip");
-            if pip_cache.is_dir() {
-                locs.push(pip_cache);
-            }
-
-            // pip cache (macOS alternative)
-            let pip_cache_mac = home.join("Library/Caches/pip");
-            if pip_cache_mac.is_dir() {
-                locs.push(pip_cache_mac);
-            }
-
-            // Conda package cache
-            let conda_pkgs = home.join(".conda/pkgs");
-            if conda_pkgs.is_dir() {
-                locs.push(conda_pkgs);
-            }
-        }
-        locs
+        super::existing_home_dirs([
+            ".cache/pip",         // pip, Linux default
+            "Library/Caches/pip", // pip, macOS
+            ".conda/pkgs",        // Conda packages
+        ])
     }
 }
 

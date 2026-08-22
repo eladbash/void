@@ -4,19 +4,11 @@ use chrono::{DateTime, Utc};
 
 /// Find the most recent modification time in a directory (shallow scan).
 pub fn most_recent_modification(path: &Path) -> Option<DateTime<Utc>> {
-    let entries = std::fs::read_dir(path).ok()?;
-    let mut newest: Option<std::time::SystemTime> = None;
-
-    for entry in entries.flatten() {
-        if let Ok(meta) = entry.metadata() {
-            if let Ok(modified) = meta.modified() {
-                newest = Some(match newest {
-                    Some(current) => current.max(modified),
-                    None => modified,
-                });
-            }
-        }
-    }
+    let newest = std::fs::read_dir(path)
+        .ok()?
+        .flatten()
+        .filter_map(|entry| entry.metadata().ok()?.modified().ok())
+        .max();
 
     newest.map(DateTime::<Utc>::from)
 }
@@ -37,23 +29,18 @@ pub async fn compute_dir_size(path: &Path) -> u64 {
 }
 
 fn compute_dir_size_sync(path: &Path) -> u64 {
-    let mut total = 0u64;
-    let walker = ignore::WalkBuilder::new(path)
+    ignore::WalkBuilder::new(path)
         .hidden(false)
         .ignore(false)
         .git_ignore(false)
         .git_global(false)
         .git_exclude(false)
-        .build();
-
-    for entry in walker.flatten() {
-        if entry.file_type().is_some_and(|ft| ft.is_file()) {
-            if let Ok(meta) = entry.metadata() {
-                total += meta.len();
-            }
-        }
-    }
-    total
+        .build()
+        .flatten()
+        .filter(|entry| entry.file_type().is_some_and(|ft| ft.is_file()))
+        .filter_map(|entry| entry.metadata().ok())
+        .map(|meta| meta.len())
+        .sum()
 }
 
 #[cfg(test)]

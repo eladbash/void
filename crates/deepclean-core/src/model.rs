@@ -174,6 +174,14 @@ pub enum ScanEvent {
     Error {
         message: String,
     },
+    /// A directory could not be read.
+    ///
+    /// Without this the failure mode is invisible absence: an unreadable
+    /// directory computes a size of zero and gets dropped from the results,
+    /// so the user sees nothing and is told nothing.
+    PermissionDenied {
+        path: PathBuf,
+    },
 }
 
 /// Events emitted during action execution.
@@ -188,12 +196,33 @@ pub enum ActionEvent {
     Completed {
         item_id: Uuid,
         action_id: Uuid,
+        /// What the executor measured. Always zero for `Command` and
+        /// `DockerPrune`, which cannot observe what they removed.
         bytes_freed: u64,
+        /// The action's own estimate, carried so the UI can report an honest
+        /// total without re-deriving it from the item list.
+        estimated_bytes: u64,
     },
     Failed {
         item_id: Uuid,
         action_id: Uuid,
         error: String,
+    },
+    /// Terminal event for a batch.
+    ///
+    /// The channel closing is not a usable completion signal — the frontend
+    /// would have to count `Started` against terminal events to know it is
+    /// done.
+    BatchComplete {
+        total: usize,
+        succeeded: usize,
+        failed: usize,
+        /// Measured where possible, estimated where not.
+        bytes_freed: u64,
+        /// True when any contributing action could only be estimated.
+        estimated: bool,
+        /// True when the batch stopped early because it was cancelled.
+        cancelled: bool,
     },
 }
 

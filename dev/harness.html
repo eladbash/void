@@ -1,0 +1,127 @@
+<!--
+  Void — frontend development harness.  NOT part of the shipped app.
+
+  Opens the real frontend in a plain browser with a stubbed Tauri bridge, so a
+  CSS or layout change can be checked with a refresh instead of a full
+  `cargo tauri dev` rebuild. The fixture below deliberately includes the
+  awkward cases: an unknown Docker size, a null mtime, and an item whose Safe
+  default guards a Danger `rm -rf`.
+
+  Serve the repository root and open /dev/harness.html, e.g.
+      python3 -m http.server 8000
+      open http://localhost:8000/dev/harness.html?theme=dark
+
+  Query parameters:  theme=dark|light   goto=settings|history   scan=0
+
+  CAVEAT: the fixture mirrors `deepclean-core::model` by hand and nothing in CI
+  checks that. If you add or rename a field there, update it here too — this
+  file will keep rendering happily against a stale shape.
+-->
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>Void harness</title>
+<link rel="stylesheet" href="../crates/deepclean-app/frontend/css/tokens.css"><link rel="stylesheet" href="../crates/deepclean-app/frontend/css/base.css">
+<link rel="stylesheet" href="../crates/deepclean-app/frontend/css/components.css"><link rel="stylesheet" href="../crates/deepclean-app/frontend/css/screens.css">
+</head><body>
+<div id="root" class="app"></div>
+<script>
+// Stub bridge: exercises the real frontend against realistic scanner output.
+const uid = (n) => `0000-${n}`;
+const act = (n, label, desc, method, risk, est) => ({ id:`a${n}`, label, description:desc, method, risk, estimated_savings_bytes:est });
+const ITEMS = [
+  { id:uid(1), path:'/Users/dev/git/void-web/node_modules', ecosystem:'node', kind:'node_modules', risk:'safe',
+    size_bytes:4.1e9, size_display:'4.1 GB', last_modified:'2026-08-10T00:00:00Z', days_stale:12,
+    project_name:'void-web', project_root:'/Users/dev/git/void-web',
+    available_actions:[ act(1,'Remove node_modules/','Delete the entire node_modules directory',{type:'remove_dir',path:'/Users/dev/git/void-web/node_modules'},'safe',4.1e9),
+      act(2,'npm cache clean','Run npm cache clean --force to clear the npm cache',{type:'command',program:'npm',args:['cache','clean','--force'],working_dir:'/Users/dev/git/void-web'},'safe',0)]},
+  { id:uid(2), path:'/Users/dev/git/dashboard/node_modules', ecosystem:'node', kind:'node_modules', risk:'safe',
+    size_bytes:3.2e9, size_display:'3.2 GB', last_modified:null, days_stale:48, project_name:'dashboard', project_root:'/Users/dev/git/dashboard',
+    available_actions:[act(3,'Remove node_modules/','Delete the entire node_modules directory',{type:'remove_dir',path:'/Users/dev/git/dashboard/node_modules'},'safe',3.2e9)]},
+  { id:uid(3), path:'/Users/dev/.npm', ecosystem:'node', kind:'npm_cache', risk:'safe',
+    size_bytes:2.4e9, size_display:'2.4 GB', last_modified:null, days_stale:48, project_name:null, project_root:null,
+    available_actions:[act(4,'npm cache clean','Clear the npm cache',{type:'command',program:'npm',args:['cache','clean','--force'],working_dir:null},'safe',0)]},
+  { id:uid(4), path:'/Users/dev/Library/Developer/CoreSimulator/Devices', ecosystem:'apple', kind:'simulator_devices', risk:'caution',
+    size_bytes:22.1e9, size_display:'22.1 GB', last_modified:null, days_stale:18, project_name:null, project_root:null,
+    available_actions:[ act(5,'Delete unavailable simulators','Remove simulators for SDKs you no longer have',{type:'command',program:'xcrun',args:['simctl','delete','unavailable'],working_dir:null},'caution',0),
+      act(6,'Remove all simulator devices','Delete every simulator device and its data',{type:'remove_dir',path:'/Users/dev/Library/Developer/CoreSimulator/Devices'},'danger',22.1e9)]},
+  { id:uid(5), path:'/Users/dev/Library/Developer/Xcode/DerivedData', ecosystem:'apple', kind:'derived_data', risk:'safe',
+    size_bytes:8.4e9, size_display:'8.4 GB', last_modified:null, days_stale:3, project_name:'MyApp', project_root:null,
+    available_actions:[act(7,'Remove DerivedData/','Delete all Xcode derived data',{type:'remove_dir',path:'/Users/dev/Library/Developer/Xcode/DerivedData'},'safe',8.4e9)]},
+  { id:uid(6), path:'/Users/dev/Library/Developer/Xcode/Archives', ecosystem:'apple', kind:'archives', risk:'caution',
+    size_bytes:6.2e9, size_display:'6.2 GB', last_modified:null, days_stale:210, project_name:null, project_root:null,
+    available_actions:[act(8,'Remove Archives/','Delete all Xcode archives (old builds for App Store submission)',{type:'remove_dir',path:'/Users/dev/Library/Developer/Xcode/Archives'},'caution',6.2e9)]},
+  { id:uid(7), path:'/Users/dev/git/void/target', ecosystem:'rust', kind:'target_dir', risk:'safe',
+    size_bytes:3.8e9, size_display:'3.8 GB', last_modified:null, days_stale:2, project_name:'void', project_root:'/Users/dev/git/void',
+    available_actions:[ act(9,'cargo clean','Run cargo clean in the project root',{type:'command',program:'cargo',args:['clean'],working_dir:'/Users/dev/git/void'},'safe',0),
+      act(10,'Remove target/','Delete the target directory',{type:'remove_dir',path:'/Users/dev/git/void/target'},'safe',3.8e9)]},
+  { id:uid(8), path:'/Users/dev/.Trash', ecosystem:'system', kind:'trash_bin', risk:'caution',
+    size_bytes:14.2e9, size_display:'14.2 GB', last_modified:null, days_stale:null, project_name:'Trash (412 items)', project_root:null,
+    available_actions:[act(11,'Empty Trash','Permanently remove everything in the Trash',{type:'command',program:'osascript',args:['-e','tell application "Finder" to empty the trash'],working_dir:null},'caution',14.2e9)]},
+  { id:uid(9), path:'/Users/dev/Downloads/xcode_14.3.xip', ecosystem:'system', kind:'downloads_dir', risk:'safe',
+    size_bytes:8.1e9, size_display:'8.1 GB', last_modified:null, days_stale:340, project_name:null, project_root:'/Users/dev/Downloads',
+    available_actions:[ act(12,'Move to Trash','Move this file to the Trash',{type:'command',program:'osascript',args:['-e','tell application "Finder" to delete POSIX file "/Users/dev/Downloads/xcode_14.3.xip"'],working_dir:null},'safe',8.1e9),
+      act(13,'Delete permanently','Permanently delete "xcode_14.3.xip"',{type:'command',program:'rm',args:['-rf','/Users/dev/Downloads/xcode_14.3.xip'],working_dir:null},'danger',8.1e9)]},
+  { id:uid(10), path:'/Users/dev/go/pkg/mod', ecosystem:'go', kind:'go_mod_cache', risk:'caution',
+    size_bytes:11.3e9, size_display:'11.3 GB', last_modified:null, days_stale:31, project_name:null, project_root:null,
+    available_actions:[act(14,'go clean -modcache','Clear the Go module cache',{type:'command',program:'go',args:['clean','-modcache'],working_dir:null},'caution',11.3e9)]},
+  { id:uid(11), path:'/Users/dev/.m2/repository', ecosystem:'java', kind:'maven_repository', risk:'caution',
+    size_bytes:8.9e9, size_display:'8.9 GB', last_modified:null, days_stale:92, project_name:null, project_root:null,
+    available_actions:[act(15,'Remove Maven repository','Delete ~/.m2/repository (dependencies will re-download)',{type:'remove_dir',path:'/Users/dev/.m2/repository'},'caution',8.9e9)]},
+  { id:uid(12), path:'/var/run/docker.sock', ecosystem:'docker', kind:'build_cache', risk:'caution',
+    size_bytes:0, size_display:'unknown', last_modified:null, days_stale:null, project_name:'Docker', project_root:null,
+    available_actions:[ act(16,'Prune dangling images (12 found)','Remove images not referenced by any tag',{type:'docker_prune',prune_type:'image'},'safe',0),
+      act(17,'docker system prune','Remove all unused containers, networks and images',{type:'docker_prune',prune_type:'system'},'caution',0)]},
+  { id:uid(13), path:'/Users/dev/Library/Caches/Homebrew', ecosystem:'homebrew', kind:'homebrew_cache', risk:'safe',
+    size_bytes:3.1e9, size_display:'3.1 GB', last_modified:null, days_stale:21, project_name:'Homebrew', project_root:null,
+    available_actions:[act(18,'brew cleanup','Remove stale Homebrew downloads',{type:'command',program:'brew',args:['cleanup'],working_dir:null},'safe',3.1e9)]},
+];
+const HISTORY = { run_count:3, total_bytes:340.2e9, bytes_last_30_days:38.4e9, runs:[
+  { id:'r1', started_at:new Date(Date.now()-3600e3).toISOString(), duration_ms:24000, items:[
+    { path:'/Users/dev/git/a/node_modules', ecosystem:'node', action_label:'Remove node_modules/', method_summary:'Delete directory recursively', bytes_freed:38.4e9, estimated_bytes:0, outcome:'succeeded' },
+    { path:'/Users/dev/git/b/target', ecosystem:'rust', action_label:'cargo clean', method_summary:'cargo clean (in /Users/dev/git/b)', bytes_freed:0, estimated_bytes:0, outcome:'failed', error:'Command failed: `cargo` was not found in PATH' }]},
+  { id:'r2', started_at:new Date(Date.now()-8*86400e3).toISOString(), duration_ms:12000, items:[
+    { path:'/Users/dev/.m2/repository', ecosystem:'java', action_label:'Remove Maven repository', method_summary:'Delete directory recursively', bytes_freed:12.1e9, estimated_bytes:0, outcome:'succeeded' }]},
+  { id:'r3', started_at:new Date(Date.now()-25*86400e3).toISOString(), duration_ms:41000, items:[
+    { path:'/Users/dev/Library/Caches/Homebrew', ecosystem:'homebrew', action_label:'brew cleanup', method_summary:'brew cleanup', bytes_freed:0, estimated_bytes:64.8e9, outcome:'succeeded' }]},
+]};
+const handlers = {};
+window.__TAURI__ = {
+  core: { invoke: async (cmd) => {
+    if (cmd === 'get_config') return { scan_roots:['/Users/dev'], blocked_paths:['/Users/dev/keep-this'],
+      enabled_ecosystems:['rust','node','apple','docker','go','system','python','java','homebrew','jet_brains','dot_net'],
+      staleness_threshold_days:30, cpu_threshold_percent:70, walker_threads:8, max_concurrent_analyses:8,
+      ui:{ theme:new URLSearchParams(location.search).get('theme')||'system', density:'comfortable', grouping:'ecosystem',
+           confirm_before_cleaning:true, prefer_trash:true, launch_at_login:false, show_menu_bar_icon:true } };
+    if (cmd === 'get_disk_usage') return { total_bytes:1e12, available_bytes:512e9, used_bytes:488e9 };
+    if (cmd === 'get_history') return HISTORY;
+    if (cmd === 'get_config_path') return '/Users/dev/Library/Application Support/com.void.app/config.json';
+    if (cmd === 'take_startup_warnings') return [];
+    if (cmd === 'start_scan') { setTimeout(runScan, 20); return; }
+    return null;
+  }},
+  event: { listen: async (name, cb) => { (handlers[name] ||= []).push(cb); return () => {}; } },
+  shell: { open: async () => {} },
+  dialog: { open: async () => '/Users/dev/NewFolder' },
+};
+const emit = (name, payload) => (handlers[name]||[]).forEach(cb => cb({ payload }));
+function runScan() {
+  ['rust','node','apple','docker','go','system','java','homebrew'].forEach(e => emit('scan-event',{type:'scanner_started',ecosystem:e}));
+  emit('scan-event',{type:'progress',message:'',paths_scanned:128431});
+  ITEMS.forEach(item => emit('scan-event',{type:'item_found',item}));
+  emit('scan-event',{type:'permission_denied',path:'/Users/dev/Library/Containers'});
+  emit('scan-event',{type:'error',message:'docker: daemon not running'});
+  emit('scan-event',{type:'scan_complete',summary:{scan_duration_ms:42100}});
+}
+// Drive the real scan path once the app has booted and registered listeners.
+if (new URLSearchParams(location.search).get('scan') !== '0') {
+  const tick = setInterval(() => {
+    if (window.__void_scan) {
+      clearInterval(tick);
+      window.__void_scan();
+      const goto = new URLSearchParams(location.search).get('goto');
+      if (goto) setTimeout(() => document.querySelector(`[data-route="${goto}"]`)?.click(), 400);
+    }
+  }, 40);
+}
+</script>
+<script type="module" src="../crates/deepclean-app/frontend/js/main.js"></script>
+</body></html>

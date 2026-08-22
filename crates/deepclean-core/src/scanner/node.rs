@@ -171,37 +171,13 @@ impl EcosystemScanner for NodeScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        let mut locs = vec![];
-        if let Some(home) = dirs::home_dir() {
-            // npm cache
-            let npm_cache = home.join(".npm/_cacache");
-            if npm_cache.is_dir() {
-                locs.push(npm_cache);
-            }
-
-            // Yarn cache (v1 default location)
-            let yarn_cache = home.join(".cache/yarn");
-            if yarn_cache.is_dir() {
-                locs.push(yarn_cache);
-            }
-            // macOS Yarn cache location
-            let yarn_cache_mac = home.join("Library/Caches/Yarn");
-            if yarn_cache_mac.is_dir() {
-                locs.push(yarn_cache_mac);
-            }
-
-            // pnpm store
-            let pnpm_store = home.join(".local/share/pnpm/store");
-            if pnpm_store.is_dir() {
-                locs.push(pnpm_store);
-            }
-            // macOS pnpm store location
-            let pnpm_store_mac = home.join("Library/pnpm/store");
-            if pnpm_store_mac.is_dir() {
-                locs.push(pnpm_store_mac);
-            }
-        }
-        locs
+        super::existing_home_dirs([
+            ".npm/_cacache",           // npm
+            ".cache/yarn",             // Yarn v1
+            "Library/Caches/Yarn",     // Yarn, macOS
+            ".local/share/pnpm/store", // pnpm
+            "Library/pnpm/store",      // pnpm, macOS
+        ])
     }
 }
 

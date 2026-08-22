@@ -58,21 +58,10 @@ impl EcosystemScanner for JavaScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        let mut locs = vec![];
-        if let Some(home) = dirs::home_dir() {
-            // Gradle dependency cache
-            let gradle_caches = home.join(".gradle/caches");
-            if gradle_caches.is_dir() {
-                locs.push(gradle_caches);
-            }
-
-            // Maven local repository
-            let maven_repo = home.join(".m2/repository");
-            if maven_repo.is_dir() {
-                locs.push(maven_repo);
-            }
-        }
-        locs
+        super::existing_home_dirs([
+            ".gradle/caches", // Gradle dependency cache
+            ".m2/repository", // Maven local repository
+        ])
     }
 }
 
