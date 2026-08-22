@@ -140,7 +140,13 @@ impl ActionExecutor {
                 if let Some(dir) = working_dir {
                     cmd.current_dir(dir);
                 }
-                let output = cmd.output().await?;
+                let output = cmd.output().await.map_err(|err| {
+                    if err.kind() == std::io::ErrorKind::NotFound {
+                        ActionError::CommandFailed(format!("`{program}` was not found in PATH"))
+                    } else {
+                        ActionError::Io(err)
+                    }
+                })?;
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     return Err(ActionError::CommandFailed(format!(
@@ -381,6 +387,38 @@ mod tests {
             matches!(event, ActionEvent::Completed { .. }),
             "Expected Completed event, got: {event:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn reports_missing_program_by_name() {
+        // A GUI-launched app gets a bare PATH, so `cargo` and friends may not
+        // resolve. The user needs to read which program is missing, not
+        // "No such file or directory (os error 2)".
+        let tmp = tempfile::tempdir().unwrap();
+
+        let executor = ActionExecutor::new(SafetyChecker::new(vec![]));
+        let item = test_item(tmp.path().to_path_buf());
+        let action = test_action(ActionMethod::Command {
+            program: "void-no-such-program".into(),
+            args: vec!["clean".into()],
+            working_dir: Some(tmp.path().to_path_buf()),
+        });
+
+        let mut rx = executor.execute_batch(vec![(item, action)]);
+
+        let event = rx.recv().await.unwrap();
+        assert!(matches!(event, ActionEvent::Started { .. }));
+
+        let event = rx.recv().await.unwrap();
+        match event {
+            ActionEvent::Failed { error, .. } => {
+                assert!(
+                    error.contains("void-no-such-program") && error.contains("PATH"),
+                    "Expected a named not-in-PATH error, got: {error}"
+                );
+            }
+            other => panic!("Expected Failed event, got: {other:?}"),
+        }
     }
 
     #[tokio::test]
