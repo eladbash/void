@@ -110,10 +110,7 @@ impl EcosystemScanner for RustScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        super::existing_home_dirs([
-            ".cargo/registry",
-            ".cargo/git",
-        ])
+        super::existing_home_dirs([".cargo/registry", ".cargo/git"])
     }
 }
 

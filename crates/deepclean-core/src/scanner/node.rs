@@ -172,11 +172,11 @@ impl EcosystemScanner for NodeScanner {
 
     fn global_locations(&self) -> Vec<PathBuf> {
         super::existing_home_dirs([
-            ".npm/_cacache", // npm
-            ".cache/yarn", // Yarn v1
-            "Library/Caches/Yarn", // Yarn, macOS
+            ".npm/_cacache",           // npm
+            ".cache/yarn",             // Yarn v1
+            "Library/Caches/Yarn",     // Yarn, macOS
             ".local/share/pnpm/store", // pnpm
-            "Library/pnpm/store", // pnpm, macOS
+            "Library/pnpm/store",      // pnpm, macOS
         ])
     }
 }

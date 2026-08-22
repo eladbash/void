@@ -83,9 +83,7 @@ impl EcosystemScanner for HomebrewScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        super::existing_home_dirs([
-            "Library/Caches/Homebrew",
-        ])
+        super::existing_home_dirs(["Library/Caches/Homebrew"])
     }
 }
 

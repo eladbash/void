@@ -60,9 +60,9 @@ impl EcosystemScanner for PythonScanner {
 
     fn global_locations(&self) -> Vec<PathBuf> {
         super::existing_home_dirs([
-            ".cache/pip", // pip, Linux default
+            ".cache/pip",         // pip, Linux default
             "Library/Caches/pip", // pip, macOS
-            ".conda/pkgs", // Conda packages
+            ".conda/pkgs",        // Conda packages
         ])
     }
 }

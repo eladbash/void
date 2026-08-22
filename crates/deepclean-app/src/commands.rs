@@ -427,7 +427,10 @@ fn reveal_path(target: &Path) -> std::io::Result<()> {
     #[cfg(target_os = "macos")]
     {
         // -R selects the item in Finder rather than opening it.
-        std::process::Command::new("open").arg("-R").arg(target).spawn()?;
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(target)
+            .spawn()?;
     }
     #[cfg(target_os = "windows")]
     {

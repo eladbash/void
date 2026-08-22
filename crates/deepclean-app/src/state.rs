@@ -217,7 +217,10 @@ mod tests {
         assert!(!state.begin_scan(), "second caller must be refused");
 
         state.finish_scan();
-        assert!(state.begin_scan(), "slot should be reusable after finishing");
+        assert!(
+            state.begin_scan(),
+            "slot should be reusable after finishing"
+        );
     }
 
     #[test]

@@ -760,22 +760,30 @@ mod tests {
 
         assert!(
             checker
-                .is_command_allowed("rm", &[
-                    "-rf".into(),
-                    home.join("Downloads/xcode_14.3.xip")
-                        .to_string_lossy()
-                        .to_string(),
-                ], None)
+                .is_command_allowed(
+                    "rm",
+                    &[
+                        "-rf".into(),
+                        home.join("Downloads/xcode_14.3.xip")
+                            .to_string_lossy()
+                            .to_string(),
+                    ],
+                    None
+                )
                 .is_ok(),
             "a file inside Downloads must be cleanable"
         );
 
         assert!(
             checker
-                .is_command_allowed("rm", &[
-                    "-rf".into(),
-                    home.join("Downloads").to_string_lossy().to_string(),
-                ], None)
+                .is_command_allowed(
+                    "rm",
+                    &[
+                        "-rf".into(),
+                        home.join("Downloads").to_string_lossy().to_string(),
+                    ],
+                    None
+                )
                 .is_err(),
             "the Downloads directory itself must never be removed"
         );
@@ -811,7 +819,11 @@ mod tests {
             let inside = home.join(folder).join("something.zip");
             assert!(
                 checker
-                    .is_command_allowed("rm", &["-rf".into(), inside.to_string_lossy().to_string()], None)
+                    .is_command_allowed(
+                        "rm",
+                        &["-rf".into(), inside.to_string_lossy().to_string()],
+                        None
+                    )
                     .is_err(),
                 "a command reaching into ~/{folder} must be refused"
             );
@@ -849,7 +861,10 @@ mod tests {
         for (program, args) in [
             ("cargo", vec!["clean".to_string()]),
             ("go", vec!["clean".into(), "-modcache".into()]),
-            ("npm", vec!["cache".into(), "clean".into(), "--force".into()]),
+            (
+                "npm",
+                vec!["cache".into(), "clean".into(), "--force".into()],
+            ),
             ("brew", vec!["cleanup".into()]),
             ("docker", vec!["system".into(), "prune".into(), "-f".into()]),
             (

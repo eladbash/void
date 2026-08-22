@@ -55,9 +55,7 @@ impl EcosystemScanner for DotNetScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        super::existing_home_dirs([
-            ".nuget/packages",
-        ])
+        super::existing_home_dirs([".nuget/packages"])
     }
 }
 
