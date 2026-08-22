@@ -1,0 +1,19 @@
+#!/bin/sh
+# Mirrors the `fmt` job in .github/workflows/ci.yml so formatting
+# failures surface here instead of after a push.
+#
+# Enable with:  git config core.hooksPath .githooks
+# Bypass once with:  git commit --no-verify
+
+if ! command -v cargo >/dev/null 2>&1; then
+	echo "pre-commit: cargo not found, skipping fmt check" >&2
+	exit 0
+fi
+
+if ! cargo fmt --check; then
+	echo >&2
+	echo "pre-commit: formatting check failed (this is what CI's fmt job runs)." >&2
+	echo "  Fix with:  cargo fmt" >&2
+	echo "  Bypass with:  git commit --no-verify" >&2
+	exit 1
+fi
