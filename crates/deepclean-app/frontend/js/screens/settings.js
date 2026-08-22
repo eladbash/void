@@ -167,7 +167,7 @@ function aboutSection() {
     <div class="field">
       <div class="t-overline dim" style="margin-bottom:8px">About</div>
       <dl class="facts t-body-sm">
-        <dt>Version</dt><dd>0.1.0</dd>
+        <dt>Version</dt><dd>1.0.0</dd>
         <dt>Settings file</dt><dd class="t-mono-sm">${escapeHtml(store.configPath || '—')}</dd>
         <dt>License</dt><dd>MIT</dd>
       </dl>
