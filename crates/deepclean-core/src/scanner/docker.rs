@@ -253,26 +253,33 @@ fn count_unused_images() -> Option<usize> {
     }
 
     // Resolve image names to IDs by inspecting each used image
-    let mut used_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
-    for image_ref in String::from_utf8_lossy(&used_output.stdout).lines() {
-        let image_ref = image_ref.trim();
-        if image_ref.is_empty() {
-            continue;
-        }
-        // Try to get the short ID for this image reference
-        if let Ok(output) = Command::new("docker")
-            .args(["inspect", "--format", "{{.Id}}", image_ref])
-            .output()
-        {
-            if output.status.success() {
-                let full_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                // The short ID from `docker images -q` is the first 12 chars after "sha256:"
-                let short_id = full_id.strip_prefix("sha256:").unwrap_or(&full_id);
-                let short_id = &short_id[..short_id.len().min(12)];
-                used_ids.insert(short_id.to_string());
+    let used_ids: std::collections::HashSet<String> = String::from_utf8_lossy(&used_output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|image_ref| !image_ref.is_empty())
+        .filter_map(|image_ref| {
+            let output = Command::new("docker")
+                .args(["inspect", "--format", "{{.Id}}", image_ref])
+                .output()
+                .ok()?;
+            if !output.status.success() {
+                return None;
             }
-        }
-    }
+            let full_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            // The short ID from `docker images -q` is the first 12 characters
+            // after "sha256:" — characters, not bytes. Lossy decoding of
+            // unexpected output emits multi-byte U+FFFD, and a byte slice can
+            // land mid-character and panic.
+            Some(
+                full_id
+                    .strip_prefix("sha256:")
+                    .unwrap_or(&full_id)
+                    .chars()
+                    .take(12)
+                    .collect(),
+            )
+        })
+        .collect();
 
     let unused = all_ids
         .iter()

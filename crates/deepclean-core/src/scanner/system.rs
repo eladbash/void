@@ -10,6 +10,24 @@ use crate::model::*;
 use crate::scanner::EcosystemScanner;
 use crate::staleness;
 
+/// Escape a path for embedding in an AppleScript string literal.
+///
+/// The Trash actions interpolate a discovered filename into an `osascript`
+/// program. macOS permits `"` and `\` in filenames, so an unescaped name can
+/// close the string and append arbitrary AppleScript — from a file the user
+/// merely downloaded.
+fn applescript_literal(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+}
+
+/// Escape a path for a PowerShell single-quoted string, where the only
+/// metacharacter is the quote itself and it is doubled to escape.
+fn powershell_literal(path: &Path) -> String {
+    path.to_string_lossy().replace('\'', "''")
+}
+
 pub struct SystemScanner;
 
 #[async_trait]
@@ -149,7 +167,7 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
                     "-e".into(),
                     format!(
                         "tell application \"Finder\" to delete POSIX file \"{}\"",
-                        path.to_string_lossy()
+                        applescript_literal(path)
                     ),
                 ],
                 working_dir: None,
@@ -169,7 +187,7 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
                     "-Command".into(),
                     format!(
                         "$shell = New-Object -ComObject Shell.Application; $shell.Namespace(10).MoveHere('{}')",
-                        path.to_string_lossy()
+                        powershell_literal(path)
                     ),
                 ],
                 working_dir: None,
@@ -198,7 +216,7 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
                     vec![
                         "-NoProfile".into(),
                         "-Command".into(),
-                        format!("Remove-Item '{}' -Recurse -Force", path.to_string_lossy()),
+                        format!("Remove-Item '{}' -Recurse -Force", powershell_literal(path)),
                     ]
                 },
                 working_dir: None,
@@ -224,7 +242,7 @@ async fn analyze_download_entry(path: &Path) -> Result<Option<CleanableItem>, Sc
                     vec![
                         "-NoProfile".into(),
                         "-Command".into(),
-                        format!("Remove-Item '{}' -Force", path.to_string_lossy()),
+                        format!("Remove-Item '{}' -Force", powershell_literal(path)),
                     ]
                 },
                 working_dir: None,
@@ -256,13 +274,12 @@ async fn analyze_trash(path: &Path) -> Result<Option<CleanableItem>, ScanError> 
         return Ok(None);
     }
 
-    let mut size_bytes = staleness::compute_dir_size(path).await;
-
-    // Fallback: on macOS, ignore walker may fail on .Trash due to permissions.
-    // Use `du` as a fallback to get the size.
-    if size_bytes == 0 {
-        size_bytes = du_fallback_size(path).await;
-    }
+    // On macOS the walker can be refused access to .Trash, which reads as a
+    // size of zero; `du` gets there when it does.
+    let size_bytes = match staleness::compute_dir_size(path).await {
+        0 => du_fallback_size(path).await,
+        measured => measured,
+    };
 
     let actions = if cfg!(target_os = "macos") {
         vec![CleanAction {
@@ -326,7 +343,7 @@ async fn du_fallback_size(path: &Path) -> u64 {
                     "-Command",
                     &format!(
                         "(Get-ChildItem -Recurse -Force '{}' -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum",
-                        path.to_string_lossy()
+                        powershell_literal(path.as_ref())
                     ),
                 ])
                 .output()
@@ -473,5 +490,60 @@ mod tests {
 
         let result = analyze_download_entry(&file).await.unwrap();
         assert!(result.is_none());
+    }
+
+    /// Every `"` in the escaped output must be backslash-escaped, so none of
+    /// them can terminate the surrounding AppleScript string literal.
+    fn quotes_are_all_escaped(s: &str) -> bool {
+        let bytes = s.as_bytes();
+        bytes.iter().enumerate().all(|(i, &c)| {
+            if c != b'"' {
+                return true;
+            }
+            // Count the backslashes immediately before it; an odd run escapes.
+            let backslashes = bytes[..i].iter().rev().take_while(|&&b| b == b'\\').count();
+            backslashes % 2 == 1
+        })
+    }
+
+    #[test]
+    fn applescript_literal_neutralises_a_quote_in_a_filename() {
+        // macOS allows `"` in filenames. Unescaped, this would close the
+        // string and append arbitrary AppleScript — from a file the user only
+        // downloaded.
+        let evil = PathBuf::from(r#"/Users/dev/Downloads/x" & (do shell script "id") & ""#);
+        let escaped = applescript_literal(&evil);
+
+        assert!(
+            quotes_are_all_escaped(&escaped),
+            "a quote survived unescaped: {escaped}"
+        );
+        assert!(
+            escaped.contains("do shell script"),
+            "the text is preserved, only neutralised: {escaped}"
+        );
+    }
+
+    #[test]
+    fn applescript_literal_escapes_backslashes_before_quotes() {
+        // A trailing backslash must not end up escaping the closing quote.
+        let p = PathBuf::from(r#"/tmp/a\"#);
+        let escaped = applescript_literal(&p);
+        assert_eq!(escaped, r"/tmp/a\\");
+        let script = format!("\"{escaped}\"");
+        assert!(quotes_are_all_escaped(&script[1..script.len() - 1]));
+    }
+
+    #[test]
+    fn powershell_literal_doubles_single_quotes() {
+        // In a PowerShell single-quoted string a doubled quote is a literal
+        // quote, so the payload cannot break out.
+        let evil = PathBuf::from("/tmp/x'; rm -rf ~; '");
+        let escaped = powershell_literal(&evil);
+
+        assert_eq!(escaped, "/tmp/x''; rm -rf ~; ''");
+        for run in escaped.split(|c| c != '\'').filter(|r| !r.is_empty()) {
+            assert_eq!(run.len() % 2, 0, "an odd run of quotes escapes: {escaped}");
+        }
     }
 }

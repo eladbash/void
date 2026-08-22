@@ -10,8 +10,13 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
-tauri = { version = "2", features = ["tray-icon"] }
-tauri-plugin-shell = "2"
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-dialog = "2"
+chrono = { workspace = true }
+dirs = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

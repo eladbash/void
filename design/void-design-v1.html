@@ -1,0 +1,2875 @@
+<title>Void Design v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Geist+Mono:wght@400..600&display=swap">
+
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   VOID DESIGN SYSTEM v1
+   Foundation tokens: type, space, radius, motion, elevation.
+   Color tokens live in the PALETTE block below.
+   ══════════════════════════════════════════════════════════════════════ */
+
+*,*::before,*::after{box-sizing:border-box}
+
+:root{
+  --font-sans:"Inter var","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI","Noto Sans",Cantarell,Ubuntu,system-ui,sans-serif;
+  --font-mono:"Geist Mono",ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Mono","Segoe UI Mono","Roboto Mono","DejaVu Sans Mono",Menlo,Consolas,monospace;
+  --font-brand:var(--font-sans);
+
+  /* ── Space ── */
+  --space-0:0px;--space-px:1px;--space-0-5:2px;--space-1:4px;--space-1-5:6px;
+  --space-2:8px;--space-2-5:10px;--space-3:12px;--space-3-5:14px;--space-4:16px;
+  --space-5:20px;--space-6:24px;--space-7:28px;--space-8:32px;--space-10:40px;
+  --space-12:48px;--space-16:64px;--space-20:80px;
+
+  --gap-icon-text:6px;--gap-icon-text-lg:8px;--gap-inline:8px;--gap-group:12px;
+  --gap-stack:4px;--gap-section:20px;
+  --pad-window-x:16px;--pad-panel:16px;--pad-card:12px;
+
+  /* ── Radius ── */
+  --radius-none:0px;--radius-xs:3px;--radius-sm:5px;--radius-md:7px;
+  --radius-lg:10px;--radius-xl:14px;--radius-full:999px;
+
+  /* ── Borders ── */
+  --border-w:1px;--border-w-accent:2px;--focus-ring-w:2px;--focus-ring-offset:1px;
+
+  /* ── Heights ── */
+  --row-h-compact:32px;--row-h-comfortable:44px;--row-h-group-header:28px;
+  --row-inset-x-compact:10px;--row-inset-x-comfortable:12px;
+  --ctl-h-sm:24px;--ctl-h-md:30px;--ctl-h-lg:36px;
+  --btn-pad-sm:8px;--btn-pad-md:11px;--btn-pad-lg:14px;
+  --iconbtn-sm:24px;--iconbtn-md:28px;--iconbtn-lg:32px;
+  --input-h-sm:24px;--input-h-md:30px;--input-h-lg:36px;
+  --input-pad-x:9px;
+  --chip-h:24px;--chip-pad-x:9px;--chip-h-sm:20px;--chip-pad-x-sm:7px;
+  --badge-h:16px;--badge-pad-x:5px;--badge-h-lg:18px;--badge-pad-x-lg:6px;
+  --countpill-h:16px;--countpill-pad-x:5px;--dot:6px;
+  --header-h:52px;--toolbar-h:40px;--statusbar-h:28px;
+  --sidebar-item-h:28px;--rail-w:56px;--rail-w-wide:216px;
+  --panel-w:288px;--drawer-w:400px;
+  --progressbar-h:2px;--tab-h:30px;--menuitem-h:26px;
+  --checkbox-size:14px;
+
+  /* ── Type scale ── */
+  --t-display-size:44px;--t-display-lh:44px;--t-display-ls:-0.030em;--t-display-w:620;
+  --t-title-size:24px;--t-title-lh:30px;--t-title-ls:-0.021em;--t-title-w:620;
+  --t-metric-xl-size:44px;--t-metric-xl-lh:46px;--t-metric-xl-ls:-0.030em;--t-metric-xl-w:620;
+  --t-metric-lg-size:32px;--t-metric-lg-lh:34px;--t-metric-lg-ls:-0.022em;--t-metric-lg-w:600;
+  --t-metric-md-size:28px;--t-metric-md-lh:30px;--t-metric-md-ls:-0.020em;--t-metric-md-w:600;
+  --t-metric-sm-size:20px;--t-metric-sm-lh:24px;--t-metric-sm-ls:-0.015em;--t-metric-sm-w:600;
+  --t-metric-xs-size:16px;--t-metric-xs-lh:20px;--t-metric-xs-ls:-0.011em;--t-metric-xs-w:590;
+  --t-page-title-size:18px;--t-page-title-lh:24px;--t-page-title-ls:-0.014em;--t-page-title-w:600;
+  --t-section-title-size:13px;--t-section-title-lh:16px;--t-section-title-ls:-0.003em;--t-section-title-w:600;
+  --t-overline-size:10px;--t-overline-lh:12px;--t-overline-ls:0.075em;--t-overline-w:620;
+  --t-colhead-size:11px;--t-colhead-lh:14px;--t-colhead-ls:0.020em;--t-colhead-w:550;
+  --t-body-size:13px;--t-body-lh:18px;--t-body-ls:-0.003em;--t-body-w:450;
+  --t-body-strong-size:13px;--t-body-strong-lh:18px;--t-body-strong-ls:-0.003em;--t-body-strong-w:560;
+  --t-body-lg-size:14px;--t-body-lg-lh:20px;--t-body-lg-ls:-0.006em;--t-body-lg-w:450;
+  --t-body-sm-size:12px;--t-body-sm-lh:16px;--t-body-sm-ls:0em;--t-body-sm-w:450;
+  --t-prose-size:13px;--t-prose-lh:20px;--t-prose-ls:-0.003em;--t-prose-w:450;
+  --t-label-size:12px;--t-label-lh:16px;--t-label-ls:-0.002em;--t-label-w:520;
+  --t-label-lg-size:13px;--t-label-lg-lh:16px;--t-label-lg-ls:-0.004em;--t-label-lg-w:540;
+  --t-caption-size:11px;--t-caption-lh:14px;--t-caption-ls:0.004em;--t-caption-w:450;
+  --t-micro-size:10px;--t-micro-lh:12px;--t-micro-ls:0.045em;--t-micro-w:600;
+  --t-mono-md-size:13px;--t-mono-md-lh:18px;--t-mono-md-ls:-0.008em;--t-mono-md-w:430;
+  --t-mono-sm-size:12px;--t-mono-sm-lh:17px;--t-mono-sm-ls:-0.006em;--t-mono-sm-w:430;
+  --t-mono-xs-size:11px;--t-mono-xs-lh:15px;--t-mono-xs-ls:-0.004em;--t-mono-xs-w:430;
+
+  /* ── Motion ── */
+  --dur-0:0ms;--dur-1:80ms;--dur-2:120ms;--dur-3:160ms;--dur-4:220ms;--dur-5:320ms;--dur-6:480ms;
+  --dur-loop-progress:1150ms;--dur-loop-spin:900ms;--dur-loop-skeleton:1400ms;
+  --ease-out:cubic-bezier(0.16,1.00,0.30,1.00);
+  --ease-out-quart:cubic-bezier(0.25,1.00,0.50,1.00);
+  --ease-in:cubic-bezier(0.40,0.00,1.00,1.00);
+  --ease-in-out:cubic-bezier(0.65,0.00,0.35,1.00);
+  --ease-standard:cubic-bezier(0.20,0.00,0.00,1.00);
+  --ease-spring:cubic-bezier(0.34,1.56,0.64,1.00);
+  --ease-linear:linear;
+}
+
+@media (prefers-reduced-motion:reduce){
+  :root{--dur-1:1ms;--dur-2:1ms;--dur-3:1ms;--dur-4:1ms;--dur-5:1ms;--dur-6:1ms;--ease-spring:var(--ease-out)}
+  *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important;scroll-behavior:auto!important}
+}
+
+/* ── Type utilities ── */
+.t-display{font:var(--t-display-w) var(--t-display-size)/var(--t-display-lh) var(--font-brand);letter-spacing:var(--t-display-ls)}
+.t-title{font:var(--t-title-w) var(--t-title-size)/var(--t-title-lh) var(--font-sans);letter-spacing:var(--t-title-ls)}
+.t-metric-xl{font:var(--t-metric-xl-w) var(--t-metric-xl-size)/var(--t-metric-xl-lh) var(--font-sans);letter-spacing:var(--t-metric-xl-ls);font-variant-numeric:tabular-nums lining-nums}
+.t-metric-lg{font:var(--t-metric-lg-w) var(--t-metric-lg-size)/var(--t-metric-lg-lh) var(--font-sans);letter-spacing:var(--t-metric-lg-ls);font-variant-numeric:tabular-nums lining-nums}
+.t-metric-md{font:var(--t-metric-md-w) var(--t-metric-md-size)/var(--t-metric-md-lh) var(--font-sans);letter-spacing:var(--t-metric-md-ls);font-variant-numeric:tabular-nums lining-nums}
+.t-metric-sm{font:var(--t-metric-sm-w) var(--t-metric-sm-size)/var(--t-metric-sm-lh) var(--font-sans);letter-spacing:var(--t-metric-sm-ls);font-variant-numeric:tabular-nums lining-nums}
+.t-metric-xs{font:var(--t-metric-xs-w) var(--t-metric-xs-size)/var(--t-metric-xs-lh) var(--font-sans);letter-spacing:var(--t-metric-xs-ls);font-variant-numeric:tabular-nums lining-nums}
+.t-page-title{font:var(--t-page-title-w) var(--t-page-title-size)/var(--t-page-title-lh) var(--font-sans);letter-spacing:var(--t-page-title-ls)}
+.t-section-title{font:var(--t-section-title-w) var(--t-section-title-size)/var(--t-section-title-lh) var(--font-sans);letter-spacing:var(--t-section-title-ls)}
+.t-overline{font:var(--t-overline-w) var(--t-overline-size)/var(--t-overline-lh) var(--font-sans);letter-spacing:var(--t-overline-ls);text-transform:uppercase}
+.t-colhead{font:var(--t-colhead-w) var(--t-colhead-size)/var(--t-colhead-lh) var(--font-sans);letter-spacing:var(--t-colhead-ls)}
+.t-body{font:var(--t-body-w) var(--t-body-size)/var(--t-body-lh) var(--font-sans);letter-spacing:var(--t-body-ls)}
+.t-body-strong{font:var(--t-body-strong-w) var(--t-body-strong-size)/var(--t-body-strong-lh) var(--font-sans);letter-spacing:var(--t-body-strong-ls)}
+.t-body-lg{font:var(--t-body-lg-w) var(--t-body-lg-size)/var(--t-body-lg-lh) var(--font-sans);letter-spacing:var(--t-body-lg-ls)}
+.t-body-sm{font:var(--t-body-sm-w) var(--t-body-sm-size)/var(--t-body-sm-lh) var(--font-sans);letter-spacing:var(--t-body-sm-ls)}
+.t-prose{font:var(--t-prose-w) var(--t-prose-size)/var(--t-prose-lh) var(--font-sans);letter-spacing:var(--t-prose-ls);text-wrap:pretty;max-width:52ch}
+.t-label{font:var(--t-label-w) var(--t-label-size)/var(--t-label-lh) var(--font-sans);letter-spacing:var(--t-label-ls)}
+.t-label-lg{font:var(--t-label-lg-w) var(--t-label-lg-size)/var(--t-label-lg-lh) var(--font-sans);letter-spacing:var(--t-label-lg-ls)}
+.t-caption{font:var(--t-caption-w) var(--t-caption-size)/var(--t-caption-lh) var(--font-sans);letter-spacing:var(--t-caption-ls)}
+.t-micro{font:var(--t-micro-w) var(--t-micro-size)/var(--t-micro-lh) var(--font-sans);letter-spacing:var(--t-micro-ls);text-transform:uppercase}
+.t-mono-md{font:var(--t-mono-md-w) var(--t-mono-md-size)/var(--t-mono-md-lh) var(--font-mono);letter-spacing:var(--t-mono-md-ls)}
+.t-mono-sm{font:var(--t-mono-sm-w) var(--t-mono-sm-size)/var(--t-mono-sm-lh) var(--font-mono);letter-spacing:var(--t-mono-sm-ls)}
+.t-mono-xs{font:var(--t-mono-xs-w) var(--t-mono-xs-size)/var(--t-mono-xs-lh) var(--font-mono);letter-spacing:var(--t-mono-xs-ls)}
+.tnum{font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1,"lnum" 1}
+</style>
+
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   APP COMPONENTS — all color via semantic tokens.
+   Tokens are scoped to .app[data-theme] so both themes render side by side
+   in this review document. In the shipping app they go on :root with the
+   prefers-color-scheme pattern (see the Palette section).
+   ══════════════════════════════════════════════════════════════════════ */
+
+.app{
+  font-family:var(--font-sans);font-optical-sizing:auto;font-synthesis:none;
+  font-feature-settings:"cv08" 1,"cv11" 1,"ss03" 1;
+  background:var(--surface-base);color:var(--text-primary);
+  user-select:none;-webkit-tap-highlight-color:transparent;
+  width:900px;height:700px;display:flex;flex-direction:column;overflow:hidden;
+  border-radius:var(--radius-lg);position:relative;
+  box-shadow:var(--elev-4);
+}
+.app.is-wide{width:1440px}
+.app *{box-sizing:border-box}
+.app button,.app .btn,.app .chip,.app [role=button]{cursor:default}
+.app .path,.app .size,.app .error-plate,.app .t-prose{user-select:text}
+.app :focus{outline:none}
+.app .is-focused{outline:var(--focus-ring-w) solid var(--focus-ring);outline-offset:var(--focus-ring-offset);border-radius:inherit}
+.app svg{display:block}
+.app .mono,.app code,.app .path{font-family:var(--font-mono);font-variant-ligatures:none;font-feature-settings:"calt" 0,"liga" 0,"zero" 1}
+
+/* ── Icons ── */
+.icon{width:16px;height:16px;flex:none;display:block;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.icon-sm{width:14px;height:14px;stroke-width:1.6}
+.icon-lg{width:20px;height:20px;stroke-width:1.4}
+.icon-xl{width:24px;height:24px;stroke-width:1.35}
+.icon [data-solid]{fill:currentColor;stroke:none}
+
+/* ══════ RAIL ══════ */
+.rail{width:var(--rail-w);flex:none;background:var(--surface-sunken);border-right:1px solid var(--border-subtle);
+  display:flex;flex-direction:column;align-items:center;padding:12px 0 16px;gap:4px}
+.rail-mark{width:24px;height:24px;color:var(--accent);margin-bottom:20px}
+.rail-btn{width:40px;height:40px;border:0;background:transparent;color:var(--text-tertiary);
+  border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;position:relative;
+  transition:background-color var(--dur-2) var(--ease-out),color var(--dur-2) var(--ease-out)}
+.rail-btn:hover{background:var(--surface-hover);color:var(--text-secondary)}
+.rail-btn[aria-current=page]{background:var(--accent-subtle);color:var(--accent-text);box-shadow:inset 2px 0 0 var(--accent)}
+.rail-badge{position:absolute;top:7px;right:7px;width:6px;height:6px;padding:0;border-radius:var(--radius-full);
+  background:var(--accent);font-size:0;text-indent:-999px;overflow:hidden;
+  box-shadow:0 0 0 2px var(--surface-sunken)}
+.rail-spacer{flex:1}
+.rail-disk{width:40px;display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--text-tertiary)}
+.rail-disk-bar{width:4px;height:36px;border-radius:2px;background:var(--track);overflow:hidden;
+  display:flex;flex-direction:column;justify-content:flex-end}
+.rail-disk-used,.rail-disk-recl{display:block;width:100%;flex:none}
+.rail-disk-used{background:var(--text-quaternary)}
+.rail-disk-recl{background:var(--accent)}
+
+/* ══════ COMMAND BAR ══════ */
+.cmdbar{height:var(--header-h);flex:none;display:flex;align-items:center;gap:12px;
+  padding:0 var(--pad-window-x);border-bottom:1px solid var(--border-subtle);background:var(--surface-base)}
+.cmdbar-titles{flex:1;min-width:0}
+.cmdbar-title{color:var(--text-primary)}
+.cmdbar-sub{color:var(--text-tertiary);margin-top:1px;font-variant-numeric:tabular-nums lining-nums}
+.cmdbar-actions{display:flex;align-items:center;gap:8px;flex:none}
+
+/* ══════ BUTTONS ══════ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--gap-icon-text);
+  height:var(--ctl-h-md);padding:0 var(--btn-pad-md);border-radius:var(--radius-sm);border:1px solid transparent;
+  font:540 13px/1 var(--font-sans);letter-spacing:-0.004em;white-space:nowrap;
+  transition:background-color var(--dur-2) var(--ease-out),border-color var(--dur-2) var(--ease-out),color var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out)}
+.btn:hover{transition-duration:var(--dur-1)}
+.btn:active{transform:scale(.985);transition-duration:60ms}
+.btn .icon{width:14px;height:14px}
+.btn-sm{height:var(--ctl-h-sm);padding:0 var(--btn-pad-sm);font-size:12px}
+.btn-lg{height:var(--ctl-h-lg);padding:0 var(--btn-pad-lg);font-size:13px}
+.btn-primary{background:var(--accent);color:var(--accent-on);box-shadow:var(--edge-highlight)}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--surface-raised);color:var(--text-primary);border-color:var(--border-default)}
+.btn-secondary:hover{background:var(--surface-hover);border-color:var(--border-strong)}
+.btn-ghost{background:transparent;color:var(--text-secondary)}
+.btn-ghost:hover{background:var(--surface-hover);color:var(--text-primary)}
+.btn-danger{background:var(--danger-solid);color:var(--danger-on);box-shadow:var(--edge-highlight)}
+.btn-danger:hover{background:var(--danger-solid-hover)}
+.btn[disabled],.btn.is-disabled{opacity:.45;pointer-events:none}
+.iconbtn{width:var(--iconbtn-md);height:var(--iconbtn-md);padding:0;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:var(--radius-sm);border:1px solid transparent;background:transparent;color:var(--text-tertiary);
+  transition:background-color var(--dur-2) var(--ease-out),color var(--dur-2) var(--ease-out)}
+.iconbtn:hover{background:var(--surface-hover);color:var(--text-primary)}
+.iconbtn.is-active{background:var(--accent-subtle);color:var(--accent-text)}
+.kbd{display:inline-flex;align-items:center;height:16px;padding:0 4px;margin-left:2px;border-radius:var(--radius-xs);
+  background:var(--kbd-bg);color:var(--kbd-text);font:500 10px/1 var(--font-sans);border:1px solid var(--border-subtle)}
+
+/* ══════ BADGES / CHIPS / PILLS ══════ */
+.badge{display:inline-flex;align-items:center;gap:3px;height:var(--badge-h);padding:1px var(--badge-pad-x) 0;
+  border-radius:var(--radius-xs);font:600 10px/1 var(--font-sans);letter-spacing:.045em;text-transform:uppercase;white-space:nowrap}
+.badge::after{content:'';display:inline-block;width:.045em}
+.badge-caution{background:var(--caution-bg);color:var(--caution-text);box-shadow:inset 0 0 0 1px var(--caution-border)}
+.badge-danger{background:var(--danger-bg);color:var(--danger-text);box-shadow:inset 0 0 0 1px var(--danger-border)}
+.badge-safe{background:var(--safe-bg);color:var(--safe-text);box-shadow:inset 0 0 0 1px var(--safe-border)}
+.badge-neutral{background:var(--surface-raised);color:var(--text-tertiary);box-shadow:inset 0 0 0 1px var(--border-subtle)}
+.badge-accent{background:var(--accent-subtle);color:var(--accent-text)}
+.countpill{display:inline-flex;align-items:center;justify-content:center;height:var(--countpill-h);min-width:16px;
+  padding:0 var(--countpill-pad-x);border-radius:var(--radius-xs);background:var(--surface-raised);
+  color:var(--text-tertiary);font:520 10px/1 var(--font-sans);font-variant-numeric:tabular-nums}
+.chip{display:inline-flex;align-items:center;gap:var(--gap-icon-text);height:var(--chip-h);padding:0 var(--chip-pad-x);
+  border-radius:var(--radius-sm);border:1px solid var(--border-default);background:var(--surface-raised);
+  color:var(--text-secondary);font:500 12px/1 var(--font-sans);white-space:nowrap;
+  transition:background-color var(--dur-2) var(--ease-out),border-color var(--dur-2) var(--ease-out),color var(--dur-2) var(--ease-out)}
+.chip:hover{border-color:var(--border-strong);color:var(--text-primary)}
+.chip.is-active{background:var(--accent-subtle);border-color:var(--accent-border);color:var(--accent-text)}
+.chip .icon{width:13px;height:13px}
+.dot{width:var(--dot);height:var(--dot);border-radius:var(--radius-full);flex:none;background:var(--eco-accent)}
+.dot-lg{width:8px;height:8px}
+
+/* ══════ SUMMARY STRIP ══════ */
+.summary{height:64px;flex:none;display:flex;align-items:center;gap:20px;padding:0 var(--pad-window-x);
+  border-bottom:1px solid var(--border-subtle);background:var(--surface-base)}
+.summary-headline{width:250px;flex:none}
+.summary-headline .metric{color:var(--text-primary);display:flex;align-items:baseline;gap:4px}
+.summary-headline .sub{color:var(--text-tertiary);margin-top:2px;font-variant-numeric:tabular-nums}
+.summary-disk{flex:1;min-width:0}
+.diskmeter{height:8px;border-radius:var(--radius-xs);background:var(--track);overflow:hidden;display:flex}
+.diskmeter .seg-used{background:var(--text-quaternary)}
+.diskmeter .seg-recl{background:var(--accent)}
+.diskmeter .seg-free{background:transparent}
+.summary-disk .legend{margin-top:6px;color:var(--text-tertiary);display:flex;gap:12px;font-variant-numeric:tabular-nums}
+.summary-disk .legend b{color:var(--text-secondary);font-weight:560}
+.summary-action{width:240px;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.summary-action .selinfo{color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.summary-action .selinfo b{color:var(--text-primary);font-weight:600}
+
+/* ══════ TOOLBAR ══════ */
+.toolbar{height:var(--toolbar-h);flex:none;display:flex;align-items:center;gap:8px;padding:0 var(--pad-window-x);
+  border-bottom:1px solid var(--border-subtle);background:var(--surface-base)}
+.toolbar-sep{width:1px;height:16px;background:var(--border-subtle);margin:0 var(--space-2)}
+.search{display:flex;align-items:center;gap:6px;height:var(--input-h-sm);flex:1;max-width:320px;
+  padding:0 9px;border-radius:var(--radius-sm);border:1px solid var(--border-default);background:var(--surface-sunken);color:var(--text-tertiary)}
+.search input{border:0;background:transparent;outline:none;color:var(--text-primary);font:450 12px/1 var(--font-sans);flex:1;min-width:0}
+.search input::placeholder{color:var(--text-quaternary)}
+.token{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 5px;border-radius:var(--radius-xs);
+  background:var(--accent-subtle);color:var(--accent-text);font:520 11px/1 var(--font-sans);white-space:nowrap}
+.token .x{opacity:.6}
+
+/* ══════ TABLE ══════ */
+.tablehead{height:28px;flex:none;display:flex;align-items:center;padding:0 var(--pad-window-x);
+  border-bottom:1px solid var(--border-subtle);background:var(--surface-base);color:var(--text-tertiary)}
+.listwrap{flex:1;min-height:0;overflow:hidden;position:relative;background:var(--surface-base)}
+.list{height:100%;overflow-y:auto;padding-bottom:8px}
+
+.group-header{height:36px;display:flex;align-items:center;gap:10px;padding:0 var(--pad-window-x);
+  background:var(--surface-sunken);border-block:1px solid var(--border-subtle);margin-top:-1px;
+  position:sticky;top:0;z-index:2}
+.group-header .gname{color:var(--text-primary);font-weight:600}
+.group-header .gshare{width:100px;height:6px;border-radius:var(--radius-xs);background:var(--track);overflow:hidden;flex:none}
+.group-header .gshare i{display:block;height:100%;background:var(--eco-accent);border-radius:var(--radius-xs)}
+.group-header .gsize{width:84px;text-align:right;flex:none;color:var(--text-primary);font-weight:600;font-variant-numeric:tabular-nums}
+.group-header .spacer{flex:1}
+
+.item{display:flex;align-items:flex-start;gap:0;height:var(--row-h-comfortable);padding:0 var(--pad-window-x);
+  position:relative;border-bottom:1px solid var(--border-subtle);background:var(--surface-base);
+  transition:background-color var(--dur-2) var(--ease-out)}
+.item:hover{background:var(--surface-hover)}
+.item.is-selected{background:var(--selected-bg);box-shadow:inset 2px 0 0 var(--accent)}
+.item.is-focused{box-shadow:inset 0 0 0 2px var(--focus-ring)}
+.item::after{content:'';position:absolute;left:0;bottom:0;height:2px;width:calc(var(--size-ratio,0)*100%);
+  background:var(--eco-accent);opacity:.22;border-radius:0 1px 1px 0;pointer-events:none}
+.item-inner{display:flex;align-items:center;gap:0;width:100%;height:100%}
+.riskedge{width:4px;align-self:stretch;flex:none;margin-right:8px;border-radius:1px}
+.riskedge.safe{background:transparent}
+.riskedge.caution{background:var(--caution-solid)}
+.riskedge.danger{background:var(--danger-solid)}
+.item .cell-check{width:22px;flex:none;display:flex;align-items:center}
+.item .cell-main{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1px;padding-right:12px}
+.item .line1{display:flex;align-items:center;gap:8px;min-width:0}
+.item .kindname{color:var(--text-primary);font:560 13px/18px var(--font-sans);letter-spacing:-0.003em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .projname{color:var(--text-tertiary);font:450 13px/18px var(--font-sans);white-space:nowrap}
+.item .line2{display:flex;align-items:center;gap:8px;min-width:0}
+.item .cell-stale{width:56px;flex:none;text-align:right;padding-right:12px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.item .cell-stale.is-stale{color:var(--caution-text)}
+.item .cell-mag{width:56px;flex:none;padding-right:12px}
+.magbar{display:block;height:4px;border-radius:2px;background:var(--track);overflow:hidden}
+.magbar i{display:block;height:100%;background:var(--eco-accent);border-radius:2px;opacity:.85}
+.item .cell-size{width:84px;flex:none;display:flex;justify-content:flex-end;padding-right:8px}
+.item .cell-chev{width:24px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--text-quaternary)}
+.item:hover .cell-chev{color:var(--text-secondary)}
+
+.path{font:430 11px/15px var(--font-mono);letter-spacing:-.004em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.path .s-root,.path .s-dim{color:var(--text-tertiary)}
+.path .s-sep,.path .s-gap{color:var(--text-quaternary)}
+.path .s-project{color:var(--text-secondary);font-weight:560}
+.path .s-leaf{color:var(--text-secondary);font-weight:500}
+
+.size{display:inline-flex;align-items:baseline;gap:3px;justify-content:flex-end;font-variant-numeric:tabular-nums lining-nums}
+.size-num{font:560 13px/18px var(--font-sans);letter-spacing:-.003em;color:var(--text-primary)}
+.size-unit{font:500 10px/18px var(--font-sans);letter-spacing:.02em;color:var(--text-tertiary);min-width:16px;text-align:left}
+.size[data-mag=xl] .size-num{font-size:15px;font-weight:620}
+.size[data-mag=lg] .size-num{font-size:14px;font-weight:620}
+.size[data-mag=sm] .size-num{color:var(--text-secondary);font-weight:450}
+.size[data-mag=unknown] .size-num{font:italic 450 12px/18px var(--font-sans);color:var(--text-quaternary)}
+
+/* ── checkbox ── */
+.cb{width:var(--checkbox-size);height:var(--checkbox-size);border-radius:var(--radius-xs);
+  border:1px solid var(--border-strong);background:var(--surface-base);display:flex;align-items:center;justify-content:center;flex:none;
+  transition:background-color 90ms var(--ease-out),border-color 90ms var(--ease-out)}
+.cb .icon{width:11px;height:11px;stroke-width:2.2;color:var(--accent-on);opacity:0}
+.cb[aria-checked=true]{background:var(--accent);border-color:var(--accent)}
+.cb[aria-checked=true] .icon{opacity:1}
+.cb[aria-checked=mixed]{background:var(--accent);border-color:var(--accent)}
+.cb[aria-checked=mixed] .icon{opacity:1}
+.cb.is-disabled{opacity:.4}
+
+/* ══════ STATUS BAR ══════ */
+.statusbar{height:var(--statusbar-h);flex:none;display:flex;align-items:center;gap:12px;padding:0 var(--pad-window-x);
+  border-top:1px solid var(--border-subtle);background:var(--surface-sunken);color:var(--text-tertiary);
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+.statusbar>*{flex:none}
+.statusbar .spacer{flex:1}
+.statusbar .issues{display:inline-flex;align-items:center;gap:5px;color:var(--caution-text)}
+
+/* ══════ PROGRESS ══════ */
+.progress{height:var(--progressbar-h);background:var(--track);overflow:hidden;position:relative;flex:none}
+.progress-indeterminate::after{content:'';position:absolute;inset-block:0;left:0;width:32%;
+  background:var(--accent);border-radius:1px;animation:prog-slide var(--dur-loop-progress) var(--ease-standard) infinite}
+@keyframes prog-slide{0%{transform:translateX(-105%) scaleX(.55)}55%{transform:translateX(120%) scaleX(1)}100%{transform:translateX(320%) scaleX(.55)}}
+.progress-determinate>i{display:block;height:100%;background:var(--accent);width:calc(var(--pct)*1%);transition:width var(--dur-4) var(--ease-linear)}
+.bigbar{flex:none;height:8px;border-radius:var(--radius-xs);background:var(--track);overflow:hidden}
+.bigbar>i{display:block;height:100%;background:var(--accent);border-radius:var(--radius-xs);width:calc(var(--pct)*1%)}
+
+/* ══════ SCANNER TICKER ══════ */
+.ticker{height:28px;flex:none;display:flex;align-items:center;gap:14px;padding:0 var(--pad-window-x);
+  border-bottom:1px solid var(--border-subtle);background:var(--surface-sunken);overflow:hidden}
+.ticker-item{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--text-quaternary);font:500 11px/1 var(--font-sans)}
+.ticker-item.is-done{color:var(--text-secondary)}
+.ticker-item.is-running{color:var(--accent-text)}
+.ticker-item .icon{width:12px;height:12px}
+.spinring{width:12px;height:12px;flex:none;border-radius:50%;border:1.5px solid var(--accent);border-right-color:transparent;
+  animation:void-spin var(--dur-loop-spin) linear infinite}
+@keyframes void-spin{to{transform:rotate(360deg)}}
+
+/* ══════ DRAWER ══════ */
+.drawer{width:var(--drawer-w);flex:none;border-left:1px solid var(--border-subtle);background:var(--surface-raised);
+  display:flex;flex-direction:column;overflow:hidden}
+/* <1280: overlay + scrim. >=1280 it becomes an inline column instead. */
+.drawer.is-overlay{position:absolute;top:0;right:0;bottom:0;z-index:15;box-shadow:var(--shadow-3)}
+.drawer-scrim{position:absolute;inset:0;z-index:14;background:var(--surface-scrim)}
+.drawer-head{height:44px;flex:none;display:flex;align-items:center;gap:6px;padding:0 12px 0 16px;border-bottom:1px solid var(--border-subtle)}
+.drawer-body{flex:1;overflow-y:auto}
+.drawer-sect{padding:14px 16px;border-bottom:1px solid var(--border-subtle)}
+.drawer-sect .t-overline{color:var(--text-quaternary);margin-bottom:10px}
+.drawer-foot{flex:none;padding:12px 16px;border-top:1px solid var(--border-subtle);display:flex;gap:8px;background:var(--surface-raised)}
+.facts{display:grid;grid-template-columns:88px 1fr;row-gap:6px;column-gap:12px;align-items:baseline}
+.facts dt{color:var(--text-tertiary)}
+.facts dd{color:var(--text-primary);margin:0;font-variant-numeric:tabular-nums}
+.pathplate{padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);background:var(--surface-sunken);
+  font:430 11px/16px var(--font-mono);color:var(--text-secondary);word-break:break-all;white-space:normal;user-select:text}
+.action-opt{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-subtle)}
+.action-opt:last-child{border-bottom:0}
+.radio{width:14px;height:14px;border-radius:50%;border:1px solid var(--border-strong);flex:none;margin-top:2px;
+  display:flex;align-items:center;justify-content:center;background:var(--surface-base)}
+.radio.is-on{border-color:var(--accent);border-width:4px;background:var(--surface-base)}
+.action-opt .body{flex:1;min-width:0}
+.action-opt .row1{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.action-opt .lbl{color:var(--text-primary);font:540 13px/18px var(--font-sans)}
+.action-opt .desc{color:var(--text-tertiary);font:450 12px/16px var(--font-sans);margin-bottom:4px}
+.cmdline{display:flex;align-items:flex-start;gap:6px;font:430 11px/16px var(--font-mono);color:var(--text-secondary);
+  background:var(--surface-sunken);border:1px solid var(--border-subtle);border-radius:var(--radius-xs);padding:4px 6px;word-break:break-all}
+.cmdline .glyph{color:var(--text-quaternary);flex:none}
+.outcome{margin-top:4px;color:var(--text-quaternary);font:450 11px/14px var(--font-sans)}
+.outcome .recoverable{color:var(--safe-text)}
+.safety-line{display:flex;gap:7px;align-items:flex-start;margin-bottom:6px;color:var(--text-secondary);font:450 12px/16px var(--font-sans)}
+.safety-line .icon{width:13px;height:13px;margin-top:1.5px;flex:none}
+.safety-line.ok .icon{color:var(--safe-text)}
+.safety-line.warn{color:var(--caution-text)}
+.safety-line.warn .icon{color:var(--caution-text)}
+
+/* ══════ MODAL ══════ */
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:20;border-radius:var(--radius-lg)}
+.modal{width:560px;max-height:600px;display:flex;flex-direction:column;background:var(--surface-overlay);
+  border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--elev-4);overflow:hidden}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:flex-start;gap:12px}
+.modal-head .h{flex:1}
+.modal-head .sub{color:var(--text-tertiary);margin-top:2px;font-variant-numeric:tabular-nums}
+.modal-body{flex:1;overflow-y:auto;padding:16px 20px}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px;background:var(--surface-raised)}
+.modal-foot .spacer{flex:1}
+.effect-row{display:flex;align-items:center;gap:10px;height:32px;color:var(--text-primary)}
+.effect-row .icon{width:15px;height:15px;color:var(--text-tertiary);flex:none}
+.effect-row .txt{flex:1}
+.effect-row .amt{font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.attn-card{border:1px solid var(--border-default);border-radius:var(--radius-sm);background:var(--surface-sunken);max-height:158px;overflow-y:auto}
+.attn-item{padding:10px 12px;border-bottom:1px solid var(--border-subtle)}
+.attn-item:last-child{border-bottom:0}
+.attn-item .row1{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.attn-item .row1 .lbl{color:var(--text-primary);font:540 13px/18px var(--font-sans);flex:1}
+.attn-item .row1 .amt{font-variant-numeric:tabular-nums;color:var(--text-secondary);font-size:12px}
+.confirm-input{height:var(--input-h-lg);width:220px;padding:0 10px;border-radius:var(--radius-sm);
+  border:1px solid var(--border-strong);background:var(--surface-sunken);color:var(--text-primary);
+  font:430 13px/1 var(--font-mono);outline:none}
+.confirm-input::placeholder{color:var(--text-quaternary)}
+
+/* ══════ EMPTY / BANNER / PLATES ══════ */
+.state{display:flex;flex-direction:column;align-items:center;text-align:center;padding:56px 24px;user-select:none}
+.state .glyph{width:24px;height:24px;color:var(--text-quaternary);stroke-width:1.35}
+.state .title{margin-top:12px;font:600 14px/20px var(--font-sans);letter-spacing:-.008em;color:var(--text-primary)}
+.state .body{margin-top:4px;font:450 13px/20px var(--font-sans);letter-spacing:-.003em;color:var(--text-secondary);max-width:44ch;text-wrap:pretty}
+.state .actions{margin-top:16px;display:flex;gap:8px}
+.state .hint{margin-top:14px;font:450 11px/14px var(--font-sans);letter-spacing:.004em;color:var(--text-quaternary)}
+.state[data-size=sm]{padding:28px 16px}
+.error-plate{margin-top:12px;padding:8px 10px;text-align:left;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);
+  background:var(--surface-sunken);font:430 11px/16px var(--font-mono);letter-spacing:-.004em;color:var(--text-secondary);
+  max-width:52ch;user-select:text;white-space:pre-wrap;overflow-wrap:anywhere}
+.banner{height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 var(--pad-window-x);
+  border-bottom:1px solid var(--border-subtle);background:var(--caution-bg);color:var(--caution-text)}
+.banner.info{background:var(--accent-subtle);color:var(--accent-text)}
+.banner .txt{flex:1;color:var(--text-primary);font:450 13px/18px var(--font-sans)}
+.card{border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised);padding:var(--pad-card)}
+
+/* ══════ SETTINGS ══════ */
+.seg{display:inline-flex;height:var(--ctl-h-md);padding:2px;border-radius:var(--radius-sm);background:var(--surface-sunken);border:1px solid var(--border-subtle);gap:2px}
+.seg button{height:100%;padding:0 11px;border:0;border-radius:3px;background:transparent;color:var(--text-tertiary);
+  font:520 12px/1 var(--font-sans);display:inline-flex;align-items:center;gap:6px}
+.seg button.is-on{background:var(--surface-raised);color:var(--text-primary);box-shadow:var(--elev-1)}
+.form{padding:20px var(--pad-window-x);max-width:560px}
+.field{margin-bottom:22px}
+.field .lbl{color:var(--text-primary);margin-bottom:2px}
+.field .help{color:var(--text-tertiary);margin-bottom:8px}
+.pathlist{border:1px solid var(--border-subtle);border-radius:var(--radius-sm);overflow:hidden;background:var(--surface-sunken)}
+.pathrow{height:36px;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--border-subtle);color:var(--text-primary)}
+.pathrow:last-child{border-bottom:0}
+.pathrow .p{flex:1;font:430 12px/1 var(--font-mono);color:var(--text-secondary)}
+.pathrow.is-locked{color:var(--text-tertiary)}
+.toggle{width:32px;height:18px;border-radius:var(--radius-full);background:var(--track);position:relative;flex:none;
+  transition:background-color var(--dur-2) var(--ease-out)}
+.toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--toggle-knob);
+  transition:transform var(--dur-2) var(--ease-out);box-shadow:var(--elev-1)}
+.toggle.is-on{background:var(--accent)}
+.toggle.is-on i{transform:translateX(14px)}
+.ecorow{height:48px;display:flex;align-items:center;gap:10px;padding:0 10px;border-bottom:1px solid var(--border-subtle)}
+.ecorow:last-child{border-bottom:0}
+.ecorow .nm{flex:1;color:var(--text-primary)}
+.ecorow .stat{color:var(--text-tertiary);font-variant-numeric:tabular-nums;text-align:right}
+.slider{height:4px;border-radius:2px;background:var(--track);position:relative;margin:10px 0}
+.slider i{display:block;height:100%;border-radius:2px;background:var(--accent);width:calc(var(--pct)*1%)}
+.slider b{position:absolute;top:50%;left:calc(var(--pct)*1%);width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
+  background:var(--toggle-knob);box-shadow:var(--elev-2),0 0 0 1px var(--border-strong)}
+.settings-nav{width:180px;flex:none;border-right:1px solid var(--border-subtle);padding:12px 8px;background:var(--surface-sunken)}
+.settings-nav a{display:flex;align-items:center;height:var(--sidebar-item-h);padding:0 10px;border-radius:var(--radius-sm);
+  color:var(--text-secondary);text-decoration:none;font:500 13px/1 var(--font-sans);margin-bottom:2px}
+.settings-nav a.is-on{background:var(--accent-subtle);color:var(--accent-text);font-weight:560}
+
+/* ══════ HISTORY ══════ */
+.stattile{flex:1;height:72px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface-raised);
+  padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between}
+.stattile .k{color:var(--text-quaternary)}
+.stattile .v{color:var(--text-primary)}
+.spark{display:flex;align-items:flex-end;gap:3px;height:64px}
+.spark i{flex:1;background:var(--accent);border-radius:1.5px 1.5px 0 0;opacity:.75;min-height:2px}
+.spark i.hi{opacity:1}
+.hrow{height:44px;display:flex;align-items:center;gap:12px;padding:0 var(--pad-window-x);border-bottom:1px solid var(--border-subtle);
+  background:var(--surface-base)}
+.hrow:hover{background:var(--surface-hover)}
+.hrow .d{width:150px;color:var(--text-primary)}
+.hrow .n{width:60px;text-align:right;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.hrow .f{width:90px;text-align:right;color:var(--text-primary);font-weight:560;font-variant-numeric:tabular-nums}
+.hrow .r{flex:1;color:var(--text-tertiary);padding-left:16px}
+
+/* ══════ POPOVER / TRAY ══════ */
+.popover{width:280px;background:var(--surface-overlay);border:1px solid var(--border-subtle);border-radius:var(--radius-md);
+  box-shadow:var(--elev-3);overflow:hidden}
+.pop-item{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-bottom:1px solid var(--border-subtle)}
+.pop-item:last-child{border-bottom:0}
+.tray{width:320px;background:var(--surface-overlay);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
+  box-shadow:var(--elev-4);overflow:hidden;font-family:var(--font-sans);color:var(--text-primary)}
+.tray-head{height:40px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--border-subtle)}
+.tray-sect{padding:12px}
+.tray-eco{height:28px;display:flex;align-items:center;gap:8px}
+.tray-eco .nm{flex:1;color:var(--text-secondary);font:450 12px/1 var(--font-sans)}
+.tray-eco .ct{color:var(--text-quaternary);font:450 11px/1 var(--font-sans);font-variant-numeric:tabular-nums}
+.tray-eco .sz{width:64px;text-align:right;color:var(--text-primary);font:560 12px/1 var(--font-sans);font-variant-numeric:tabular-nums}
+
+/* ══════ WORDMARK ══════ */
+.void-lockup{display:inline-flex;align-items:center;gap:8px;user-select:none}
+.void-mark{color:var(--accent);flex:none}
+.void-word{font-family:var(--font-brand);font-size:16px;font-weight:600;line-height:20px;letter-spacing:-.032em;
+  color:var(--text-primary);margin-top:1px}
+.void-word .v{letter-spacing:-.044em}
+
+/* ══════ SKELETON ══════ */
+@keyframes skeleton-pulse{0%,100%{opacity:1}50%{opacity:.42}}
+.skeleton{background:var(--surface-raised);border-radius:var(--radius-xs);animation:skeleton-pulse var(--dur-loop-skeleton) cubic-bezier(.4,0,.6,1) infinite}
+</style>
+
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   REVIEW DOCUMENT CHROME — the page that presents the design.
+   Deliberately neutral so the app mockups carry all the color.
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --doc-bg:#08090c;--doc-panel:#0e1014;--doc-line:#1c1f26;--doc-line-2:#2a2e38;
+  --doc-fg:#e8eaf0;--doc-fg-2:#9aa1b2;--doc-fg-3:#646c7e;--doc-accent:#4d8dff;
+  --doc-measure:#3d4557;
+}
+@media (prefers-color-scheme:light){
+  :root:not([data-doc="dark"]){
+    --doc-bg:#f7f8fa;--doc-panel:#ffffff;--doc-line:#e4e7ec;--doc-line-2:#cfd4dd;
+    --doc-fg:#14161c;--doc-fg-2:#565e70;--doc-fg-3:#8b93a5;--doc-accent:#1f6feb;
+    --doc-measure:#b3bac7;
+  }
+}
+:root[data-doc="light"]{
+  --doc-bg:#f7f8fa;--doc-panel:#ffffff;--doc-line:#e4e7ec;--doc-line-2:#cfd4dd;
+  --doc-fg:#14161c;--doc-fg-2:#565e70;--doc-fg-3:#8b93a5;--doc-accent:#1f6feb;
+  --doc-measure:#b3bac7;
+}
+
+body{margin:0;background:var(--doc-bg);color:var(--doc-fg);
+  font-family:var(--font-sans);font-optical-sizing:auto;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+
+.doc{max-width:1560px;margin:0 auto;padding:0 40px 160px}
+
+/* ── Masthead ── */
+.masthead{padding:88px 0 56px;border-bottom:1px solid var(--doc-line)}
+.masthead .eyebrow{font:620 10px/12px var(--font-sans);letter-spacing:.14em;text-transform:uppercase;color:var(--doc-fg-3)}
+.masthead h1{margin:20px 0 0;font:620 56px/56px var(--font-sans);letter-spacing:-.035em}
+.masthead .lede{margin:18px 0 0;max-width:62ch;font:450 16px/26px var(--font-sans);letter-spacing:-.006em;color:var(--doc-fg-2)}
+.masthead .meta{margin-top:32px;display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--doc-line);border-radius:8px;overflow:hidden}
+.masthead .meta div{padding:12px 18px;border-right:1px solid var(--doc-line);flex:1;min-width:150px}
+.masthead .meta div:last-child{border-right:0}
+.masthead .meta dt{font:620 9px/12px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--doc-fg-3)}
+.masthead .meta dd{margin:5px 0 0;font:500 13px/18px var(--font-sans);color:var(--doc-fg)}
+
+/* ── Section structure ── */
+.sect{padding-top:88px}
+.sect-head{display:flex;align-items:baseline;gap:16px;padding-bottom:6px;border-bottom:1px solid var(--doc-line-2)}
+.sect-num{font:430 12px/1 var(--font-mono);color:var(--doc-fg-3);letter-spacing:.04em;flex:none;width:34px}
+.sect-head h2{margin:0;font:600 26px/32px var(--font-sans);letter-spacing:-.022em;flex:1}
+.sect-head .tag{font:430 11px/1 var(--font-mono);color:var(--doc-fg-3)}
+.sect-intro{margin:18px 0 0 50px;max-width:70ch;font:450 14px/23px var(--font-sans);letter-spacing:-.004em;color:var(--doc-fg-2)}
+.sect-intro strong{color:var(--doc-fg);font-weight:560}
+.sect-intro code{font:430 12.5px/1 var(--font-mono);background:var(--doc-panel);border:1px solid var(--doc-line);
+  border-radius:3px;padding:1px 4px;color:var(--doc-fg)}
+.sub{margin:56px 0 0 50px}
+.sub h3{margin:0 0 6px;font:600 16px/22px var(--font-sans);letter-spacing:-.012em}
+.sub p{margin:0;max-width:70ch;font:450 13.5px/22px var(--font-sans);color:var(--doc-fg-2)}
+.sub p code,.note code{font:430 12px/1 var(--font-mono);background:var(--doc-panel);border:1px solid var(--doc-line);border-radius:3px;padding:1px 4px;color:var(--doc-fg)}
+
+/* ── Screen presentation ── */
+.screens{margin-top:32px;display:flex;flex-direction:column;gap:80px}
+.screen{display:grid;grid-template-columns:1fr;gap:24px}
+.screen-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.screen-id{font:430 11px/1 var(--font-mono);color:var(--doc-accent);letter-spacing:.06em;
+  border:1px solid var(--doc-line-2);border-radius:3px;padding:4px 7px}
+.screen-head h4{margin:0;font:600 18px/24px var(--font-sans);letter-spacing:-.014em}
+.screen-head .dims{font:430 11px/1 var(--font-mono);color:var(--doc-fg-3);margin-left:auto}
+.screen-note{max-width:78ch;font:450 13.5px/22px var(--font-sans);color:var(--doc-fg-2)}
+.screen-note strong{color:var(--doc-fg);font-weight:560}
+.screen-note code{font:430 12px/1 var(--font-mono);background:var(--doc-panel);border:1px solid var(--doc-line);border-radius:3px;padding:1px 4px;color:var(--doc-fg)}
+
+.pair{display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start}
+.pane{display:flex;flex-direction:column;gap:10px}
+.pane-label{display:flex;align-items:center;gap:8px;font:620 9px/12px var(--font-sans);letter-spacing:.12em;
+  text-transform:uppercase;color:var(--doc-fg-3)}
+.pane-label::before{content:'';width:8px;height:8px;border-radius:2px;background:var(--pl);border:1px solid var(--doc-line-2)}
+.pane-label.dark{--pl:#0b0d11}
+.pane-label.light{--pl:#ffffff}
+.frame{position:relative}
+
+/* window chrome */
+.oschrome{border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 24px 64px -20px rgb(0 0 0/.55),0 0 0 1px rgb(255 255 255/.06)}
+:root[data-doc=light] .oschrome,
+:root:not([data-doc=dark]) .oschrome{box-shadow:0 24px 64px -22px rgb(16 18 27/.28),0 0 0 1px rgb(16 18 27/.10)}
+@media (prefers-color-scheme:dark){:root:not([data-doc=light]) .oschrome{box-shadow:0 24px 64px -20px rgb(0 0 0/.55),0 0 0 1px rgb(255 255 255/.06)}}
+.titlebar{height:28px;display:flex;align-items:center;padding:0 12px;gap:8px;
+  background:var(--surface-sunken);border-bottom:1px solid var(--border-subtle)}
+.tl{display:flex;gap:7px}
+.tl i{width:11px;height:11px;border-radius:50%;display:block}
+.tl i:nth-child(1){background:#ff5f57}.tl i:nth-child(2){background:#febc2e}.tl i:nth-child(3){background:#28c840}
+.titlebar .tt{flex:1;text-align:center;font:500 11px/1 var(--font-sans);color:var(--text-tertiary);
+  margin-right:46px;letter-spacing:-.002em}
+
+/* measure annotations */
+.measured{position:relative}
+.measure{position:absolute;display:flex;align-items:center;justify-content:center;pointer-events:none;
+  font:430 9.5px/1 var(--font-mono);color:var(--doc-measure);letter-spacing:.02em;z-index:5}
+.measure-v{width:16px;flex-direction:column}
+.measure-v::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--doc-measure);opacity:.5}
+.measure-v span{background:var(--doc-bg);padding:3px 0;position:relative;writing-mode:vertical-rl}
+.measure-h{height:16px}
+.measure-h::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:var(--doc-measure);opacity:.5}
+.measure-h span{background:var(--doc-bg);padding:0 5px;position:relative}
+
+/* callouts */
+.callouts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.callouts li{display:flex;gap:10px;font:450 12.5px/19px var(--font-sans);color:var(--doc-fg-2);max-width:60ch}
+.callouts b{flex:none;width:18px;height:18px;border-radius:50%;background:var(--doc-panel);border:1px solid var(--doc-line-2);
+  color:var(--doc-fg);font:600 10px/16px var(--font-sans);text-align:center}
+.callouts strong{color:var(--doc-fg);font-weight:560}
+.callouts code{font:430 11.5px/1 var(--font-mono);background:var(--doc-panel);border:1px solid var(--doc-line);border-radius:3px;padding:1px 4px;color:var(--doc-fg)}
+
+/* ── Spec tables ── */
+.spec{width:100%;border-collapse:collapse;margin-top:16px;font:450 12.5px/18px var(--font-sans)}
+.spec th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--doc-line-2);color:var(--doc-fg-3);
+  font:620 9px/12px var(--font-sans);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;vertical-align:bottom}
+.spec td{padding:9px 12px;border-bottom:1px solid var(--doc-line);color:var(--doc-fg-2);vertical-align:top}
+.spec tr:hover td{background:var(--doc-panel)}
+.spec td:first-child{color:var(--doc-fg);font-weight:520}
+.spec code,.spec .m{font:430 11.5px/16px var(--font-mono);color:var(--doc-fg)}
+.spec .num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.spec .ok{color:#2ea043}.spec .bad{color:#e5534b}
+:root[data-doc=light] .spec .ok,:root:not([data-doc=dark]) .spec .ok{color:#1a7f37}
+:root[data-doc=light] .spec .bad,:root:not([data-doc=dark]) .spec .bad{color:#cf222e}
+@media (prefers-color-scheme:dark){
+  :root:not([data-doc=light]) .spec .ok{color:#2ea043}
+  :root:not([data-doc=light]) .spec .bad{color:#e5534b}
+}
+
+/* ── Notes ── */
+.note{margin-top:20px;padding:14px 16px 14px 18px;border-left:2px solid var(--doc-line-2);
+  background:var(--doc-panel);border-radius:0 6px 6px 0;font:450 13px/21px var(--font-sans);color:var(--doc-fg-2);max-width:76ch}
+.note strong{color:var(--doc-fg);font-weight:560}
+.note.warn{border-left-color:#d29922}
+.note.bug{border-left-color:#e5534b}
+
+/* ── Swatches ── */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;margin-top:18px}
+.sw{border:1px solid var(--doc-line);border-radius:7px;overflow:hidden;background:var(--doc-panel)}
+.sw .chip-c{height:56px;display:block}
+.sw .meta{padding:8px 9px}
+.sw .nm{font:520 11px/14px var(--font-sans);color:var(--doc-fg);word-break:break-all}
+.sw .hex{font:430 10.5px/14px var(--font-mono);color:var(--doc-fg-3);text-transform:uppercase;margin-top:2px}
+.ramp{display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--doc-line);margin-top:8px}
+.ramp i{flex:1;height:44px;position:relative}
+.ramp i span{position:absolute;inset:auto 0 3px;text-align:center;font:430 8.5px/1 var(--font-mono);opacity:.75}
+
+/* ── Component gallery ── */
+.gallery{margin-top:20px;border:1px solid var(--doc-line);border-radius:10px;overflow:hidden}
+.gal-row{display:grid;grid-template-columns:190px 1fr;border-bottom:1px solid var(--doc-line)}
+.gal-row:last-child{border-bottom:0}
+.gal-k{padding:16px;border-right:1px solid var(--doc-line);background:var(--doc-panel)}
+.gal-k .n{font:560 13px/18px var(--font-sans);color:var(--doc-fg)}
+.gal-k .d{margin-top:3px;font:450 11.5px/16px var(--font-sans);color:var(--doc-fg-3)}
+.gal-v{padding:18px 16px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.gal-v.stack{flex-direction:column;align-items:stretch}
+.gal-v.stack>*{width:100%}
+.gal-state{display:flex;flex-direction:column;gap:7px;align-items:flex-start}
+.gal-state .lb{font:430 9.5px/1 var(--font-mono);color:var(--doc-fg-3);letter-spacing:.03em}
+
+/* ── Type specimen ── */
+.typerow{display:grid;grid-template-columns:150px 1fr 200px;gap:20px;align-items:baseline;
+  padding:14px 0;border-bottom:1px solid var(--doc-line)}
+.typerow .role{font:430 11px/16px var(--font-mono);color:var(--doc-accent)}
+.typerow .metrics{font:430 10.5px/16px var(--font-mono);color:var(--doc-fg-3);text-align:right;white-space:nowrap}
+
+/* ── TOC ── */
+.toc{margin-top:40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0;
+  border:1px solid var(--doc-line);border-radius:8px;overflow:hidden}
+.toc a{display:flex;gap:12px;align-items:baseline;padding:13px 16px;text-decoration:none;color:var(--doc-fg-2);
+  border-right:1px solid var(--doc-line);border-bottom:1px solid var(--doc-line);
+  font:450 13px/18px var(--font-sans);transition:background .12s,color .12s}
+.toc a:hover{background:var(--doc-panel);color:var(--doc-fg)}
+.toc a i{font:430 10.5px/18px var(--font-mono);color:var(--doc-fg-3);font-style:normal;flex:none}
+
+/* ── Doc toolbar ── */
+.doctools{position:fixed;bottom:16px;right:16px;z-index:100;display:flex;gap:6px;padding:6px;
+  background:var(--doc-panel);border:1px solid var(--doc-line-2);border-radius:9px;
+  box-shadow:0 8px 24px -8px rgb(0 0 0/.4);backdrop-filter:blur(12px)}
+.doctools button{height:28px;padding:0 11px;border:1px solid transparent;border-radius:6px;background:transparent;
+  color:var(--doc-fg-2);font:520 11.5px/1 var(--font-sans);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.doctools button:hover{background:var(--doc-bg);color:var(--doc-fg)}
+.doctools button.on{background:var(--doc-accent);color:#fff}
+
+@media (max-width:1100px){
+  .doc{padding:0 20px 120px}
+  .masthead h1{font-size:40px;line-height:42px}
+  .sect-intro,.sub{margin-left:0}
+  .gal-row{grid-template-columns:1fr}
+  .gal-k{border-right:0;border-bottom:1px solid var(--doc-line)}
+  .typerow{grid-template-columns:1fr;gap:6px}
+  .typerow .metrics{text-align:left}
+}
+</style>
+
+<!-- ═══════════════ ICON SPRITE ═══════════════ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false" shape-rendering="geometricPrecision"><defs>
+<symbol id="i-scan" viewBox="0 0 16 16"><path d="M8 1.5a6.5 6.5 0 1 0 6.5 6.5"/><path d="M8 4.5a3.5 3.5 0 1 0 3.5 3.5"/><path d="M8 8 12.6 3.4"/><circle cx="8" cy="8" r=".95" data-solid/></symbol>
+<symbol id="i-stop" viewBox="0 0 16 16"><rect x="3.25" y="3.25" width="9.5" height="9.5" rx="1.75"/></symbol>
+<symbol id="i-trash" viewBox="0 0 16 16"><path d="M2.6 4.1h10.8"/><path d="M6.4 4.1V2.85a.85.85 0 0 1 .85-.85h1.5a.85.85 0 0 1 .85.85V4.1"/><path d="M12.4 4.1v8.55A1.35 1.35 0 0 1 11.05 14h-6.1A1.35 1.35 0 0 1 3.6 12.65V4.1"/><path d="M6.5 6.9v4.2M9.5 6.9v4.2"/></symbol>
+<symbol id="i-folder" viewBox="0 0 16 16"><path d="M2 4.35c0-.75.6-1.35 1.35-1.35h2.28c.42 0 .82.2 1.08.54l.83 1.09c.25.34.65.54 1.08.54h3.03c.75 0 1.35.6 1.35 1.35v5.13c0 .75-.6 1.35-1.35 1.35H3.35C2.6 13 2 12.4 2 11.65z"/></symbol>
+<symbol id="i-folder-open" viewBox="0 0 16 16"><path d="M2 11.65V4.35c0-.75.6-1.35 1.35-1.35h2.28c.42 0 .82.2 1.08.54l.83 1.09c.25.34.65.54 1.08.54h3.03c.75 0 1.35.6 1.35 1.35v.98"/><path d="M2 11.65 3.53 7.4a1.35 1.35 0 0 1 1.27-.9h9.05c.93 0 1.58.92 1.27 1.8l-1.2 3.4a1.35 1.35 0 0 1-1.27.9H3.35C2.6 13 2 12.4 2 11.65z"/></symbol>
+<symbol id="i-file" viewBox="0 0 16 16"><path d="M9.1 1.9H4.6a1.4 1.4 0 0 0-1.4 1.4v9.4A1.4 1.4 0 0 0 4.6 14.1h6.8a1.4 1.4 0 0 0 1.4-1.4V5.3z"/><path d="M9.1 1.9v2.4a1 1 0 0 0 1 1h2.7"/></symbol>
+<symbol id="i-warning" viewBox="0 0 16 16"><path d="M7.02 2.62a1.13 1.13 0 0 1 1.96 0l5.16 8.88c.44.76-.11 1.71-.98 1.71H2.84c-.87 0-1.42-.95-.98-1.71z"/><path d="M8 6.3v3.05"/><circle cx="8" cy="11.35" r=".78" data-solid/></symbol>
+<symbol id="i-shield-check" viewBox="0 0 16 16"><path d="M8 1.75 3.1 3.55v3.98c0 3.05 2.04 5.24 4.9 6.47 2.86-1.23 4.9-3.42 4.9-6.47V3.55z"/><path d="m5.95 7.85 1.45 1.45 2.85-2.85"/></symbol>
+<symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.1"/><path d="M8 4.55V8l2.35 1.4"/></symbol>
+<symbol id="i-settings" viewBox="0 0 16 16"><path d="M13.3 4.7H7.4"/><path d="M9.3 11.3H3.3"/><circle cx="4.7" cy="4.7" r="2"/><circle cx="11.3" cy="11.3" r="2"/></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 16 16"><path d="M6.25 3.5 10.75 8l-4.5 4.5"/></symbol>
+<symbol id="i-chevron-left" viewBox="0 0 16 16"><path d="M9.75 3.5 5.25 8l4.5 4.5"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 16 16"><path d="M3.5 6.25 8 10.75l4.5-4.5"/></symbol>
+<symbol id="i-chevron-up" viewBox="0 0 16 16"><path d="M3.5 9.75 8 5.25l4.5 4.5"/></symbol>
+<symbol id="i-close" viewBox="0 0 16 16"><path d="M11.9 4.1 4.1 11.9M4.1 4.1l7.8 7.8"/></symbol>
+<symbol id="i-search" viewBox="0 0 16 16"><circle cx="7.2" cy="7.2" r="4.7"/><path d="m10.65 10.65 3 3"/></symbol>
+<symbol id="i-filter" viewBox="0 0 16 16"><path d="M2.5 3.5h11L9.2 8.6v4.32L6.8 14.1V8.6z"/></symbol>
+<symbol id="i-sort-desc" viewBox="0 0 16 16"><path d="M2.6 4h10.8M2.6 8h6.6M2.6 12h3.2"/></symbol>
+<symbol id="i-sort-asc" viewBox="0 0 16 16"><path d="M2.6 4h3.2M2.6 8h6.6M2.6 12h10.8"/></symbol>
+<symbol id="i-history" viewBox="0 0 16 16"><path d="M2.35 8a5.65 5.65 0 1 0 1.7-4.03"/><path d="M2.05 2.4v3h3"/><path d="M8 5.1V8l2.05 1.2"/></symbol>
+<symbol id="i-external-link" viewBox="0 0 16 16"><path d="M9.6 2.4h4v4"/><path d="M13.6 2.4 7.85 8.15"/><path d="M12.5 9.5v3a1.5 1.5 0 0 1-1.5 1.5H3.5A1.5 1.5 0 0 1 2 12.5V5a1.5 1.5 0 0 1 1.5-1.5h3"/></symbol>
+<symbol id="i-terminal" viewBox="0 0 16 16"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.9"/><path d="m4.85 6.3 1.85 1.9-1.85 1.9"/><path d="M8.7 10.35h2.65"/></symbol>
+<symbol id="i-hard-drive" viewBox="0 0 16 16"><rect x="1.75" y="4.25" width="12.5" height="7.5" rx="1.9"/><path d="M1.75 8.5h12.5"/><circle cx="11.7" cy="10.1" r=".8" data-solid/><path d="M4.15 10.1h3.1"/></symbol>
+<symbol id="i-check" viewBox="0 0 16 16"><path d="m3.4 8.4 3.05 3.05L12.6 5.3"/></symbol>
+<symbol id="i-minus" viewBox="0 0 16 16"><path d="M4 8h8"/></symbol>
+<symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.1"/><path d="M8 7.4v3.6"/><circle cx="8" cy="5.2" r=".8" data-solid/></symbol>
+<symbol id="i-more-horizontal" viewBox="0 0 16 16"><circle cx="3.4" cy="8" r="1.1" data-solid/><circle cx="8" cy="8" r="1.1" data-solid/><circle cx="12.6" cy="8" r="1.1" data-solid/></symbol>
+<symbol id="i-sidebar-toggle" viewBox="0 0 16 16"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.9"/><path d="M10 2.75v10.5"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13.6 8a5.6 5.6 0 1 1-1.64-3.96"/><path d="M13.9 2.5v3h-3"/></symbol>
+<symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.6" y="5.6" width="8.4" height="8.4" rx="1.6"/><path d="M11.1 5.6V3.6A1.6 1.6 0 0 0 9.5 2H3.6A1.6 1.6 0 0 0 2 3.6v5.9a1.6 1.6 0 0 0 1.6 1.6h2"/></symbol>
+<symbol id="i-eye" viewBox="0 0 16 16"><path d="M.9 8S3.5 3.4 8 3.4 15.1 8 15.1 8 12.5 12.6 8 12.6.9 8 .9 8z"/><circle cx="8" cy="8" r="2.1"/></symbol>
+<symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3.6v8.8M3.6 8h8.8"/></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 16 16"><path d="M2.6 8h10.4M9.3 4.3 13 8l-3.7 3.7"/></symbol>
+<symbol id="i-arrow-up-right" viewBox="0 0 16 16"><path d="M4.3 11.7 11.7 4.3M5.5 4.3h6.2v6.2"/></symbol>
+<symbol id="i-lock" viewBox="0 0 16 16"><rect x="3.1" y="6.9" width="9.8" height="7.1" rx="1.7"/><path d="M5.4 6.9V4.9a2.6 2.6 0 0 1 5.2 0v2"/></symbol>
+<symbol id="i-alert-circle" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.1"/><path d="M8 4.9v3.6"/><circle cx="8" cy="11" r=".8" data-solid/></symbol>
+<symbol id="i-eco-rust" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.15"/><circle cx="8" cy="8" r="2.25"/><path d="M8 2.85V1.3M8 14.7v-1.55M13.15 8h1.55M1.3 8h1.55M11.65 4.35 12.75 3.25M3.25 12.75l1.1-1.1M11.65 11.65l1.1 1.1M3.25 3.25l1.1 1.1"/></symbol>
+<symbol id="i-eco-node" viewBox="0 0 16 16"><path d="M8 1.55 13.6 4.78v6.44L8 14.45 2.4 11.22V4.78z"/><path d="M6.2 6.3v3.05a1.35 1.35 0 0 1-2.05 1.16"/><path d="M11.85 6.9a2.6 2.6 0 0 0-1.55-.5c-.95 0-1.55.42-1.55 1.06 0 1.42 3.2.6 3.2 2.1 0 .68-.66 1.14-1.7 1.14a2.9 2.9 0 0 1-1.6-.48"/></symbol>
+<symbol id="i-eco-apple" viewBox="0 0 16 16"><path d="M8 4.85c-1.28-1.5-3.35-1.28-4.4.2-1.2 1.7-.63 4.45.95 6.35.63.75 1.4 1.5 2.25 1.2.5-.18.8-.5 1.2-.5s.7.32 1.2.5c.85.3 1.62-.45 2.25-1.2 1.58-1.9 2.15-4.65.95-6.35-1.05-1.48-3.12-1.7-4.4-.2z"/><path d="M8 4.85c.05-1.15.95-2.2 2.2-2.45"/></symbol>
+<symbol id="i-eco-docker" viewBox="0 0 16 16"><rect x="2.1" y="6.9" width="2.9" height="2.9" rx=".7"/><rect x="5.55" y="6.9" width="2.9" height="2.9" rx=".7"/><rect x="9" y="6.9" width="2.9" height="2.9" rx=".7"/><rect x="5.55" y="3.6" width="2.9" height="2.9" rx=".7"/><path d="M1.4 11.5c1.1 1.7 3.1 2.5 5.4 2.5 4 0 6.6-1.9 7.6-5.2"/></symbol>
+<symbol id="i-eco-go" viewBox="0 0 16 16"><path d="M1.2 6.3h3M.6 8h3.1M1.2 9.7h3"/><circle cx="9.9" cy="8" r="4.5"/><path d="M11.8 6.3a2.3 2.3 0 1 0 .35 2.55h-1.6"/></symbol>
+<symbol id="i-eco-system" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.6"/><rect x="6.4" y="6.4" width="3.2" height="3.2" rx=".8"/><path d="M6.2 1.8v2.2M9.8 1.8v2.2M6.2 12v2.2M9.8 12v2.2M1.8 6.2h2.2M1.8 9.8h2.2M12 6.2h2.2M12 9.8h2.2"/></symbol>
+<symbol id="i-eco-python" viewBox="0 0 16 16"><path d="M4.4 3.3h4.1a2.35 2.35 0 0 1 0 4.7h-1a2.35 2.35 0 0 0 0 4.7h4.1"/><circle cx="5.35" cy="4.5" r=".62" data-solid/></symbol>
+<symbol id="i-eco-java" viewBox="0 0 16 16"><path d="M2.5 6.6h8.15v3.6a2.7 2.7 0 0 1-2.7 2.7H5.2a2.7 2.7 0 0 1-2.7-2.7z"/><path d="M10.65 7.5h1.15a1.75 1.75 0 0 1 0 3.5h-1.15"/><path d="M5.5 4.5c.65-.62.65-1.28 0-1.9M8.1 4.5c.65-.62.65-1.28 0-1.9"/></symbol>
+<symbol id="i-eco-homebrew" viewBox="0 0 16 16"><path d="M8 2.2c2.6 0 4.6 2 4.6 4.6 0 3.4-2.7 6.05-4.6 7.2C6.1 12.85 3.4 10.2 3.4 6.8 3.4 4.2 5.4 2.2 8 2.2z"/><path d="M8 5v6.6"/><path d="m5.6 6.5 2.4 1.85 2.4-1.85"/><path d="m5.8 9.2 2.2 1.7 2.2-1.7"/></symbol>
+<symbol id="i-eco-jetbrains" viewBox="0 0 16 16"><rect x="1.9" y="1.9" width="12.2" height="12.2" rx="2.3"/><path d="M4.4 11.9h4.3"/><path d="M9.5 4.5v3.35a1.75 1.75 0 0 1-3.4.55"/></symbol>
+<symbol id="i-eco-dotnet" viewBox="0 0 16 16"><circle cx="2.3" cy="12" r="1.15" data-solid/><path d="M5.6 12.5V3.5l5.6 9V3.5"/><path d="M12.9 3.5h1.6M13.7 3.5v9"/></symbol>
+</defs></svg>
+
+<div class="doctools">
+  <button id="tDark" class="on">Dark doc</button>
+  <button id="tLight">Light doc</button>
+</div>
+
+<div class="doc">
+
+<header class="masthead">
+  <div class="eyebrow">Design proposal · v1 · for review</div>
+  <h1>Void</h1>
+  <p class="lede">A complete visual and interaction redesign of Void — the desktop tool that finds and reclaims
+  developer build artifacts. Every screen, both themes, specified down to the token. Nothing here has been
+  built into the app yet; this document exists to be argued with.</p>
+  <dl class="meta">
+    <div><dt>Surface</dt><dd>Tauri desktop · 900×700 default</dd></div>
+    <div><dt>Platforms</dt><dd>macOS · Windows · Linux</dd></div>
+    <div><dt>Themes</dt><dd>Light and dark, fully specified</dd></div>
+    <div><dt>Screens</dt><dd>11 states · 1 tray popover</dd></div>
+    <div><dt>Status</dt><dd>Proposal — not implemented</dd></div>
+  </dl>
+</header>
+
+<nav class="toc">
+  <a href="#s1"><i>01</i>Direction</a>
+  <a href="#s2"><i>02</i>Color</a>
+  <a href="#s3"><i>03</i>Typography</a>
+  <a href="#s4"><i>04</i>Layout &amp; shell</a>
+  <a href="#s5"><i>05</i>Screens</a>
+  <a href="#s6"><i>06</i>Components</a>
+  <a href="#s7"><i>07</i>Motion &amp; depth</a>
+  <a href="#s8"><i>08</i>What this changes</a>
+</nav>
+
+<!-- ═════════════════════════ 01 DIRECTION ═════════════════════════ -->
+<section class="sect" id="s1">
+  <div class="sect-head"><span class="sect-num">01</span><h2>Direction</h2><span class="tag">the argument</span></div>
+  <p class="sect-intro">Void deletes things. That single fact should decide every design choice in it, and in the
+  current UI it decides none of them. The redesign is organised around three moves, each of which fixes something
+  that is presently wrong rather than merely plain.</p>
+
+  <div class="sub">
+    <h3>One — the statistics dissolve into the list</h3>
+    <p>Today a 320&nbsp;px panel holds a nine-segment donut, a bar chart, and a stack of cards that print the same
+    numbers three times, and it auto-opens the moment a scan completes — shoving aside the results the user just
+    waited for. The panel is deleted. Group headers become the bar chart, typographic weight becomes the size
+    hierarchy, and a disk meter answers the question the donut never did: <em>how much of my disk is this?</em>
+    Every statistic survives; none of them cost the list any width.</p>
+  </div>
+
+  <div class="sub">
+    <h3>Two — risk belongs to the action, not the item</h3>
+    <p>This is a correctness fix disguised as a design change. <code>CleanableItem.risk</code> and
+    <code>CleanAction.risk</code> are different fields, and they disagree: <code>SimulatorDevices</code> is a
+    <em>Caution</em> item holding a <em>Danger</em> action, and <code>~/Downloads</code> is a <em>Safe</em> item
+    holding <code>rm -rf</code>. The current UI shows the item's risk and then silently runs
+    <code>available_actions[0]</code>. The redesign shows the risk of the action that will actually run, and makes
+    that action visible and changeable on every row.</p>
+  </div>
+
+  <div class="sub">
+    <h3>Three — confirmation friction scales with real risk</h3>
+    <p>A dialog that looks the same whether you are deleting <code>node_modules</code> or emptying your Maven
+    repository trains people to click through it. An all-safe batch gets a 280&nbsp;px modal and one click. A batch
+    containing Caution actions gets each one itemised with its literal command. A batch containing a Danger action
+    requires typing <code>delete</code>. The friction is the signal.</p>
+  </div>
+
+  <div class="note">
+    <strong>A constraint worth stating.</strong> Everything drawn here is buildable against the existing Rust
+    backend except nine items, listed in §08. Four of them — persisting <code>AppConfig</code>, a batch-complete
+    event, a cancellation token, and a disk-usage command — are small. The History screen and honest
+    permission-denied reporting are not. Screens that depend on missing backend work are marked
+    <em>needs backend</em> so nothing here reads as shippable when it isn't.
+  </div>
+</section>
+
+<style>
+.screen-body{display:grid;grid-template-columns:900px minmax(280px,1fr);gap:34px;align-items:start;margin-top:22px}
+.screen-stack{display:flex;flex-direction:column;gap:20px}
+@media (max-width:1340px){.screen-body{grid-template-columns:1fr}}
+@media (max-width:980px){.app{zoom:.72}.tray{zoom:.9}}
+.screen-aside{position:sticky;top:24px;display:flex;flex-direction:column;gap:18px}
+.aside-block h5{margin:0 0 9px;font:620 9px/12px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--doc-fg-3)}
+.needs-backend{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:4px;
+  background:rgb(210 153 34/.14);color:#d29922;font:600 9.5px/1 var(--font-sans);letter-spacing:.06em;text-transform:uppercase}
+</style>
+
+<!-- ═════════════════════════ 05 SCREENS ═════════════════════════ -->
+<section class="sect" id="s5">
+  <div class="sect-head"><span class="sect-num">05</span><h2>Screens</h2><span class="tag">11 states · both themes</span></div>
+  <p class="sect-intro">Every screen at its true size — 900×700, the app's default window. Each is shown in dark
+  first, then light directly beneath it, rendered from the same markup so the two can't drift apart. The notes
+  beside each screen explain the decisions that aren't self-evident.</p>
+
+  <div class="screens">
+
+    <!-- ── 5a ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5a</span><h4>First run</h4><span class="dims">900 × 700 · content max 440</span></div>
+      <p class="screen-note">The most common first-run failure isn't confusion about the button — it's scanning the
+      wrong root, or on macOS being unable to read it. So the scan root is stated <strong>before</strong> the first
+      scan, with a one-click route to change it. That turns a baffling empty result into a fix, and quietly teaches
+      that roots are configurable at all.</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="firstrun"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="firstrun"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>The <strong>mark is the scan indicator</strong> — a ring with a gap at 45°. The same shape spins during a scan and sits in the tray. One shape, three jobs.</span></li>
+          <li><b>2</b><span>The scan-root card is <strong>440×64</strong> with an inline <code>Change ›</code> that deep-links to Settings → Scanning.</span></li>
+          <li><b>3</b><span>On macOS without Full Disk Access a notice card is inserted above it. Without that, <code>~/Library</code> caches are silently <em>absent</em> — permission-denied directories compute size 0 and get dropped from results entirely.</span></li>
+          <li><b>4</b><span>Copy states what happens and what doesn't: <em>"Nothing is deleted until you pick it and confirm."</em> An empty screen is an invitation, not a label.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5b ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5b</span><h4>Scanning</h4><span class="dims">streaming · no separate screen</span></div>
+      <p class="screen-note">There is no dedicated scanning screen. Results stream into the real table as
+      <code>ItemFound</code> arrives — a separate progress screen would throw away the only user-visible benefit of
+      the streaming architecture. What's added is a <strong>per-scanner ticker</strong>, which is the honest answer
+      to "is it stuck?" when eleven scanners run concurrently and one of them is slow.</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="scanning"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="scanning"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>Progress is <strong>indeterminate</strong> and stays that way. Total path count is unknowable up front; a fake determinate bar would be a lie.</span></li>
+          <li><b>2</b><span>The ticker shows three states per ecosystem — pending, running, <code>✓ n</code> done. Driven straight off <code>ScannerStarted</code> / <code>ScannerCompleted</code>.</span></li>
+          <li><b>3</b><span><strong>Group order freezes during the scan.</strong> Groups appear in arrival order and re-sort once, at <code>ScanComplete</code>. Re-sorting per event produces an unreadable jumping list.</span></li>
+          <li><b>4</b><span>Selection is disabled mid-scan — a later event can supersede an item you've already ticked.</span></li>
+          <li><b>5</b><span>The headline counts up live. This is the best moment in the product; it gets the animation budget.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5c ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5c</span><h4>Results — the core screen</h4><span class="dims">900 × 700 · 52+64+40+28+492+24</span></div>
+      <p class="screen-note">Grouped by ecosystem because that maps to <em>why the bytes exist and what it costs to
+      get them back</em> — nobody minds losing <code>node_modules</code>; everybody minds re-downloading Maven. Four
+      devices make size scannable without reading a number: groups sorted by total, rows sorted by size, a
+      per-group magnitude bar, and typographic tiering so gigabyte rows visually rise out of the list.</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="results"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="results"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>Group headers carry a <strong>100×6 share bar</strong> — that is the entire deleted bar chart, relocated to where it's actionable and costing zero width.</span></li>
+          <li><b>2</b><span><strong>No “Safe” badge.</strong> ~80% of real items are Safe; a badge on 80% of rows is texture, not signal. Safe is the absence of a badge plus a transparent risk edge.</span></li>
+          <li><b>3</b><span>The 4px <strong>risk edge</strong> shows the risk of the <em>selected action</em>, not <code>item.risk</code>.</span></li>
+          <li><b>4</b><span>The full path lives permanently on line 2. Today it's behind a 400ms hover tooltip — a path you must hover cannot be scanned or trusted.</span></li>
+          <li><b>5</b><span><code>[n actions ▾]</code> exposes what will actually run, and its popover footer offers <em>“apply to all n items in this group”</em> — the difference between choosing once and choosing 42 times.</span></li>
+          <li><b>6</b><span>Magnitude bars use <code>sqrt(size / group max)</code>. Linear scaling renders thirty 200 MB rows as invisible slivers next to one 40 GB outlier.</span></li>
+          <li><b>7</b><span>Docker reports <code>size_display: "unknown"</code> and no mtime — it renders as italic <em>unknown</em> and <code>—</code>, never <code>0 B</code> and <code>0d</code>.</span></li>
+          <li><b>8</b><span>The disk meter answers “how much of my disk is this?”. <code>23% of your 1 TB disk</code> motivates better than a raw byte count.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5d ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5d</span><h4>Pre-clean confirmation</h4><span class="dims">modal 560 wide · max 600 tall</span></div>
+      <p class="screen-note">Leads with <strong>method, not risk</strong> — what physically happens is what determines
+      recoverability, and <code>rm -rf</code> is a fact where a risk label is a scanner's opinion. Safe items are
+      counted, never listed; only Caution and Danger get individual rows. With no Caution or Danger in the batch the
+      whole attention section disappears and the modal is ~280px tall.</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="confirm"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="confirm"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>The <strong>literal command</strong> is shown for every Command and DockerPrune action. <code>SafetyChecker</code> never inspects command arguments — this string is the only real disclosure the user gets.</span></li>
+          <li><b>2</b><span>Type-to-confirm appears <em>only</em> when a Danger action is in the batch. The word is <code>delete</code>, lowercase, unlocalized.</span></li>
+          <li><b>3</b><span><strong>“Prefer Trash where available”</strong> is checked by default and lives next to the commit button, because it is the one control that can turn a Danger batch into a Safe one. Toggling it re-computes the modal live.</span></li>
+          <li><b>4</b><span>The button names the count — <code>Clean 18 items</code>. Never “OK”, never “Confirm”.</span></li>
+          <li><b>5</b><span>Initial focus is <em>Cancel</em>, or the confirm field when present. Never the destructive button.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5e ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5e</span><h4>Cleaning</h4><span class="dims">in place · determinate</span></div>
+      <p class="screen-note">The modal closes and the user returns to the table, because that's where the objects
+      being acted on live. <code>execute_batch</code> is a strictly sequential loop, so this is a
+      <strong>queue</strong>, not parallel bars — one active, the rest waiting — and the progress is genuinely
+      determinate. Failures don't stop the batch, so failed rows stay put while successful ones collapse away; by
+      the end the table has filtered itself down to exactly what didn't work.</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="cleaning"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="cleaning"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span><strong>No Stop button.</strong> There is no cancellation token in <code>execute_batch</code>. A Stop button that doesn't stop is worse than none — this needs backend work first.</span></li>
+          <li><b>2</b><span>The failed row keeps its place, tinted, with the raw error in monospace and a <code>Retry</code>. Machine text is always monospace, always selectable, never folded into a sentence.</span></li>
+          <li><b>3</b><span><code>cargo: not found in PATH</code> is the most likely real failure, so it gets a contextual fix chip that swaps to the item's <code>RemoveDir</code> action and re-queues it.</span></li>
+          <li><b>4</b><span>“freed so far” uses <code>bytes_freed</code> where it's non-zero and <code>estimated_savings_bytes</code> otherwise — Command and DockerPrune always report zero.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5f ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5f</span><h4>Completion</h4><span class="dims">96px result card</span></div>
+      <p class="screen-note">The payoff. The headline number carries an <strong>“estimated”</strong> qualifier
+      whenever a Command or DockerPrune action contributed, because those return <code>bytes_freed: 0</code> on
+      success and the figure is genuinely an estimate. Auto-dismisses after 12 seconds only when nothing failed.</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="complete"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="complete"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>Unqualified totals would be wrong. The tooltip says so plainly: <em>Void can't measure what <code>cargo clean</code> removes.</em></span></li>
+          <li><b>2</b><span><code>3 failed</code> is a link that scrolls to and flashes the surviving failed rows.</span></li>
+          <li><b>3</b><span>The rail's disk meter animates to its new value over 600ms. This is the one place worth spending motion.</span></li>
+          <li><b>4</b><span>There is <strong>no batch-complete event</strong> in the backend — the frontend detects completion by counting <code>Started</code> against terminal events. Worth adding.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5g ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5g</span><h4>Item detail drawer</h4><span class="dims">400 wide · overlay &lt;1280, inline ≥1280</span></div>
+      <p class="screen-note">The screen the current app has no equivalent of. Opening it does <strong>not</strong>
+      change selection — inspecting and choosing are separate acts. Its centre is the action radio list, where every
+      option shows its label, its verbatim description, the literal command or method, what it frees, and whether it
+      is recoverable. Only two actions in the entire product are recoverable, and the drawer says which.</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="drawer"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="drawer"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>Changing the selected action immediately updates the row's risk edge and badge, because risk is a property of the action.</span></li>
+          <li><b>2</b><span><code>Frees unknown</code> — never <code>0 B</code>. Every npm/yarn/pnpm project-cache action, every Docker action, and every per-project DerivedData action reports <code>estimated_savings_bytes: 0</code>.</span></li>
+          <li><b>3</b><span>The Safety section only claims what's true for the <em>selected</em> method. For a Command it says plainly: <em>Void runs this command as-is; it does not inspect what the command deletes.</em></span></li>
+          <li><b>4</b><span>Apple DerivedData emits one action per Xcode project — often dozens. Above six actions the list gets a filter field and scrolls.</span></li>
+          <li><b>5</b><span><code>Exclude this path</code> appends to <code>blocked_paths</code> and is the only genuinely undoable action in Void — so it's the only place a toast is warranted.</span></li>
+          <li><b>6</b><span><kbd>⌥↑</kbd>/<kbd>⌥↓</kbd> move between items with the drawer open. That's the review loop.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5h ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5h</span><h4>Settings</h4><span class="dims">segmented nav &lt;1024 · form max 560</span><span class="needs-backend">Needs backend</span></div>
+      <p class="screen-note">There is no settings UI today at all, while <code>scan_roots</code> and
+      <code>blocked_paths</code> determine what a scan can even see. Every <code>AppConfig</code> field is accounted
+      for. Two things are told truthfully rather than flatteringly: the staleness threshold is labelled as a display
+      filter because <strong>no backend code reads it</strong>, and the hard-coded protected paths are shown as a
+      read-only list above the user's own blocklist.</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="settings"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="settings"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>Saves on change, debounced 400ms. No Save button. <em>But</em> <code>update_config</code> only mutates an in-memory mutex — settings silently reset on relaunch until that's fixed.</span></li>
+          <li><b>2</b><span>Ecosystem rows are sorted by descending last-scan bytes, so the expensive ones sit on top and carry the numbers that justify the toggle.</span></li>
+          <li><b>3</b><span>Protected paths come verbatim from <code>safety.rs</code>. Header: <em>“Void refuses to delete these, always.”</em></span></li>
+          <li><b>4</b><span>Changing anything under Scanning or Ecosystems shows a persistent <em>“Changes apply to your next scan · Rescan now”</em> notice.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5i ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5i</span><h4>History</h4><span class="dims">3 tiles · 1 chart · run list</span><span class="needs-backend">Needs backend</span></div>
+      <p class="screen-note">The retention hook: <em>“I've reclaimed 340 GB this year.”</em> It is also the only
+      place a failed clean can be inspected after the fact. This holds the <strong>only chart in the entire
+      application</strong>, because reclaimed-over-time is the one thing here that is genuinely a time series — the
+      donut it replaces was a nine-segment pie, the least readable form for that data.</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="history"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="history"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>Requires persisting a run record per batch — the largest backend addition this design asks for.</span></li>
+          <li><b>2</b><span>Expanding a run shows per-item path, action label, exact command, bytes freed, and the full error for failures, each with <code>Retry</code>.</span></li>
+          <li><b>3</b><span>Counts are exact and tabular everywhere. <code>1.2k</code> in a tool where the number is the thing being audited is a lie for no gain.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5j ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5j</span><h4>Menu bar popover</h4><span class="dims">320 wide · 320–420 tall</span></div>
+      <p class="screen-note">Read-only, plus two verbs. <strong>You cannot clean from here</strong> — cleaning from a
+      320px popover with no room for the risk review is precisely the affordance that gets someone's
+      <code>~/.m2</code> deleted by accident. Four ecosystems, no scroll: popovers that scroll are windows in
+      disguise.</p>
+      <div class="screen-body" style="grid-template-columns:auto minmax(280px,1fr)">
+        <div class="screen-stack" style="flex-direction:row;gap:40px;flex-wrap:wrap">
+          <div class="pane"><div class="pane-label dark">Dark</div><div class="tray app" data-theme="dark" data-screen="tray" style="width:320px;height:auto;display:block;box-shadow:none"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div><div class="tray app" data-theme="light" data-screen="tray" style="width:320px;height:auto;display:block;box-shadow:none"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>Replaces the current tray's <em>Scan Now</em> / <em>Open Dashboard</em> menu items. <em>Quit</em> moves to right-click.</span></li>
+          <li><b>2</b><span>The tray icon must be a <strong>macOS template image</strong> — pure black plus alpha at 22×22 and 44×44. <code>tray.rs</code> currently passes the full-colour app icon, which won't theme or invert in the menu bar.</span></li>
+          <li><b>3</b><span>Docker shows <code>unknown</code>, not <code>0 B</code>.</span></li>
+          <li><b>4</b><span>Don't animate the tray icon — it wakes the app, defeats App Nap, and burns battery. A static half-arc says “working” perfectly well.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+    <!-- ── 5k ── -->
+    <article class="screen">
+      <div class="screen-head"><span class="screen-id">5k</span><h4>Error &amp; permission states</h4><span class="dims">banner 44 · issues sheet 480</span></div>
+      <p class="screen-note">Today <code>ScanEvent::Error</code> goes to <code>console.error</code> and vanishes.
+      A scan can emit dozens, so they get a status-bar chip and a sheet — never a modal, never a toast each. The
+      permission banner is the important one: because unreadable directories are dropped rather than reported, the
+      failure mode is <strong>invisible absence</strong>, and absence with no explanation reads as “this tool
+      doesn't work.”</p>
+      <div class="screen-body">
+        <div class="screen-stack">
+          <div class="pane"><div class="pane-label dark">Dark</div>
+            <div class="oschrome app" data-theme="dark" data-screen="errors"></div></div>
+          <div class="pane"><div class="pane-label light">Light</div>
+            <div class="oschrome app" data-theme="light" data-screen="errors"></div></div>
+        </div>
+        <aside class="screen-aside"><div class="aside-block"><h5>Notes</h5><ul class="callouts">
+          <li><b>1</b><span>Identical messages group with a <code>×N</code> multiplier rather than repeating.</span></li>
+          <li><b>2</b><span>“Nothing to clean” routes to <strong>Check scan roots</strong> first, not to a retry — it's almost always a wrong-root or permissions problem.</span></li>
+          <li><b>3</b><span>A filter matching nothing is an inline 120px state, not a full-page one. A 56px empty state punched into a filtered list is a jarring hole.</span></li>
+          <li><b>4</b><span>Errors don't apologise and are never vague. The raw string sits in a monospace plate, selectable, so it can be pasted into an issue.</span></li>
+        </ul></div></aside>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   SCREEN RENDERER
+   One template per screen, mounted into every [data-screen] node.
+   Dark and light twins render from identical markup.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const I = (id, cls = 'icon') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+const CB = (s) => `<span class="cb" aria-checked="${s}">${s === 'mixed' ? I('minus') : I('check')}</span>`;
+const nf = new Intl.NumberFormat('en-US');
+
+function fmt(bytes){
+  if (bytes == null) return {n:'—', u:''};
+  if (bytes === 0) return {n:'0', u:'B'};
+  const U = ['B','kB','MB','GB','TB'];
+  let i = Math.min(Math.floor(Math.log10(bytes)/3), U.length-1);
+  let v = bytes / Math.pow(1000, i);
+  if (v >= 999.95 && i < U.length-1){ i++; v = bytes/Math.pow(1000,i); }
+  return {n: v.toFixed(i===0 ? 0 : v<10 ? 1 : v<100 ? 1 : 0), u: U[i]};
+}
+function magOf(b){ return b == null ? 'unknown' : b >= 1e10 ? 'xl' : b >= 1e9 ? 'lg' : b >= 1e8 ? 'md' : 'sm'; }
+function Size(bytes){
+  if (bytes == null) return `<span class="size" data-mag="unknown"><span class="size-num">unknown</span></span>`;
+  const {n,u} = fmt(bytes);
+  return `<span class="size" data-mag="${magOf(bytes)}"><span class="size-num tnum">${n}</span><span class="size-unit">${u}</span></span>`;
+}
+/* Path with the four emphasis roles. */
+function Path(p, project){
+  const abs = p.startsWith('/');
+  const segs = p.split('/').filter(Boolean);
+  const leaf = segs.length - 1;
+  let pi = project ? segs.lastIndexOf(project) : -1;
+  if (pi === leaf) pi = -1;
+  let out = abs && segs[0] !== '~' ? `<span class="s-sep">/</span>` : '';
+  segs.forEach((s, i) => {
+    const r = i === leaf ? 'leaf' : i === pi ? 'project' : i === 0 ? 'root' : 'dim';
+    out += `<span class="s-${r}">${s}</span>` + (i !== leaf ? `<span class="s-sep">/</span>` : '');
+  });
+  return `<span class="path">${out}</span>`;
+}
+const stale = d => d == null ? '—' : d === 0 ? 'today' : d < 365 ? d + 'd' : (d/365).toFixed(1) + 'y';
+
+/* ── Canonical dataset — real scanner output, not invented ── */
+const ECO = {
+  node:{n:'Node.js', k:'node'}, apple:{n:'Apple / Xcode', k:'apple'}, rust:{n:'Rust', k:'rust'},
+  java:{n:'Java / JVM', k:'java'}, go:{n:'Go', k:'go'}, docker:{n:'Docker', k:'docker'},
+  system:{n:'System', k:'system'}, homebrew:{n:'Homebrew', k:'homebrew'},
+  python:{n:'Python', k:'python'}, jet_brains:{n:'JetBrains', k:'jetbrains'}, dot_net:{n:'.NET', k:'dotnet'}
+};
+
+const GROUPS = [
+  { eco:'node', bytes:58.2e9, count:94, items:[
+    { kind:'node_modules/', proj:'void-web', path:'~/git/void-web/node_modules', d:12, b:4.1e9, risk:'safe', acts:2, sel:false },
+    { kind:'node_modules/', proj:'dashboard', path:'~/git/dashboard/node_modules', d:48, b:3.2e9, risk:'safe', acts:2, sel:false },
+    { kind:'npm cache', proj:null, path:'~/.npm', d:48, b:2.4e9, risk:'safe', acts:1, sel:true }
+  ]},
+  { eco:'apple', bytes:31.0e9, count:18, items:[
+    { kind:'iOS Simulators', proj:null, path:'~/Library/Developer/CoreSimulator/Devices', d:18, b:22.1e9, risk:'caution', acts:2, sel:true, note:'holds a Danger action' },
+    { kind:'DerivedData/', proj:'MyApp', path:'~/Library/Developer/Xcode/DerivedData', d:3, b:8.4e9, risk:'safe', acts:14, sel:false },
+    { kind:'Archives/', proj:null, path:'~/Library/Developer/Xcode/Archives', d:210, b:6.2e9, risk:'caution', acts:1, sel:false }
+  ]},
+  { eco:'rust', bytes:22.4e9, count:42, items:[
+    { kind:'target/', proj:'void', path:'~/git/void/target', d:2, b:3.8e9, risk:'safe', acts:3, sel:true }
+  ]},
+  { eco:'system', bytes:22.3e9, count:9, items:[
+    { kind:'Trash', proj:null, path:'~/.Trash', d:null, b:14.2e9, risk:'caution', acts:1, sel:false },
+    { kind:'xcode_14.3.xip', proj:null, path:'~/Downloads/xcode_14.3.xip', d:340, b:8.1e9, risk:'safe', acts:2, sel:false, note:'Safe default guarding rm -rf' }
+  ]},
+  { eco:'go', bytes:11.3e9, count:3, items:[
+    { kind:'Go module cache', proj:null, path:'~/go/pkg/mod', d:31, b:11.3e9, risk:'caution', acts:2, sel:false }
+  ]},
+  { eco:'java', bytes:8.9e9, count:6, items:[
+    { kind:'Maven repository', proj:null, path:'~/.m2/repository', d:92, b:8.9e9, risk:'caution', acts:1, sel:true }
+  ]},
+  { eco:'docker', bytes:null, count:1, items:[
+    { kind:'Docker build cache', proj:null, path:'/var/run/docker.sock', d:null, b:null, risk:'caution', acts:5, sel:false }
+  ]},
+  { eco:'homebrew', bytes:3.1e9, count:11, items:[
+    { kind:'Homebrew cache', proj:null, path:'~/Library/Caches/Homebrew', d:21, b:3.1e9, risk:'safe', acts:2, sel:false }
+  ]}
+];
+const MAXGROUP = 58.2e9;
+
+/* ── Shared chrome ── */
+function Titlebar(t){
+  return `<div class="titlebar"><div class="tl"><i></i><i></i><i></i></div><div class="tt">${t}</div></div>`;
+}
+const MARK = `<svg class="void-mark" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+  <circle cx="10" cy="10" r="6.75" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+    pathLength="100" stroke-dasharray="88 12" stroke-dashoffset="-81"/></svg>`;
+
+function Rail(active, badge, spin){
+  const b = (id, icon, label, n) => `<button class="rail-btn" ${active===id?'aria-current="page"':''} title="${label}">
+    ${I(icon)}${n?`<span class="rail-badge">${n}</span>`:''}</button>`;
+  return `<div class="rail">
+    <div class="rail-mark" ${spin?'style="animation:void-spin 900ms linear infinite"':''}>${MARK}</div>
+    ${b('results','sidebar-toggle','Results (⌘1)', badge)}
+    ${b('history','history','History (⌘2)')}
+    ${b('settings','settings','Settings (⌘3)')}
+    <div class="rail-spacer"></div>
+    <div class="rail-disk" title="512 GB free of 1 TB">
+      <div class="rail-disk-bar"><i class="rail-disk-recl" style="height:14%"></i><i class="rail-disk-used" style="height:49%"></i></div>
+      <span class="t-micro tnum">23%</span>
+    </div>
+  </div>`;
+}
+
+function Cmdbar(title, sub, actions){
+  return `<div class="cmdbar">
+    <div class="cmdbar-titles">
+      <div class="t-section-title cmdbar-title" style="font-size:15px">${title}</div>
+      <div class="t-caption cmdbar-sub">${sub}</div>
+    </div>
+    <div class="cmdbar-actions">${actions}</div>
+  </div>`;
+}
+
+function Summary(opts){
+  const {headline='142.6', unit='GB', sub='384 items · 9 ecosystems', selN=0, selBytes=0} = opts;
+  const s = fmt(selBytes);
+  return `<div class="summary">
+    <div class="summary-headline">
+      <div class="metric"><span class="t-metric-sm">${headline}</span><span class="t-body-sm" style="color:var(--text-tertiary)">${unit} reclaimable</span></div>
+      <div class="t-caption sub">${sub}</div>
+    </div>
+    <div class="summary-disk">
+      <div class="diskmeter"><i class="seg-used" style="width:49%"></i><i class="seg-recl" style="width:14%"></i></div>
+      <div class="t-caption legend">
+        <span><b>23%</b> of your 1 TB disk</span><span style="color:var(--text-quaternary)">512 GB free</span>
+      </div>
+    </div>
+    <div class="summary-action">
+      ${selN ? `<div class="t-caption selinfo"><b>${selN} selected</b> · ${s.n} ${s.u}</div>
+        <button class="btn btn-primary">Review &amp; Clean<span class="kbd">⌘↵</span></button>`
+      : `<button class="btn btn-ghost btn-sm">Select all safe (312) ${I('arrow-right','icon icon-sm')}</button>`}
+    </div>
+  </div>`;
+}
+
+function Toolbar(tokens){
+  return `<div class="toolbar">
+    <div class="search">${I('search','icon icon-sm')}
+      ${tokens || `<input placeholder="Filter by path, project, or type" readonly>`}
+    </div>
+    <button class="chip">${I('filter')}Filters<span class="countpill" style="margin-left:2px">2</span></button>
+    <div class="toolbar-sep"></div>
+    <button class="chip">Group: Ecosystem ${I('chevron-down','icon icon-sm')}</button>
+    <button class="chip">Size ${I('chevron-down','icon icon-sm')}</button>
+    <div style="flex:1"></div>
+    <button class="iconbtn" title="Density (⌘D)">${I('sidebar-toggle')}</button>
+    <button class="iconbtn" title="Expand all (⌘⇧E)">${I('chevron-down')}</button>
+  </div>`;
+}
+
+const TableHead = () => `<div class="tablehead">
+  <span style="width:22px"></span><span style="width:12px"></span>
+  <span class="t-colhead" style="flex:1">Name</span>
+  <span class="t-colhead" style="width:56px;text-align:right;padding-right:12px">Stale</span>
+  <span style="width:56px;padding-right:12px"></span>
+  <span class="t-colhead" style="width:84px;text-align:right;padding-right:8px">Size</span>
+  <span style="width:24px"></span></div>`;
+
+function Group(g, open = true){
+  const e = ECO[g.eco];
+  const pct = g.bytes ? (g.bytes / MAXGROUP) * 100 : 4;
+  const sz = g.bytes == null ? `<span class="size" data-mag="unknown"><span class="size-num">unknown</span></span>` : Size(g.bytes);
+  return `<div class="group-header" style="--eco-accent:var(--eco-${e.k})">
+    ${CB(g.items.some(i=>i.sel) ? (g.items.every(i=>i.sel)?'true':'mixed') : 'false')}
+    <span style="color:var(--text-tertiary);display:flex">${I(open?'chevron-down':'chevron-right','icon icon-sm')}</span>
+    <span style="color:var(--eco-accent);display:flex">${I('eco-'+e.k,'icon icon-sm')}</span>
+    <span class="t-body-strong gname">${e.n}</span>
+    <span class="countpill tnum">${g.count} items</span>
+    <span class="spacer"></span>
+    <span class="gshare"><i style="width:${pct}%"></i></span>
+    <span class="gsize">${sz}</span>
+  </div>`;
+}
+
+function Item(it, eco, opt = {}){
+  const e = ECO[eco];
+  const ratio = it.b ? Math.sqrt(it.b / 22.1e9) : 0.02;
+  const badge = it.risk === 'safe' ? '' : `<span class="badge badge-${it.risk}">${it.risk}</span>`;
+  const acts = it.acts > 1
+    ? `<span class="chip" style="height:18px;padding:0 6px;font-size:11px;background:transparent;border-color:var(--border-subtle);color:var(--text-quaternary)">${it.acts} actions ${I('chevron-down','icon icon-sm')}</span>`
+    : '';
+  return `<div class="item ${it.sel?'is-selected':''} ${opt.focus?'is-focused':''}"
+      style="--eco-accent:var(--eco-${e.k});--size-ratio:${ratio.toFixed(3)}">
+    <div class="item-inner">
+      <span class="cell-check">${CB(it.sel ? 'true' : 'false')}</span>
+      <span class="riskedge ${it.risk}"></span>
+      <span class="cell-main">
+        <span class="line1">
+          <span class="kindname">${it.kind}</span>
+          ${it.proj ? `<span class="projname">· ${it.proj}</span>` : ''}
+          ${badge}
+        </span>
+        <span class="line2">${Path(it.path, it.proj)}${acts}</span>
+      </span>
+      <span class="cell-stale t-caption ${it.d != null && it.d > 30 ? 'is-stale' : ''}">${stale(it.d)}</span>
+      <span class="cell-mag"><span class="magbar"><i style="width:${Math.max(3, ratio*100)}%"></i></span></span>
+      <span class="cell-size">${Size(it.b)}</span>
+      <span class="cell-chev">${I('chevron-right','icon icon-sm')}</span>
+    </div>
+  </div>`;
+}
+
+function StatusBar(left, issues){
+  return `<div class="statusbar t-caption">
+    <span>${left}</span><span class="spacer"></span>
+    ${issues ? `<span class="issues">${I('warning','icon icon-sm')} ${issues} issues</span>` : ''}
+    <span style="color:var(--text-quaternary)">Comfortable</span>
+  </div>`;
+}
+
+const AllGroups = () => GROUPS.map(g => Group(g) + g.items.map(i => Item(i, g.eco)).join('')).join('');
+</script>
+
+<script>
+/* ══════════════════ SCREEN TEMPLATES ══════════════════ */
+const S = {};
+
+S.firstrun = () => `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0">${Rail('results')}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('Results','Ready to scan',`<button class="btn btn-primary">${I('scan')}Scan now</button>
+      <button class="iconbtn">${I('more-horizontal')}</button>`)}
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:24px">
+      <div style="width:440px;text-align:center;display:flex;flex-direction:column;align-items:center">
+        <div style="color:var(--accent);margin-bottom:24px"><svg viewBox="0 0 20 20" width="64" height="64" aria-hidden="true">
+          <circle cx="10" cy="10" r="6.75" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+          pathLength="100" stroke-dasharray="88 12" stroke-dashoffset="-81"/></svg></div>
+        <div class="t-page-title">Find what your builds left behind</div>
+        <p class="t-prose" style="margin:8px 0 0;color:var(--text-secondary);max-width:380px">
+          Void walks your scan roots and reports every build artifact it finds, grouped by ecosystem.
+          Nothing is deleted until you pick it and confirm.</p>
+        <div class="card" style="width:100%;margin-top:24px;text-align:left;display:flex;align-items:center;gap:12px;padding:14px 16px">
+          ${I('folder','icon icon-lg')}
+          <div style="flex:1">
+            <div class="t-label" style="color:var(--text-tertiary)">Scan roots</div>
+            <div class="t-mono-sm" style="color:var(--text-primary);margin-top:2px">~/</div>
+            <div class="t-caption" style="color:var(--text-tertiary);margin-top:2px">11 ecosystems enabled</div>
+          </div>
+          <button class="btn btn-ghost btn-sm">Change ${I('chevron-right','icon icon-sm')}</button>
+        </div>
+        <button class="btn btn-primary btn-lg" style="width:240px;margin-top:16px">Start first scan</button>
+        <div class="t-caption" style="color:var(--text-quaternary);margin-top:12px">Typically takes 30–90 seconds</div>
+      </div>
+    </div>
+    ${StatusBar('Idle')}
+  </div></div>`;
+
+S.scanning = () => {
+  const done = [['rust',12],['node',41],['go',3],['homebrew',7]];
+  const run = ['apple','docker'], pend = ['python','java','jet_brains','dot_net','system'];
+  const tick = done.map(([k,n])=>`<span class="ticker-item is-done">${I('check','icon icon-sm')}${ECO[k].n} <span class="tnum">${n}</span></span>`).join('')
+    + run.map(k=>`<span class="ticker-item is-running"><span class="spinring"></span>${ECO[k].n}…</span>`).join('')
+    + pend.map(k=>`<span class="ticker-item">○ ${ECO[k].n}</span>`).join('');
+  const partial = GROUPS.slice(0,3).map(g => Group(g) + g.items.map(i => Item(i,g.eco)).join('')).join('');
+  const skel = Array.from({length:2},(_,i)=>`<div class="item" style="align-items:center">
+      <div class="item-inner"><span class="cell-check"><span class="skeleton" style="width:14px;height:14px"></span></span>
+      <span class="riskedge safe"></span>
+      <span class="cell-main"><span class="skeleton" style="height:15px;width:${[62,45][i]}%;margin-bottom:3px"></span>
+      <span class="skeleton" style="height:13px;width:${[80,58][i]}%"></span></span>
+      <span class="cell-size"><span class="skeleton" style="height:16px;width:48px"></span></span>
+      <span style="width:24px"></span></div></div>`).join('');
+  return `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0">${Rail('results', null, true)}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('Results','Scanning · 128,431 paths · 42 found',
+      `<button class="btn btn-primary is-disabled"><span class="spinring" style="border-color:currentColor;border-right-color:transparent"></span>Scanning…</button>
+       <button class="iconbtn">${I('more-horizontal')}</button>`)}
+    <div class="progress progress-indeterminate"></div>
+    ${Summary({headline:'91.6', sub:'42 items · 4 ecosystems so far'})}
+    <div class="ticker">${tick}</div>
+    ${TableHead()}
+    <div class="listwrap"><div class="list">${partial}${skel}</div></div>
+    ${StatusBar('Walking ~/Library/Developer · 128,431 paths')}
+  </div></div>`;
+};
+
+S.results = () => `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0">${Rail('results','384')}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('Results','384 items · scanned 2m ago',
+      `<button class="btn btn-primary">${I('scan')}Scan now</button><button class="iconbtn">${I('more-horizontal')}</button>`)}
+    ${Summary({selN:18, selBytes:41.2e9})}
+    ${Toolbar()}
+    ${TableHead()}
+    <div class="listwrap"><div class="list">${AllGroups()}</div></div>
+    ${StatusBar('128,431 paths · 42.1s', 3)}
+  </div></div>`;
+
+S.confirm = () => `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0;position:relative">${Rail('results','384')}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('Results','384 items · scanned 2m ago',`<button class="btn btn-primary">${I('scan')}Scan now</button>`)}
+    ${Summary({selN:18, selBytes:41.2e9})}
+    ${Toolbar()}${TableHead()}
+    <div class="listwrap"><div class="list">${AllGroups()}</div></div>
+    ${StatusBar('128,431 paths · 42.1s', 3)}
+  </div>
+  <div class="scrim"><div class="modal">
+    <div class="modal-head"><div class="h">
+      <div class="t-page-title">Clean 18 items</div>
+      <div class="t-body-sm sub">41.2 GB estimated</div></div>
+      <button class="iconbtn">${I('close')}</button></div>
+    <div class="modal-body">
+      <div class="t-overline" style="color:var(--text-quaternary);margin-bottom:6px">What will happen</div>
+      <div class="effect-row">${I('trash')}<span class="txt t-body">12 directories deleted permanently</span><span class="amt t-body-sm tnum">32.1 GB</span></div>
+      <div class="effect-row">${I('terminal')}<span class="txt t-body">4 commands run</span><span class="amt t-body-sm tnum">6.7 GB</span></div>
+      <div class="effect-row">${I('refresh')}<span class="txt t-body">2 items moved to the Trash</span><span class="amt t-body-sm tnum">2.4 GB</span></div>
+
+      <div class="t-overline" style="color:var(--caution-text);margin:20px 0 8px;display:flex;align-items:center;gap:6px">
+        ${I('warning','icon icon-sm')} Needs your attention</div>
+      <div class="attn-card">
+        <div class="attn-item"><div class="row1"><span class="badge badge-caution">caution</span>
+          <span class="lbl">Remove Maven repository</span><span class="amt tnum">8.9 GB</span></div>
+          <div class="t-mono-xs" style="color:var(--text-tertiary)">~/.m2/repository</div>
+          <div class="t-body-sm" style="color:var(--text-tertiary);margin-top:3px">Dependencies will re-download.</div></div>
+        <div class="attn-item"><div class="row1"><span class="badge badge-caution">caution</span>
+          <span class="lbl">Empty Trash</span><span class="amt tnum">14.2 GB</span></div>
+          <div class="cmdline" style="margin-top:4px"><span class="glyph">▶</span>osascript -e 'tell application "Finder" to empty the trash'</div></div>
+        <div class="attn-item"><div class="row1"><span class="badge badge-danger">danger</span>
+          <span class="lbl">Delete permanently</span><span class="amt tnum">8.1 GB</span></div>
+          <div class="t-mono-xs" style="color:var(--text-tertiary)">~/Downloads/xcode_14.3.xip</div>
+          <div class="cmdline" style="margin-top:4px"><span class="glyph">⌫</span>rm -rf ~/Downloads/xcode_14.3.xip</div></div>
+      </div>
+
+      <p class="t-body-sm" style="color:var(--text-tertiary);margin:16px 0 0">
+        Deletions and commands bypass the Trash and cannot be undone.</p>
+      <div style="margin-top:14px">
+        <div class="t-label" style="color:var(--text-primary);margin-bottom:6px">Type <code class="t-mono-sm" style="color:var(--danger-text)">delete</code> to confirm</div>
+        <input class="confirm-input" placeholder="" readonly></div>
+    </div>
+    <div class="modal-foot">
+      <span class="cb" aria-checked="true">${I('check')}</span>
+      <span class="t-body-sm" style="color:var(--text-secondary)">Prefer Trash where available</span>
+      <span class="spacer"></span>
+      <button class="btn btn-secondary">Cancel</button>
+      <button class="btn btn-danger is-disabled">Clean 18 items</button>
+    </div>
+  </div></div>
+</div>`;
+
+S.cleaning = () => {
+  const queued = (it, eco, state) => {
+    const e = ECO[eco];
+    let mark = `<span style="color:var(--text-quaternary);font:430 12px/1 var(--font-mono)">◦</span>`;
+    if (state === 'active') mark = `<span class="spinring"></span>`;
+    if (state === 'fail') mark = `<span style="color:var(--danger-text);display:flex">${I('alert-circle','icon icon-sm')}</span>`;
+    const dim = state === 'queued' ? 'opacity:.55' : '';
+    return `<div class="item" style="--eco-accent:var(--eco-${e.k});--size-ratio:0;${dim};
+        ${state==='active'?'background:var(--surface-hover);box-shadow:inset 2px 0 0 var(--accent)':''}
+        ${state==='fail'?'background:var(--danger-bg)':''}">
+      <div class="item-inner">
+        <span class="cell-check">${mark}</span><span class="riskedge ${it.risk}"></span>
+        <span class="cell-main">
+          <span class="line1"><span class="kindname">${it.kind}</span>${it.proj?`<span class="projname">· ${it.proj}</span>`:''}
+          ${state==='fail'?'<span class="badge badge-danger">failed</span>':''}</span>
+          <span class="line2">${state==='fail'
+            ? `<span class="t-mono-xs" style="color:var(--danger-text)">Command failed: \`cargo\` was not found in PATH</span>
+               <span class="chip" style="height:18px;padding:0 6px;font-size:11px">Use “Remove target/” instead ${I('arrow-right','icon icon-sm')}</span>`
+            : Path(it.path, it.proj)}</span>
+        </span>
+        <span class="cell-stale t-caption">${state==='active'?'running':''}</span>
+        <span class="cell-mag"></span>
+        <span class="cell-size">${Size(it.b)}</span>
+        <span class="cell-chev"></span>
+      </div></div>`;
+  };
+  const g = GROUPS[0], a = GROUPS[1];
+  return `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0">${Rail('results','384')}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('Results','Cleaning 18 items','<button class="btn btn-primary is-disabled">Cleaning…</button>')}
+    <div class="summary" style="align-items:stretch;padding-top:10px;padding-bottom:10px;height:78px">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:7px">
+        <div style="display:flex;align-items:baseline;gap:12px">
+          <span class="t-body-strong">Cleaning 7 of 18</span>
+          <span class="t-caption tnum" style="color:var(--text-tertiary);margin-left:auto">39%</span>
+        </div>
+        <div class="bigbar" style="--pct:39"><i></i></div>
+        <div style="display:flex;gap:12px">
+          <span class="t-caption" style="color:var(--text-tertiary)">Remove node_modules/ · ~/git/dashboard</span>
+          <span class="t-caption tnum" style="color:var(--text-secondary);margin-left:auto"><b>12.4 GB</b> freed so far</span>
+        </div>
+      </div>
+    </div>
+    ${TableHead()}
+    <div class="listwrap"><div class="list">
+      ${Group(g)}
+      ${queued(g.items[0], 'node', 'done')}
+      ${queued(g.items[1], 'node', 'active')}
+      ${queued(g.items[2], 'node', 'queued')}
+      ${Group(GROUPS[2])}
+      ${queued(GROUPS[2].items[0], 'rust', 'fail')}
+      ${Group(a)}
+      ${queued(a.items[0], 'apple', 'queued')}
+      ${queued(a.items[2], 'apple', 'queued')}
+    </div></div>
+    ${StatusBar('Sequential batch · failures do not stop the queue', 3)}
+  </div></div>`;
+};
+
+S.complete = () => `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0">${Rail('results','369')}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('Results','369 items · cleaned just now',
+      `<button class="btn btn-primary">${I('scan')}Scan now</button><button class="iconbtn">${I('more-horizontal')}</button>`)}
+    <div style="height:96px;flex:none;display:flex;align-items:center;gap:14px;padding:0 var(--pad-window-x);
+      border-bottom:1px solid var(--border-subtle);background:var(--safe-bg)">
+      <span style="color:var(--safe-text);display:flex">${I('shield-check','icon icon-xl')}</span>
+      <div style="flex:1">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span class="t-metric-sm" style="color:var(--text-primary)">Reclaimed 38.4 GB</span>
+          <span class="badge badge-neutral" title="Void can't measure what cargo clean and similar commands remove.">estimated</span>
+        </div>
+        <div class="t-body-sm tnum" style="color:var(--text-secondary);margin-top:3px">
+          15 of 18 cleaned · <span style="color:var(--danger-text);text-decoration:underline">3 failed</span> · 24 seconds</div>
+      </div>
+      <button class="btn btn-secondary">View report</button>
+      <button class="btn btn-ghost">Scan again</button>
+      <button class="iconbtn">${I('close')}</button>
+    </div>
+    ${Toolbar()}${TableHead()}
+    <div class="listwrap"><div class="list">${GROUPS.slice(1,5).map(g=>Group(g)+g.items.map(i=>Item(i,g.eco)).join('')).join('')}</div></div>
+    ${StatusBar('Last clean 24s · 3 failed', 3)}
+  </div></div>`;
+
+S.drawer = () => `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0;position:relative">${Rail('results','384')}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('Results','384 items · scanned 2m ago',`<button class="btn btn-primary">${I('scan')}Scan now</button>`)}
+    ${Summary({selN:18, selBytes:41.2e9})}
+    ${TableHead()}
+    <div class="listwrap"><div class="list">
+      ${Group(GROUPS[0])}
+      ${Item({...GROUPS[0].items[0], sel:false}, 'node', {focus:true})}
+      ${GROUPS[0].items.slice(1).map(i=>Item(i,'node')).join('')}
+      ${Group(GROUPS[1])}
+      ${GROUPS[1].items.map(i=>Item(i,'apple')).join('')}
+    </div></div>
+    ${StatusBar('128,431 paths · 42.1s', 3)}
+  </div>
+  <div class="drawer-scrim"></div>
+  <div class="drawer is-overlay">
+    <div class="drawer-head">
+      <button class="iconbtn" title="Previous item (⌥↑)">${I('chevron-up')}</button>
+      <button class="iconbtn" title="Next item (⌥↓)">${I('chevron-down')}</button>
+      <div style="flex:1"></div><button class="iconbtn">${I('close')}</button>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-sect" style="padding-bottom:12px">
+        <div style="display:flex;align-items:center;gap:6px;color:var(--eco-node)">
+          ${I('eco-node','icon icon-sm')}<span class="t-body-sm">Node.js</span></div>
+        <div class="t-page-title" style="margin-top:4px">node_modules/</div>
+        <div class="t-body-sm" style="color:var(--text-tertiary)">void-web</div>
+      </div>
+      <div class="drawer-sect">
+        <div class="pathplate">~/git/void-web/node_modules</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-secondary btn-sm">${I('copy','icon icon-sm')}Copy</button>
+          <button class="btn btn-secondary btn-sm">${I('external-link','icon icon-sm')}Reveal</button></div>
+      </div>
+      <div class="drawer-sect">
+        <dl class="facts t-body-sm">
+          <dt>Size</dt><dd>4.1 GB</dd>
+          <dt>Last modified</dt><dd>12 days ago · Aug 10, 2026</dd>
+          <dt>Kind</dt><dd>node_modules</dd>
+          <dt>Project</dt><dd class="t-mono-sm">~/git/void-web</dd>
+        </dl>
+      </div>
+      <div class="drawer-sect">
+        <div class="t-overline">Choose an action</div>
+        <div class="action-opt">
+          <span class="radio is-on"></span>
+          <div class="body">
+            <div class="row1"><span class="lbl">Remove node_modules/</span>
+              <span class="badge badge-safe">safe</span>
+              <span class="badge badge-neutral">default</span></div>
+            <div class="desc">Delete the entire node_modules directory</div>
+            <div class="cmdline"><span class="glyph">⌫</span>Delete directory recursively</div>
+            <div class="outcome">Frees 4.1 GB · Not recoverable</div>
+          </div>
+        </div>
+        <div class="action-opt">
+          <span class="radio"></span>
+          <div class="body">
+            <div class="row1"><span class="lbl">npm cache clean</span><span class="badge badge-safe">safe</span></div>
+            <div class="desc">Run npm cache clean --force to clear the npm cache</div>
+            <div class="cmdline"><span class="glyph">▶</span>npm cache clean --force<br>in ~/git/void-web</div>
+            <div class="outcome">Frees unknown · Not recoverable</div>
+          </div>
+        </div>
+      </div>
+      <div class="drawer-sect" style="border-bottom:0">
+        <div class="t-overline">Safety</div>
+        <div class="safety-line ok">${I('check')}<span>Path is outside all protected locations</span></div>
+        <div class="safety-line ok">${I('check')}<span>No credential files detected in this folder</span></div>
+        <div class="safety-line ok">${I('check')}<span>Checked against your blocklist before deleting</span></div>
+      </div>
+    </div>
+    <div class="drawer-foot">
+      <button class="btn btn-secondary" style="flex:1">Exclude this path</button>
+      <button class="btn btn-primary" style="flex:1">Clean this item</button>
+    </div>
+  </div>
+</div>`;
+</script>
+
+<script>
+S.settings = () => {
+  const ecos = [['node','58.2 GB · 94 items',1],['apple','31.0 GB · 18 items',1],['rust','22.4 GB · 42 items',1],
+    ['docker','unknown · 1 item',1],['dot_net','not detected',0]];
+  return `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0">${Rail('settings')}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('Settings','Changes apply to your next scan',
+      `<span class="t-caption" style="color:var(--safe-text)">${I('check','icon icon-sm')} Saved</span>`)}
+    <div style="height:44px;flex:none;display:flex;align-items:center;padding:0 var(--pad-window-x);
+      border-bottom:1px solid var(--border-subtle)">
+      <div class="seg">
+        <button class="is-on">Scanning</button><button>Ecosystems</button><button>Safety</button>
+        <button>Performance</button><button>General</button><button>About</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <div class="form">
+        <div class="field">
+          <div class="t-overline" style="color:var(--text-quaternary);margin-bottom:8px">Scan roots</div>
+          <div class="t-body-sm help">Directories Void walks. Defaults to your home folder.</div>
+          <div class="pathlist">
+            <div class="pathrow">${I('folder','icon icon-sm')}<span class="p">~/</span><button class="iconbtn" style="width:22px;height:22px">${I('close','icon icon-sm')}</button></div>
+            <div class="pathrow">${I('folder','icon icon-sm')}<span class="p">/Volumes/Work</span><button class="iconbtn" style="width:22px;height:22px">${I('close','icon icon-sm')}</button></div>
+          </div>
+          <button class="btn btn-secondary btn-sm" style="margin-top:8px">${I('plus','icon icon-sm')}Add folder…</button>
+        </div>
+
+        <div class="field">
+          <div class="t-overline" style="color:var(--text-quaternary);margin-bottom:8px">Staleness</div>
+          <div class="t-body-sm help">Flag artifacts untouched for longer than</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="display:inline-flex;align-items:center;height:30px;width:64px;padding:0 9px;border-radius:var(--radius-sm);
+              border:1px solid var(--border-strong);background:var(--surface-sunken)" class="t-body tnum">30</span>
+            <span class="t-body" style="color:var(--text-secondary)">days</span>
+          </div>
+          <div class="t-caption" style="color:var(--text-quaternary);margin-top:8px;max-width:46ch">
+            Affects the stale badge and the “Stale only” filter. Does not change what Void scans.</div>
+        </div>
+
+        <div class="field">
+          <div class="t-overline" style="color:var(--text-quaternary);margin-bottom:8px">Ecosystems</div>
+          <div class="pathlist">
+            ${ecos.map(([k,stat,on])=>`<div class="ecorow">
+              <span style="color:var(--eco-${ECO[k].k});display:flex">${I('eco-'+ECO[k].k)}</span>
+              <span class="nm t-body">${ECO[k].n}</span>
+              <span class="stat t-caption" ${!on?'style="color:var(--text-quaternary)"':''}>${stat}</span>
+              <span class="toggle ${on?'is-on':''}"><i></i></span></div>`).join('')}
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="t-overline" style="color:var(--text-quaternary);margin-bottom:8px">Safety</div>
+          <div class="t-body-sm help">Void refuses to delete these, always. Read-only.</div>
+          <div class="pathlist" style="opacity:.72">
+            <div class="pathrow is-locked">${I('lock','icon icon-sm')}<span class="p">~/Documents · ~/Desktop · ~/Downloads · ~/Pictures</span></div>
+            <div class="pathrow is-locked">${I('lock','icon icon-sm')}<span class="p">~/Library/Keychains · ~/Library/Preferences</span></div>
+            <div class="pathrow is-locked">${I('lock','icon icon-sm')}<span class="p">.ssh .gnupg .aws .config .env .Trash</span></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="t-overline" style="color:var(--text-quaternary);margin-bottom:8px">Performance</div>
+          <div style="display:flex;justify-content:space-between"><span class="t-label">Walker threads</span>
+            <span class="t-caption tnum" style="color:var(--text-tertiary)">8 of 16 cores</span></div>
+          <div class="slider" style="--pct:50"><i></i><b></b></div>
+          <div style="display:flex;justify-content:space-between;margin-top:14px"><span class="t-label">Max concurrent analyses</span>
+            <span class="t-caption tnum" style="color:var(--text-tertiary)">8</span></div>
+          <div class="slider" style="--pct:25"><i></i><b></b></div>
+          <div style="display:flex;justify-content:space-between;margin-top:14px"><span class="t-label">CPU threshold</span>
+            <span class="t-caption tnum" style="color:var(--text-tertiary)">70%</span></div>
+          <div class="slider" style="--pct:70"><i></i><b></b></div>
+        </div>
+      </div>
+    </div>
+    <div class="statusbar t-caption">
+      <span>Changes apply to your next scan.</span>
+      <button class="btn btn-ghost btn-sm" style="height:20px">Rescan now</button>
+      <span class="spacer"></span>
+      <span style="color:var(--caution-text)">${I('warning','icon icon-sm')} Not persisted yet</span>
+    </div>
+  </div></div>`;
+};
+
+S.history = () => {
+  const bars = [22,54,38,96,14,18,66,31,12,44,78,20,35,100];
+  return `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0">${Rail('history')}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('History','14 runs · 340.2 GB reclaimed',`<button class="iconbtn">${I('more-horizontal')}</button>`)}
+    <div style="padding:16px var(--pad-window-x) 0;display:flex;gap:10px">
+      <div class="stattile"><span class="k t-overline">All time</span><span class="v t-metric-sm">340.2 GB</span></div>
+      <div class="stattile"><span class="k t-overline">Last 30 days</span><span class="v t-metric-sm">38.4 GB</span></div>
+      <div class="stattile"><span class="k t-overline">Runs</span><span class="v t-metric-sm">14</span></div>
+    </div>
+    <div style="padding:20px var(--pad-window-x) 14px">
+      <div class="t-overline" style="color:var(--text-quaternary);margin-bottom:10px">Reclaimed per run</div>
+      <div class="spark">${bars.map((h,i)=>`<i class="${h>70?'hi':''}" style="height:${h}%"></i>`).join('')}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px" class="t-caption">
+        <span style="color:var(--text-quaternary)">Jun</span><span style="color:var(--text-quaternary)">Jul</span><span style="color:var(--text-quaternary)">Aug</span></div>
+    </div>
+    <div class="tablehead">
+      <span class="t-colhead" style="width:150px">Date</span>
+      <span class="t-colhead" style="width:60px;text-align:right">Items</span>
+      <span class="t-colhead" style="width:90px;text-align:right">Freed</span>
+      <span class="t-colhead" style="flex:1;padding-left:16px">Result</span>
+      <span style="width:24px"></span></div>
+    <div class="listwrap"><div class="list">
+      ${[['Today, 14:22','18','38.4 GB','<span style="color:var(--safe-text)">15 ok</span> · <span style="color:var(--danger-text)">3 failed</span>'],
+         ['Aug 14, 09:01','6','12.1 GB','<span style="color:var(--safe-text)">6 ok</span>'],
+         ['Aug 02, 18:40','31','64.8 GB','<span style="color:var(--safe-text)">31 ok</span>'],
+         ['Jul 28, 11:15','12','21.7 GB','<span style="color:var(--safe-text)">12 ok</span>'],
+         ['Jul 09, 20:03','44','96.2 GB','<span style="color:var(--safe-text)">42 ok</span> · <span style="color:var(--danger-text)">2 failed</span>']]
+        .map(([d,n,f,r])=>`<div class="hrow">
+          <span class="d t-body">${d}</span><span class="n t-body-sm">${n}</span>
+          <span class="f t-body">${f}</span><span class="r t-body-sm">${r}</span>
+          <span style="width:24px;color:var(--text-quaternary);display:flex;justify-content:center">${I('chevron-right','icon icon-sm')}</span>
+        </div>`).join('')}
+    </div></div>
+    ${StatusBar('Retained for 12 months')}
+  </div></div>`;
+};
+
+S.tray = () => `
+  <div class="tray-head">
+    <div class="void-lockup"><span class="void-mark">${MARK}</span>
+      <span class="void-word"><span class="v">V</span>oid</span></div>
+    <div style="flex:1"></div>
+    <button class="iconbtn" style="width:24px;height:24px">${I('settings','icon icon-sm')}</button>
+  </div>
+  <div style="padding:18px 16px 14px;text-align:center">
+    <div class="t-metric-md" style="color:var(--text-primary)">142.6 GB</div>
+    <div class="t-body-sm" style="color:var(--text-tertiary);margin-top:2px">reclaimable</div>
+    <div class="diskmeter" style="margin-top:14px"><i class="seg-used" style="width:49%"></i><i class="seg-recl" style="width:14%"></i></div>
+    <div class="t-caption tnum" style="color:var(--text-quaternary);margin-top:6px;text-align:left">512 GB free of 1 TB</div>
+  </div>
+  <div class="tray-sect" style="border-top:1px solid var(--border-subtle);padding-top:10px">
+    <div class="t-overline" style="color:var(--text-quaternary);margin-bottom:4px">Top ecosystems</div>
+    ${[['node','94 items','58.2 GB'],['apple','18 items','31.0 GB'],['rust','42 items','22.4 GB'],['docker','1 item','unknown']]
+      .map(([k,c,s])=>`<div class="tray-eco">
+        <span style="color:var(--eco-${ECO[k].k});display:flex">${I('eco-'+ECO[k].k,'icon icon-sm')}</span>
+        <span class="nm">${ECO[k].n}</span><span class="ct">${c}</span>
+        <span class="sz" ${s==='unknown'?'style="font-style:italic;color:var(--text-quaternary);font-weight:450"':''}>${s}</span></div>`).join('')}
+  </div>
+  <div style="padding:0 12px 12px;display:flex;flex-direction:column;gap:6px">
+    <button class="btn btn-primary btn-lg" style="width:100%">${I('scan')}Scan now</button>
+    <button class="btn btn-secondary btn-lg" style="width:100%">Open Void<span class="kbd">⌘⇧V</span></button>
+  </div>
+  <div style="height:28px;display:flex;align-items:center;padding:0 12px;border-top:1px solid var(--border-subtle)">
+    <span class="t-caption" style="color:var(--text-quaternary)">Last scan 2m ago</span></div>`;
+
+S.errors = () => `${Titlebar('Void')}
+<div style="display:flex;flex:1;min-height:0;position:relative">${Rail('results','0')}
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    ${Cmdbar('Results','Scan finished · nothing found',`<button class="btn btn-primary">${I('scan')}Scan now</button>`)}
+    <div class="banner">${I('lock')}<span class="txt">Some folders couldn't be read. Xcode and Library caches may be missing.</span>
+      <button class="btn btn-secondary btn-sm">Grant Full Disk Access</button>
+      <button class="iconbtn" style="width:24px;height:24px">${I('close','icon icon-sm')}</button></div>
+    <div class="listwrap"><div class="list" style="display:flex;flex-direction:column">
+      <div class="state">
+        ${I('shield-check','glyph icon icon-xl')}
+        <div class="title">Nothing to reclaim</div>
+        <div class="body">Void scanned 128,431 paths in <span class="t-mono-sm">~/</span> and found no build artifacts.
+          On macOS this is usually a permissions problem rather than a clean machine.</div>
+        <div class="actions"><button class="btn btn-secondary">Check scan roots</button>
+          <button class="btn btn-ghost">Scan again</button></div>
+        <div class="hint">⌘R to rescan</div>
+      </div>
+    </div></div>
+    <div class="statusbar t-caption">
+      <span>128,431 paths · 6.2s</span><span class="spacer"></span>
+      <span class="issues">${I('warning','icon icon-sm')} 3 issues</span>
+      <span style="color:var(--text-quaternary)">Comfortable</span></div>
+  </div>
+  <!-- issues sheet -->
+  <div style="position:absolute;right:16px;bottom:34px;width:420px;z-index:10" class="popover">
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:8px">
+      <span class="t-section-title">Scan issues</span><span class="countpill tnum">3</span>
+      <div style="flex:1"></div><button class="iconbtn" style="width:22px;height:22px">${I('close','icon icon-sm')}</button></div>
+    <div style="padding:8px 12px;display:flex;flex-direction:column;gap:8px">
+      ${[['Permission denied: ~/Library/Containers','×214'],
+         ['IO error: No such file or directory (os error 2)','×2'],
+         ['docker: daemon not running','']]
+        .map(([m,n])=>`<div style="display:flex;gap:8px;align-items:flex-start">
+          <span class="t-mono-xs" style="color:var(--text-secondary);flex:1;word-break:break-all">${m}</span>
+          ${n?`<span class="countpill tnum">${n}</span>`:''}</div>`).join('')}
+    </div>
+    <div style="padding:8px 12px;border-top:1px solid var(--border-subtle);display:flex;gap:8px">
+      <button class="btn btn-secondary btn-sm">Copy all</button>
+      <button class="btn btn-ghost btn-sm">Open logs</button></div>
+  </div>
+</div>`;
+
+/* ── Mount ── */
+document.querySelectorAll('[data-screen]').forEach(el => {
+  const fn = S[el.dataset.screen];
+  if (fn) el.innerHTML = fn();
+});
+
+/* ── Doc theme toggle ── */
+const root = document.documentElement;
+const bD = document.getElementById('tDark'), bL = document.getElementById('tLight');
+function setDoc(t){ root.dataset.doc = t; bD.classList.toggle('on', t === 'dark'); bL.classList.toggle('on', t === 'light'); }
+bD.onclick = () => setDoc('dark'); bL.onclick = () => setDoc('light');
+setDoc(matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+</script>
+
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   VOID COLOR SYSTEM v1
+   Neutral hue 254 / accent hue 252, both sampled from the app icon's glow.
+   Scoped to .app here so both themes render side by side in this document.
+   In the shipping app these go on :root — see the note in section 02.
+   ══════════════════════════════════════════════════════════════════════ */
+.app, .app[data-theme="light"] {
+  /* ---------- PRIMITIVE : NEUTRAL (OKLCH hue 254) ---------- */
+  --n-0: #FFFFFF;              /* oklch(1.000 0.000 254) */
+  --n-50: #FAFBFD;             /* oklch(0.988 0.003 254) */
+  --n-100: #F3F6F9;            /* oklch(0.972 0.005 254) */
+  --n-150: #E5E8ED;            /* oklch(0.930 0.007 254) */
+  --n-200: #D7DCE1;            /* oklch(0.892 0.009 254) */
+  --n-300: #C2C7CE;            /* oklch(0.828 0.011 254) */
+  --n-400: #A5ABB3;            /* oklch(0.740 0.013 254) */
+  --n-500: #868D95;            /* oklch(0.640 0.015 254) */
+  --n-600: #69717A;            /* oklch(0.545 0.017 254) */
+  --n-700: #515963;            /* oklch(0.462 0.019 254) */
+  --n-800: #363E48;            /* oklch(0.360 0.020 254) */
+  --n-850: #283039;            /* oklch(0.305 0.020 254) */
+  --n-900: #1C232C;            /* oklch(0.252 0.020 254) */
+  --n-950: #0F151D;            /* oklch(0.195 0.018 254) */
+  --n-975: #060B11;            /* oklch(0.148 0.016 254) */
+  --n-1000: #010306;           /* oklch(0.095 0.014 254) */
+
+  /* ---------- PRIMITIVE : GLOW  (accent, OKLCH hue 252) ---------- */
+  --glow-50: #EDF5FF;          /* oklch(0.968 0.016 252) */
+  --glow-100: #DBECFF;         /* oklch(0.935 0.032 252) */
+  --glow-200: #BEDCFF;         /* oklch(0.885 0.058 252) */
+  --glow-300: #95C7FF;         /* oklch(0.815 0.096 252) */
+  --glow-400: #6BB2FF;         /* oklch(0.748 0.133 252) */
+  --glow-500: #389BFF;         /* oklch(0.682 0.173 252) */
+  --glow-600: #007FE2;         /* oklch(0.592 0.177 252) */
+  --glow-700: #0064B5;         /* oklch(0.500 0.150 252) */
+  --glow-800: #004986;         /* oklch(0.402 0.121 252) */
+  --glow-900: #00315E;         /* oklch(0.312 0.094 252) */
+  --glow-950: #001E3E;         /* oklch(0.235 0.071 252) */
+
+  /* ---------- PRIMITIVE : SAFE (OKLCH hue 170) ---------- */
+  --safe-50: #E8FFF6;          /* oklch(0.980 0.026 170) */
+  --safe-100: #D0FCEB;         /* oklch(0.955 0.050 170) */
+  --safe-200: #77F8CF;         /* oklch(0.895 0.130 170) */
+  --safe-300: #6AECC4;         /* oklch(0.860 0.130 170) */
+  --safe-400: #54D8B1;         /* oklch(0.800 0.130 170) */
+  --safe-500: #39C39D;         /* oklch(0.735 0.130 170) */
+  --safe-600: #05AB86;         /* oklch(0.660 0.130 170) */
+  --safe-650: #009D7B;         /* oklch(0.620 0.123 170) */
+  --safe-700: #007D61;         /* oklch(0.525 0.104 170) */
+  --safe-800: #00634C;         /* oklch(0.445 0.088 170) */
+  --safe-900: #004332;         /* oklch(0.340 0.067 170) */
+  --safe-950: #002A1F;         /* oklch(0.255 0.051 170) */
+
+  /* ---------- PRIMITIVE : CAUTION (OKLCH hue 88) ---------- */
+  --caution-50: #FFF8E7;       /* oklch(0.980 0.023 88) */
+  --caution-100: #FFEFC8;      /* oklch(0.955 0.053 88) */
+  --caution-200: #FFD875;      /* oklch(0.895 0.125 88) */
+  --caution-300: #FEC92F;      /* oklch(0.860 0.165 88) */
+  --caution-400: #E9B600;      /* oklch(0.800 0.164 88) */
+  --caution-500: #D1A200;      /* oklch(0.735 0.150 88) */
+  --caution-600: #B58C00;      /* oklch(0.660 0.135 88) */
+  --caution-650: #A68000;      /* oklch(0.620 0.127 88) */
+  --caution-700: #846600;      /* oklch(0.525 0.107 88) */
+  --caution-800: #695000;      /* oklch(0.445 0.091 88) */
+  --caution-900: #473500;      /* oklch(0.340 0.070 88) */
+  --caution-950: #2D2100;      /* oklch(0.255 0.053 88) */
+
+  /* ---------- PRIMITIVE : DANGER (OKLCH hue 15) ---------- */
+  --danger-50: #FFF6F6;        /* oklch(0.980 0.010 15) */
+  --danger-100: #FFEAEB;       /* oklch(0.955 0.022 15) */
+  --danger-200: #FFCED1;       /* oklch(0.895 0.055 15) */
+  --danger-300: #FFBDC1;       /* oklch(0.860 0.076 15) */
+  --danger-400: #FF9EA6;       /* oklch(0.800 0.116 15) */
+  --danger-500: #FF7887;       /* oklch(0.735 0.164 15) */
+  --danger-600: #EF546C;       /* oklch(0.660 0.190 15) */
+  --danger-650: #E14660;       /* oklch(0.620 0.190 15) */
+  --danger-700: #BF2145;       /* oklch(0.525 0.190 15) */
+  --danger-800: #9E0032;       /* oklch(0.445 0.178 15) */
+  --danger-900: #6D0020;       /* oklch(0.340 0.136 15) */
+  --danger-950: #480012;       /* oklch(0.255 0.102 15) */
+
+  /* ============ SEMANTIC — LIGHT THEME ============ */
+  --surface-base: #FAFBFD;            
+  --surface-raised: #FFFFFF;          
+  --surface-sunken: #F3F6F9;          
+  --surface-overlay: #FFFFFF;         
+  --surface-inset: #E5E8ED;           
+  --surface-scrim: rgba(28, 35, 44, 0.45);
+
+  --border-subtle: #E5E8ED;            /* decorative hairline */
+  --border-default: #D7DCE1;           /* decorative separator */
+  --border-strong: #868D95;            /* >=3:1 — inputs, checkboxes, toggles */
+
+  --text-primary: #1C232C;            
+  --text-secondary: #515963;          
+  --text-tertiary: #69717A;           
+  --text-disabled: #A5ABB3;            /* WCAG 1.4.3 inactive-control exception */
+  --text-inverse: #FFFFFF;            
+  --text-on-accent: #FFFFFF;          
+  --text-code: #363E48;               
+  --text-link: #0064B5;               
+
+  --accent-bg: #0064B5;               
+  --accent-bg-hover: #004986;         
+  --accent-bg-active: #00315E;        
+  --accent-subtle: #EDF5FF;           
+  --accent-subtle-hover: #DBECFF;     
+  --accent-border: #BEDCFF;            /* decorative */
+  --accent-border-strong: #007FE2;     /* >=3:1 */
+  --accent-text: #0064B5;             
+  --accent-on-solid: #FFFFFF;         
+
+  --safe-text: #007D61;               
+  --safe-bg-subtle: #E8FFF6;          
+  --safe-bg-subtle-hover: #D0FCEB;    
+  --safe-border: #77F8CF;              /* decorative */
+  --safe-border-strong: #009D7B;       /* >=3:1 */
+  --safe-solid: #007D61;              
+  --safe-solid-hover: #00634C;        
+  --safe-solid-active: #004332;       
+  --safe-on-solid: #FFFFFF;           
+
+  --caution-text: #695000;            
+  --caution-bg-subtle: #FFF8E7;       
+  --caution-bg-subtle-hover: #FFEFC8; 
+  --caution-border: #FFD875;           /* decorative */
+  --caution-border-strong: #A68000;    /* >=3:1 */
+  --caution-solid: #695000;           
+  --caution-solid-hover: #473500;     
+  --caution-solid-active: #2D2100;    
+  --caution-on-solid: #FFFFFF;        
+
+  --danger-text: #6D0020;             
+  --danger-bg-subtle: #FFF6F6;        
+  --danger-bg-subtle-hover: #FFEAEB;  
+  --danger-border: #FFCED1;            /* decorative */
+  --danger-border-strong: #E14660;     /* >=3:1 */
+  --danger-solid: #BF2145;            
+  --danger-solid-hover: #9E0032;      
+  --danger-solid-active: #6D0020;     
+  --danger-on-solid: #FFFFFF;         
+
+  --success-text: #007D61;             /* alias of safe */
+  --success-bg-subtle: #E8FFF6;       
+  --success-solid: #007D61;           
+  --error-text: #6D0020;               /* alias of danger */
+  --error-bg-subtle: #FFF6F6;         
+  --error-solid: #BF2145;             
+  --warning-text: #695000;             /* alias of caution */
+  --warning-bg-subtle: #FFF8E7;       
+  --info-text: #0064B5;               
+  --info-bg-subtle: #EDF5FF;          
+
+  --state-hover: #F3F3F3;             
+  --state-active: #E8E9EA;            
+  --state-selected: #EDF5FF;          
+  --state-selected-hover: #DBECFF;    
+  --state-selected-border: #007FE2;   
+  --state-disabled-bg: #F3F6F9;       
+  --state-disabled-border: #D7DCE1;   
+  --state-disabled-text: #A5ABB3;     
+  --focus-ring: #007FE2;              
+  --focus-ring-offset: #FAFBFD;       
+  --skeleton-base: #E5E8ED;           
+  --skeleton-shine: #F3F6F9;          
+
+  --eco-rust: #BB5F00;                
+  --eco-java: #954D3F;                
+  --eco-homebrew: #777B18;            
+  --eco-node: #097200;                
+  --eco-go: #0095A1;                  
+  --eco-docker: #007397;              
+  --eco-python: #004E85;              
+  --eco-apple: #6D74D8;               
+  --eco-dotnet: #712DC3;              
+  --eco-jetbrains: #811288;           
+  --eco-system: #C63E86;              
+
+  --eco-rust-soft: #F7ECE0;           
+  --eco-java-soft: #F2EAE8;           
+  --eco-homebrew-soft: #EFEFE3;       
+  --eco-node-soft: #E1EEE0;           
+  --eco-go-soft: #E0F2F4;             
+  --eco-docker-soft: #E0EEF3;         
+  --eco-python-soft: #E0EAF0;         
+  --eco-apple-soft: #EDEEFA;          
+  --eco-dotnet-soft: #EEE6F8;         
+  --eco-jetbrains-soft: #F0E3F1;      
+  --eco-system-soft: #F8E8F0;         
+
+  --seq-1: #E5F2FF;                   
+  --seq-2: #C4E0FD;                   
+  --seq-3: #9AC7F8;                   
+  --seq-4: #67A9F0;                   
+  --seq-5: #2B86E4;                   
+  --seq-6: #0062BA;                   
+  --seq-7: #004085;                   
+  --chart-track: #E5E8ED;             
+  --chart-grid: #D7DCE1;              
+  --chart-axis: #C2C7CE;              
+  --chart-label: #69717A;             
+
+  --shadow-1: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10);
+  --shadow-2: 0 4px 10px -3px rgba(16,24,40,.10), 0 2px 4px -2px rgba(16,24,40,.06);
+  --shadow-3: 0 16px 32px -8px rgba(16,24,40,.14), 0 4px 10px -4px rgba(16,24,40,.07);
+  --shadow-glow: 0 0 0 1px rgba(0,127,226,.28), 0 4px 16px -4px rgba(0,127,226,.28);
+  --shadow-focus: 0 0 0 2px #FAFBFD, 0 0 0 4px #007FE2;
+}
+
+.app[data-theme="dark"] {
+  --surface-base: #060B11;            
+  --surface-raised: #0F151D;          
+  --surface-sunken: #010306;          
+  --surface-overlay: #1C232C;         
+  --surface-inset: #010306;           
+  --surface-scrim: rgba(1, 3, 6, 0.78);
+
+  --border-subtle: #1C232C;            /* decorative hairline */
+  --border-default: #283039;           /* decorative separator */
+  --border-strong: #69717A;            /* >=3:1 — inputs, checkboxes, toggles */
+
+  --text-primary: #F3F6F9;            
+  --text-secondary: #A5ABB3;          
+  --text-tertiary: #868D95;           
+  --text-disabled: #515963;            /* WCAG 1.4.3 inactive-control exception */
+  --text-inverse: #010306;            
+  --text-on-accent: #010306;          
+  --text-code: #D7DCE1;               
+  --text-link: #6BB2FF;               
+
+  --accent-bg: #389BFF;               
+  --accent-bg-hover: #6BB2FF;         
+  --accent-bg-active: #007FE2;        
+  --accent-subtle: #15283D;           
+  --accent-subtle-hover: #18324F;     
+  --accent-border: #1D436A;            /* decorative */
+  --accent-border-strong: #007FE2;     /* >=3:1 */
+  --accent-text: #6BB2FF;             
+  --accent-on-solid: #010306;         
+
+  --safe-text: #6AECC4;               
+  --safe-bg-subtle: #182A2E;          
+  --safe-bg-subtle-hover: #1C3334;    
+  --safe-border: #2C5A52;              /* decorative */
+  --safe-border-strong: #05AB86;       /* >=3:1 */
+  --safe-solid: #39C39D;              
+  --safe-solid-hover: #54D8B1;        
+  --safe-solid-active: #05AB86;       
+  --safe-on-solid: #010306;           
+
+  --caution-text: #E9B600;            
+  --caution-bg-subtle: #25251A;       
+  --caution-bg-subtle-hover: #2E2C19; 
+  --caution-border: #554914;           /* decorative */
+  --caution-border-strong: #B58C00;    /* >=3:1 */
+  --caution-solid: #E9B600;           
+  --caution-solid-hover: #FEC92F;     
+  --caution-solid-active: #D1A200;    
+  --caution-on-solid: #010306;        
+
+  --danger-text: #EF546C;             
+  --danger-bg-subtle: #251B25;        
+  --danger-bg-subtle-hover: #2E1E28;  
+  --danger-border: #572936;            /* decorative */
+  --danger-border-strong: #EF546C;     /* >=3:1 */
+  --danger-solid: #EF546C;            
+  --danger-solid-hover: #FF7887;      
+  --danger-solid-active: #E14660;     
+  --danger-on-solid: #010306;         
+
+  --success-text: #6AECC4;             /* alias of safe */
+  --success-bg-subtle: #182A2E;       
+  --success-solid: #39C39D;           
+  --error-text: #EF546C;               /* alias of danger */
+  --error-bg-subtle: #251B25;         
+  --error-solid: #EF546C;             
+  --warning-text: #E9B600;             /* alias of caution */
+  --warning-bg-subtle: #25251A;       
+  --info-text: #6BB2FF;               
+  --info-bg-subtle: #15283D;          
+
+  --state-hover: #1B2128;             
+  --state-active: #252A31;            
+  --state-selected: #15283D;          
+  --state-selected-hover: #18324F;    
+  --state-selected-border: #389BFF;   
+  --state-disabled-bg: #1C232C;       
+  --state-disabled-border: #283039;   
+  --state-disabled-text: #515963;     
+  --focus-ring: #6BB2FF;              
+  --focus-ring-offset: #060B11;       
+  --skeleton-base: #1C232C;           
+  --skeleton-shine: #283039;          
+
+  --eco-rust: #FF8505;                
+  --eco-java: #C37D6F;                
+  --eco-homebrew: #A0A645;            
+  --eco-node: #3AA831;                
+  --eco-go: #31C7D5;                  
+  --eco-docker: #009AC7;              
+  --eco-python: #2174B7;              
+  --eco-apple: #AAB4FF;               
+  --eco-dotnet: #A676F9;              
+  --eco-jetbrains: #A34AAA;           
+  --eco-system: #FF89C0;              
+
+  --eco-rust-soft: #352719;           
+  --eco-java-soft: #2C262A;           
+  --eco-homebrew-soft: #262C23;       
+  --eco-node-soft: #162D20;           
+  --eco-go-soft: #14313A;             
+  --eco-docker-soft: #0D2A38;         
+  --eco-python-soft: #122436;         
+  --eco-apple-soft: #282E41;          
+  --eco-dotnet-soft: #272540;         
+  --eco-jetbrains-soft: #271D34;      
+  --eco-system-soft: #352837;         
+
+  --seq-1: #17213D;                   
+  --seq-2: #233A6E;                   
+  --seq-3: #2959A2;                   
+  --seq-4: #2579D4;                   
+  --seq-5: #1C9DFD;                   
+  --seq-6: #6DC4FF;                   
+  --seq-7: #B7E6FF;                   
+  --chart-track: #1C232C;             
+  --chart-grid: #283039;              
+  --chart-axis: #515963;              
+  --chart-label: #868D95;             
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.72), inset 0 1px 0 rgba(255,255,255,.030);
+  --shadow-2: 0 6px 16px -6px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.040);
+  --shadow-3: 0 20px 44px -12px rgba(0,0,0,.92), inset 0 1px 0 rgba(255,255,255,.055);
+  --shadow-glow: 0 0 0 1px rgba(56,155,255,.32), 0 0 28px -6px rgba(56,155,255,.45);
+  --shadow-focus: 0 0 0 2px #060B11, 0 0 0 4px #6BB2FF;
+}
+</style>
+
+<style>
+/* ── Bridge: component-CSS aliases onto the color system's semantic names ── */
+.app{
+  --accent:var(--accent-bg);
+  --accent-hover:var(--accent-bg-hover);
+  --accent-on:var(--accent-on-solid);
+  --surface-hover:var(--state-hover);
+  --selected-bg:var(--state-selected);
+  --text-quaternary:var(--text-disabled);
+  --track:var(--chart-track);
+  --scrim:var(--surface-scrim);
+  --safe-bg:var(--safe-bg-subtle);
+  --caution-bg:var(--caution-bg-subtle);
+  --danger-bg:var(--danger-bg-subtle);
+  --danger-on:var(--danger-on-solid);
+  --kbd-bg:var(--surface-sunken);
+  --kbd-text:var(--text-tertiary);
+  --toggle-knob:#fff;
+  --edge-highlight:none;
+  --elev-1:var(--shadow-1);
+  --elev-2:var(--shadow-2);
+  --elev-3:var(--shadow-2);
+  --elev-4:var(--shadow-3);
+  --elev-5:var(--shadow-3);
+}
+.app[data-theme="dark"]{
+  --edge-highlight:inset 0 1px 0 rgb(255 255 255 / .055);
+  --toggle-knob:#F3F6F9;
+}
+/* --focus-ring-offset is a color in the palette and a length in the space scale;
+   the outline offset is written literally to avoid the collision. */
+.app .is-focused{outline:2px solid var(--focus-ring);outline-offset:1px}
+</style>
+
+<style>
+/* Sections are appended out of order; the flex order restores the reading sequence. */
+.doc{display:flex;flex-direction:column}
+.masthead{order:0}.toc{order:1}
+#s1{order:2}#s2{order:3}#s3{order:4}#s4{order:5}#s5{order:6}#s6{order:7}#s7{order:8}#s8{order:9}
+.tokgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-top:14px}
+.tok{display:flex;align-items:center;gap:10px;padding:7px 9px;border:1px solid var(--doc-line);border-radius:6px;background:var(--doc-panel)}
+.tok .sw2{width:26px;height:26px;border-radius:5px;flex:none;box-shadow:inset 0 0 0 1px rgb(128 128 128/.22)}
+.tok .tx{min-width:0;flex:1}
+.tok .nm2{font:430 10.5px/14px var(--font-mono);color:var(--doc-fg);word-break:break-all}
+.tok .hx{font:430 10px/13px var(--font-mono);color:var(--doc-fg-3);text-transform:uppercase}
+.themecols{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:18px}
+@media(max-width:900px){.themecols{grid-template-columns:1fr}}
+.themecols h6{margin:0 0 4px;font:620 9px/12px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--doc-fg-3)}
+.ecotable td .ed{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:7px;
+  box-shadow:inset 0 0 0 1px rgb(128 128 128/.25)}
+</style>
+
+<!-- ═════════════════════════ 02 COLOR ═════════════════════════ -->
+<section class="sect" id="s2">
+  <div class="sect-head"><span class="sect-num">02</span><h2>Color</h2><span class="tag">141 pairings · 0 failures</span></div>
+  <p class="sect-intro">The app icon is a pure-black field with a luminous azure V. The current CSS contradicts its
+  own icon — every neutral sits at hue 270–277 (violet-navy) while the icon glows at hue 253, and the background
+  is a murky dark rather than a void. The new palette is derived from that glow: <strong>neutral hue 254, accent
+  hue 252</strong>, on a ground of <code>#010306</code>.</p>
+
+  <div class="sub">
+    <h3>What was measured wrong</h3>
+    <p>These aren't taste judgements. Each row is a computed number against the current palette.</p>
+    <table class="spec">
+      <thead><tr><th>Problem</th><th>Pair</th><th class="num">Measured</th><th class="num">Needed</th></tr></thead>
+      <tbody>
+        <tr><td>Deuteranopes can't tell Safe from Danger</td><td><code>#4ade80</code> → <code>#f87171</code></td><td class="num bad">ΔE 8.2</td><td class="num">&gt; 15</td></tr>
+        <tr><td>Rust and Java are the same color</td><td><code>#f97316</code> / <code>#e76f00</code></td><td class="num bad">ΔE 3.6</td><td class="num">&gt; 10</td></tr>
+        <tr><td>Caution collides with Homebrew</td><td><code>#fbbf24</code> / <code>#fbb040</code></td><td class="num bad">ΔE 4.3</td><td class="num">&gt; 10</td></tr>
+        <tr><td>Safe collides with Node</td><td><code>#4ade80</code> / <code>#22c55e</code></td><td class="num bad">ΔE 7.9</td><td class="num">&gt; 10</td></tr>
+        <tr><td>Primary button label fails AA</td><td>white on <code>#6c8cff</code></td><td class="num bad">3.07:1</td><td class="num">4.5:1</td></tr>
+        <tr><td>Borders are effectively invisible</td><td><code>#2e3345</code> on <code>#0f1117</code></td><td class="num bad">1.51:1</td><td class="num">3:1</td></tr>
+      </tbody>
+    </table>
+    <div class="note bug"><strong>The root cause is structural, not aesthetic.</strong> Eleven categorical hues and
+    three signal hues were placed on the same wheel, at the same chroma, with no lightness strategy. Collisions were
+    inevitable. The fix is a rule, not a repaint: <em>signal</em> colors and <em>data</em> colors are two registers
+    that never mix — different chroma bands, different geometry, and reserved hue arcs around each risk color.</div>
+  </div>
+
+  <div class="sub">
+    <h3>Risk — the one distinction that must never fail</h3>
+    <p><strong>Safe is jade (hue 170), not green.</strong> That frees pure green for Node.js, and more importantly a
+    jade keeps blue-channel energy — which is exactly what survives red-green dichromacy. Moving Safe from hue 150
+    to 170 lifted worst-case colorblind separation from 13.0 to 16.9.</p>
+    <div id="riskSwatches"></div>
+    <table class="spec">
+      <thead><tr><th>Simulated vision</th><th>Safe</th><th>Caution</th><th>Danger</th><th class="num">min ΔE</th></tr></thead>
+      <tbody>
+        <tr><td>Normal</td><td><code>#6AECC4</code></td><td><code>#E9B600</code></td><td><code>#EF546C</code></td><td class="num ok">20.3</td></tr>
+        <tr><td>Deuteranopia</td><td><code>#D1D1C6</code></td><td><code>#C7C700</code></td><td><code>#989866</code></td><td class="num ok">16.9</td></tr>
+        <tr><td>Protanopia</td><td><code>#E2E2C4</code></td><td><code>#BDBD05</code></td><td><code>#74746D</code></td><td class="num ok">18.4</td></tr>
+        <tr><td>Tritanopia</td><td><code>#6AECCE</code></td><td><code>#E9B641</code></td><td><code>#EF546D</code></td><td class="num ok">19.9</td></tr>
+      </tbody>
+    </table>
+    <div class="note warn"><strong>Color is never allowed to carry the signal alone.</strong> Safe↔Danger improves
+    from ΔE 8.2 to 19.8, but the light theme's worst case is still 10.8 — dark chromatic text compresses toward
+    brown under dichromacy. So every risk mark carries three channels: a glyph (<span class="badge badge-safe" style="--safe-bg-subtle:transparent">✓</span> check /
+    triangle / octagon), a shape (Safe is a full pill; Caution and Danger are squarer, and Danger adds a 2px left
+    rule), and the word itself. Never a bare colored dot.</div>
+  </div>
+
+  <div class="sub">
+    <h3>Ecosystems — eleven categories that don't fight</h3>
+    <p>Brand hues were used as seeds, then positions were solved to maximise worst-case pairwise separation while
+    honouring reserved arcs around the three risk hues. Lightness is a deliberate <strong>alternating ladder</strong>,
+    not a constant — eleven equal-lightness categoricals caps worst-case separation at ΔE 3.2, because hue alone
+    cannot carry eleven levels.</p>
+    <table class="spec ecotable">
+      <thead><tr><th>Ecosystem</th><th>Dark</th><th class="num">L</th><th>Light</th><th class="num">L</th><th>Relationship to brand</th></tr></thead>
+      <tbody id="ecoRows"></tbody>
+    </table>
+    <table class="spec">
+      <thead><tr><th>Worst-case separation</th><th class="num">Current</th><th class="num">New</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>Ecosystem ↔ ecosystem (dark)</td><td class="num bad">3.6</td><td class="num ok">10.6</td><td>2.9× better</td></tr>
+        <tr><td>Ecosystem ↔ risk (dark)</td><td class="num bad">4.3</td><td class="num ok">10.7</td><td>no collision below 10</td></tr>
+        <tr><td>Safe ↔ Danger, deuteranopia</td><td class="num bad">8.2</td><td class="num ok">19.8</td><td>2.4× better</td></tr>
+      </tbody>
+    </table>
+    <div class="note"><strong>Where color honestly runs out.</strong> Under protanopia the worst ecosystem pair falls
+    to ΔE 2.1 (dark) and 0.7 (light). No eleven-category palette survives dichromacy on hue alone — the wheel
+    collapses to one axis. That is why every ecosystem mark in this design is paired with its name, why the donut is
+    gone, and why the sequential size scale is single-hue with a monotonic lightness ramp: size is the most-scanned
+    quantity in the app, so it had to stay readable under all three CVD types.</div>
+  </div>
+
+  <div class="sub">
+    <h3>Tokens</h3>
+    <p>Every value below is read live from the stylesheet in this page, so what you see is exactly what ships.
+    Light on bare <code>:root</code>; dark under both <code>@media (prefers-color-scheme: dark)</code> and
+    <code>:root[data-theme="dark"]</code>, so the manual toggle wins in both directions.</p>
+    <div class="themecols">
+      <div><h6>Dark</h6><div class="tokgrid" id="tokDark"></div></div>
+      <div><h6>Light</h6><div class="tokgrid" id="tokLight"></div></div>
+    </div>
+  </div>
+
+  <div class="sub">
+    <h3>Contrast — the numbers, not the claim</h3>
+    <table class="spec">
+      <thead><tr><th>Pairing</th><th class="num">Dark</th><th class="num">Light</th><th class="num">Required</th></tr></thead>
+      <tbody>
+        <tr><td>text-primary on surface-base</td><td class="num ok">18.20</td><td class="num ok">15.29</td><td class="num">4.5</td></tr>
+        <tr><td>text-secondary on surface-base</td><td class="num ok">8.53</td><td class="num ok">6.85</td><td class="num">4.5</td></tr>
+        <tr><td>text-tertiary on surface-base</td><td class="num ok">5.88</td><td class="num ok">4.78</td><td class="num">4.5</td></tr>
+        <tr><td>border-strong on surface-base</td><td class="num ok">3.99</td><td class="num ok">3.24</td><td class="num">3</td></tr>
+        <tr><td>on-accent on accent-bg</td><td class="num ok">7.18</td><td class="num ok">6.02</td><td class="num">4.5</td></tr>
+        <tr><td>safe-text on surface-base</td><td class="num ok">13.55</td><td class="num ok">4.94</td><td class="num">4.5</td></tr>
+        <tr><td>caution-text on surface-base</td><td class="num ok">10.49</td><td class="num ok">7.38</td><td class="num">4.5</td></tr>
+        <tr><td>danger-text on surface-base</td><td class="num ok">5.79</td><td class="num ok">12.14</td><td class="num">4.5</td></tr>
+        <tr><td>focus-ring on surface-base</td><td class="num ok">8.87</td><td class="num ok">3.84</td><td class="num">3</td></tr>
+        <tr><td>worst ecosystem dot on surface-base</td><td class="num ok">3.87</td><td class="num ok">3.49</td><td class="num">3</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px">Two deliberate sub-threshold values, both permitted: <code>--text-disabled</code>
+    under the WCAG 1.4.3 inactive-control exception, and the decorative <code>--*-border</code> hairlines, which are
+    never a component's sole indicator — <code>--*-border-strong</code> exists for that and clears 3:1 everywhere.</p>
+    <div class="note"><strong>The dark primary button is inverted on purpose.</strong> It is luminous azure with
+    near-black text (7.18:1), not white on blue — which is what the current palette does, and measures 2.88:1. This
+    is the icon's glow applied literally: light on a void, not a colored rectangle.</div>
+  </div>
+</section>
+
+<!-- ═════════════════════════ 03 TYPOGRAPHY ═════════════════════════ -->
+<section class="sect" id="s3">
+  <div class="sect-head"><span class="sect-num">03</span><h2>Typography</h2><span class="tag">23 roles · 2 faces</span></div>
+  <p class="sect-intro">Two faces, not three. <strong>Inter</strong> variable with the optical-size axis (14–32)
+  gives display-optical treatment without a third download, so no separate display face is warranted;
+  <strong>Geist Mono</strong> carries paths, commands, sizes and counts. The base size is <strong>13px</strong> and
+  the scale is quantised to whole pixels below 20px — a modular ratio produces sub-pixel sizes in the 10–18px band
+  where 95% of this UI lives, and those render soft. Hierarchy comes from weight and line-height instead: three
+  distinct roles at 13px, three at 11px.</p>
+
+  <div class="sub">
+    <h3>Scale</h3>
+    <div id="typeSpec"></div>
+  </div>
+
+  <div class="sub">
+    <h3>Numbers are the content</h3>
+    <p>This is a tool for auditing quantities, so numerals get more care than the prose does.</p>
+    <table class="spec">
+      <thead><tr><th>Rule</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><code>tabular-nums</code> at 10 mandatory sites</td><td>Size column, staleness, metrics, bar values, the Clean button total, progress %, scan duration, filter counts, status counts. Proportional digits make a column of sizes unscannable.</td></tr>
+        <tr><td>Size is <strong>two elements</strong>, never one string</td><td><code>&lt;span class="size-num"&gt;1.4&lt;/span&gt;&lt;span class="size-unit"&gt;GB&lt;/span&gt;</code> with a 3px flex gap and a 16px unit gutter. A space character isn't tabular and breaks decimal alignment.</td></tr>
+        <tr><td>Four typographic size tiers</td><td>≥10 GB at 15px/620, 1–10 GB at 14px/620, 100 MB–1 GB at 13px/560, &lt;100 MB dimmed. Gigabyte rows visually rise out of the list — the cheapest possible size hierarchy.</td></tr>
+        <tr><td>Base 1000, units <code>B / kB / MB / GB</code></td><td>Matches Finder's Get Info, which is the number users compare against. Lowercase <code>k</code> is the correct SI prefix; <code>KB</code> on a base-1000 scale is wrong and developers notice.</td></tr>
+        <tr><td>Keep the trailing <code>.0</code> below 10</td><td><code>2.0 GB</code>, not <code>2 GB</code>. In a column a consistent decimal position beats brevity.</td></tr>
+        <tr><td>Exact counts, never <code>1.2k</code></td><td>Abbreviating in a tool where the number <em>is</em> the audit is a lie for no gain. The one exception is the tray tooltip, which the OS truncates hard.</td></tr>
+        <tr><td>Two time registers</td><td>Rows get <code>94d</code> — a sortable magnitude in a 56px column. Tooltips get <code>3 months ago · Feb 14, 2026</code>, because that's when the user is deciding whether to delete. Never “recently”.</td></tr>
+        <tr><td>Every nullable number has an em-dash state</td><td>Three exist: <code>days_stale</code>, <code>last_modified</code>, <code>project_name</code>. An empty cell reads as a rendering bug; <code>—</code> reads as “not applicable”.</td></tr>
+      </tbody>
+    </table>
+    <div class="note bug"><strong>Two byte formatters currently disagree.</strong> Rust fills
+    <code>size_display</code> via <code>ByteSize</code> (base 1024) and the row renders that; the donut, cards, bars
+    and Clean button use the JS <code>formatBytes()</code> (base 1000). A 1.5 GiB item shows <code>1.5 GB</code> in
+    its row and contributes <code>1.6 GB</code> to the total. Pick one — the JS one, from <code>size_bytes</code> —
+    and ignore <code>size_display</code> entirely.</div>
+  </div>
+
+  <div class="sub">
+    <h3>Paths</h3>
+    <p>A path is the item's identity — three <code>node_modules/</code> rows are indistinguishable without it — so
+    it lives permanently on line 2 rather than behind a hover tooltip. Because it's monospace, truncation is
+    <strong>arithmetic, not measurement</strong>: measure the character advance once, compute a budget, then grow
+    segments outward from the leaf. Four emphasis roles inside one string, with the separators as the dimmest
+    element so the names read as names.</p>
+    <div id="pathSpec"></div>
+  </div>
+
+  <div class="sub">
+    <h3>Wordmark</h3>
+    <p>The mark is a ring with a gap at 45° — an event horizon — and it is <em>also</em> the scan indicator and the
+    tray glyph. One shape doing three jobs is what makes a small app feel designed rather than decorated. Sentence
+    case, because caps would make it a product category and sentence case makes it a name.</p>
+    <div id="markSpec"></div>
+    <div class="note"><strong>Delete the header subtitle.</strong> “Developer disk space reclaimer” sits under the
+    wordmark on every launch, explaining the app to someone who already opened it. That slot is worth live state:
+    <code>384 items · scanned 2m ago</code>, or <code>Scanning ~/Developer · 1,204 dirs</code>.</div>
+  </div>
+</section>
+
+<!-- ═════════════════════════ 04 LAYOUT & SHELL ═════════════════════════ -->
+<section class="sect" id="s4">
+  <div class="sect-head"><span class="sect-num">04</span><h2>Layout &amp; shell</h2><span class="tag">rail + command bar</span></div>
+  <p class="sect-intro">Void has three destinations and one dominant surface. A top nav would spend 52px of
+  <em>vertical</em> space — the scarcest resource in a 700px-tall window — on three links. A left rail spends 56px
+  of horizontal space, which is 6% at 900px and 4% at 1440px. Vertical space buys list rows; horizontal space is
+  comparatively abundant. The rail wins.</p>
+
+  <div class="sub">
+    <h3>Responsive behaviour</h3>
+    <table class="spec">
+      <thead><tr><th>Breakpoint</th><th>Rail</th><th class="num">Gutter</th><th>Drawer</th><th>Density</th></tr></thead>
+      <tbody>
+        <tr><td>S · 720–1023 <em>(incl. the 900 default)</em></td><td>56 icon</td><td class="num">16</td><td>overlay 400 + scrim</td><td>comfortable 44</td></tr>
+        <tr><td>M · 1024–1279</td><td>56 icon</td><td class="num">20</td><td>overlay 400 + scrim</td><td>comfortable 44</td></tr>
+        <tr><td>L · 1280–1679</td><td>216 labelled</td><td class="num">24</td><td><strong>inline 400</strong>, pushes the table</td><td>comfortable 44</td></tr>
+        <tr><td>XL · 1680+</td><td>216 labelled</td><td class="num">32</td><td>inline 440</td><td>compact 32, path in its own column</td></tr>
+      </tbody>
+    </table>
+    <div class="note"><strong>A deliberate coincidence.</strong> Table width at 900px with no drawer is 844; at
+    1440px with the drawer open it is 824. Within 20px, so the column widths are identical across both. Someone who
+    opens the drawer on a large display sees the list they already know, not a reflow.
+    <br><br>The window also needs <code>minWidth: 720, minHeight: 560</code> — it currently has no minimum, and the
+    design does not survive below that.</div>
+  </div>
+
+  <div class="sub">
+    <h3>Vertical budget at 900 × 700</h3>
+    <p><code>52</code> command bar <code>+ 64</code> summary <code>+ 40</code> toolbar <code>+ 28</code> column
+    heads <code>+ 492</code> list viewport <code>+ 24</code> status bar <code>= 700</code>. That is ten rows visible
+    at comfortable density, fifteen at compact. When the list scrolls past 24px the summary strip condenses from 64
+    to 36 and reflows to one line — returning 28px, over half a row, on a screen where every row counts.</p>
+  </div>
+
+  <div class="sub">
+    <h3>Keyboard</h3>
+    <p>Fully operable without a mouse. The list is a <strong>single composite tab stop</strong> with a roving
+    tabindex — 384 individually tabbable rows would make the keyboard unusable.</p>
+    <table class="spec">
+      <thead><tr><th>Key</th><th>Action</th><th>Key</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><code>⌘1 / ⌘2 / ⌘3</code></td><td>Results / History / Settings</td><td><code>↑ ↓</code></td><td>Move row focus</td></tr>
+        <tr><td><code>⌘R</code></td><td>Scan now</td><td><code>→ ←</code></td><td>Expand / collapse group</td></tr>
+        <tr><td><code>⌘F</code> or <code>/</code></td><td>Focus filter</td><td><code>Space</code></td><td>Toggle selection</td></tr>
+        <tr><td><code>⌘A</code></td><td>Select all visible</td><td><code>⇧↑ ⇧↓</code></td><td>Extend selection</td></tr>
+        <tr><td><code>⌥⌘A</code></td><td>Select all safe</td><td><code>Enter</code></td><td>Open drawer</td></tr>
+        <tr><td><code>⌘↵</code></td><td>Review &amp; Clean</td><td><code>⌥↑ ⌥↓</code></td><td>Prev / next item in drawer</td></tr>
+        <tr><td><code>⌘C</code></td><td>Copy path</td><td><code>⌘⇧C</code></td><td>Copy the exact command</td></tr>
+        <tr><td><code>⌘\</code></td><td>Toggle drawer</td><td><code>⌘⇧E</code></td><td>Expand / collapse all</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px"><code>Esc</code> is contextual: in the filter it clears and blurs; in the drawer it
+    closes; with a selection it deselects; otherwise nothing. Focus always returns to its origin when a drawer or
+    modal closes, and the modal's initial focus is <em>Cancel</em> — never the destructive button.</p>
+  </div>
+</section>
+
+<!-- ═════════════════════════ 06 COMPONENTS ═════════════════════════ -->
+<section class="sect" id="s6">
+  <div class="sect-head"><span class="sect-num">06</span><h2>Components</h2><span class="tag">live · every state</span></div>
+  <p class="sect-intro">Every component used by two or more screens, in every state that has to be designed. These
+  are live elements rendered from the same CSS the mockups use — not pictures of components.</p>
+  <div class="themecols" style="grid-template-columns:1fr;gap:44px">
+    <div><h6>Dark</h6><div class="app" data-theme="dark" data-gallery style="width:100%;height:auto;display:block;border-radius:10px;box-shadow:none;border:1px solid var(--border-subtle)"></div></div>
+    <div><h6>Light</h6><div class="app" data-theme="light" data-gallery style="width:100%;height:auto;display:block;border-radius:10px;box-shadow:none;border:1px solid var(--border-subtle)"></div></div>
+  </div>
+</section>
+
+<!-- ═════════════════════════ 07 MOTION & DEPTH ═════════════════════════ -->
+<section class="sect" id="s7">
+  <div class="sect-head"><span class="sect-num">07</span><h2>Motion &amp; depth</h2><span class="tag">mostly restraint</span></div>
+  <p class="sect-intro">This is a tool people open many times a day, so the interesting part of the motion spec is
+  the list of things that must <strong>not</strong> animate. The streaming scan is the hard case: rows arrive
+  faster than they can be read, and every instinct to make that feel alive makes it harder to use.</p>
+
+  <div class="sub">
+    <h3>Tokens</h3>
+    <table class="spec">
+      <thead><tr><th>Token</th><th class="num">Value</th><th>Applies to</th></tr></thead>
+      <tbody>
+        <tr><td><code>--dur-1</code></td><td class="num">80ms</td><td>Hover in, press</td></tr>
+        <tr><td><code>--dur-2</code></td><td class="num">120ms</td><td>Hover out, checkbox fill, small state</td></tr>
+        <tr><td><code>--dur-3</code></td><td class="num">160ms</td><td>Chips, tooltip fade, streamed row entrance</td></tr>
+        <tr><td><code>--dur-4</code></td><td class="num">220ms</td><td>Drawer, row collapse, toast</td></tr>
+        <tr><td><code>--dur-5</code></td><td class="num">320ms</td><td>Modal, sheet</td></tr>
+        <tr><td><code>--dur-6</code></td><td class="num">480ms</td><td>Number count-down on completion</td></tr>
+        <tr><td><code>--ease-out</code></td><td class="m">cubic-bezier(.16, 1, .30, 1)</td><td>The default for everything entering</td></tr>
+        <tr><td><code>--ease-standard</code></td><td class="m">cubic-bezier(.20, 0, 0, 1)</td><td>The indeterminate progress sweep</td></tr>
+        <tr><td><code>--ease-spring</code></td><td class="m">cubic-bezier(.34, 1.56, .64, 1)</td><td><strong>The success check, and nothing else</strong></td></tr>
+        <tr><td><code>--ease-linear</code></td><td class="m">linear</td><td>Determinate progress and the spinner only — easing there misrepresents rate</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sub">
+    <h3>Streaming rows — the crux</h3>
+    <table class="spec">
+      <thead><tr><th>Rule</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td>Coalesce arrivals into one <code>requestAnimationFrame</code> batch and <strong>append a DocumentFragment</strong></td><td>The current code rebuilds the whole list's <code>innerHTML</code> on every <code>item_found</code> — O(n²) across a scan.</td></tr>
+        <tr><td>Opacity only. No transform, no stagger.</td><td>Movement on rows arriving several per frame reads as jitter, not life.</td></tr>
+        <tr><td>Skip the entrance animation above 8 rows per frame</td><td>A rate governor. Below the threshold it feels responsive; above it, it would be strobing.</td></tr>
+        <tr><td>Freeze sort during the scan; re-sort once at <code>ScanComplete</code></td><td>Re-sorting per event produces a list that physically cannot be read.</td></tr>
+        <tr><td>Never auto-scroll — show a <code>↓ N new</code> pill</td><td>Yanking the viewport away from what someone is reading is the rudest thing a streaming list can do.</td></tr>
+        <tr><td>Throttle chart redraws to ≤4/s during a scan</td><td>Prefer none at all.</td></tr>
+      </tbody>
+    </table>
+    <div class="note"><strong>Must not animate:</strong> list reordering or FLIP transitions · row insertion with
+    translate or stagger · filter and sort switching (swap instantly) · counts and status text during scanning ·
+    focus rings · theme switching · app launch, so a tray click to a visible window is zero-animation ·
+    disabled→enabled · global <code>scroll-behavior: smooth</code> · tooltip position · hover states during momentum
+    scroll · the tray icon · and the scan ring's dash offset while it rotates, because two loops at different
+    periods produce a visible beat frequency.</div>
+  </div>
+
+  <div class="sub">
+    <h3>Depth</h3>
+    <p>Shadows are for things that <strong>float</strong>; borders are for things that <strong>sit</strong>. Almost
+    everything in this design sits: rows, cards, panels, the toolbar, the summary strip and every control are
+    elevation zero, separated by a 1px border. Only menus, popovers, tooltips and modals float.</p>
+    <p style="margin-top:10px">In dark theme a drop shadow on a near-black ground conveys nothing, so elevation is
+    carried by three things instead: a step up the surface ramp, a 1px outer ring, and an
+    <code>inset 0 1px 0 rgb(255 255 255 / .055)</code> lit top edge. That top edge is what actually reads as
+    “raised”.</p>
+    <div id="depthSpec"></div>
+  </div>
+</section>
+
+<!-- ═════════════════════════ 08 WHAT THIS CHANGES ═════════════════════════ -->
+<section class="sect" id="s8">
+  <div class="sect-head"><span class="sect-num">08</span><h2>What this changes</h2><span class="tag">cuts · bugs · backend</span></div>
+  <p class="sect-intro">A design proposal that only adds is not a proposal, it's a wish list. Here is what gets
+  removed, what turned out to be broken while the design was being worked out, and what the backend has to grow
+  before parts of this can ship.</p>
+
+  <div class="sub">
+    <h3>Cut</h3>
+    <table class="spec">
+      <thead><tr><th>Removed</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>The donut chart</td><td>Nine-plus segments in a 160px circle. Ordered group headers with share bars say the same thing more legibly, in less space, and are clickable.</td></tr>
+        <tr><td>The 320px stats panel and its toggle</td><td>It competed with the list for the one dimension the list needs, and auto-opened on scan completion — shoving aside the results the user just waited for.</td></tr>
+        <tr><td>The per-ecosystem bar chart</td><td>Becomes the 100×6 share bar in each group header.</td></tr>
+        <tr><td>The duplicated summary cards</td><td>The same numbers appeared three times inside one 320px panel. “Categories: 9” is not information.</td></tr>
+        <tr><td>The 13-chip filter row</td><td>Single-select, no counts, no size context, wrapped to two lines below ~880px, and cost 40px of vertical space permanently. One filter field plus one Filters popover replaces it — and that popover is multi-select with counts.</td></tr>
+        <tr><td>The “Safe” badge</td><td>~80% of rows. A badge on 80% of rows is texture, not signal.</td></tr>
+        <tr><td>Silent <code>available_actions[0]</code></td><td>The core safety defect. Replaced by an explicit rule — lowest risk, then prefer Trash, then largest estimate — that is visible and changeable per row.</td></tr>
+        <tr><td>Hover-tooltip-only paths</td><td>A path you must hover cannot be scanned or trusted. It moves to line 2 permanently; the tooltip survives only for the truncated case.</td></tr>
+        <tr><td>The header subtitle</td><td>Marketing copy in a bar the user sees a thousand times. Replaced by live state.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sub">
+    <h3>Bugs found while designing this</h3>
+    <p>These are in the shipping code today and are independent of whether the redesign happens.</p>
+    <table class="spec">
+      <thead><tr><th>Bug</th><th>Where</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>Ecosystem key mismatch</td><td><code>index.html</code> <code>ECO_COLORS</code></td><td>Keyed <code>jetbrains</code>, but the backend serialises <code>jet_brains</code>. <strong>JetBrains renders grey</strong> in the donut and bars right now.</td></tr>
+        <tr><td>Two disagreeing byte formatters</td><td>Rust <code>ByteSize</code> vs JS <code>formatBytes</code></td><td>A row and the total it feeds can differ — <code>1.5 GB</code> in the row, <code>1.6 GB</code> in the sum.</td></tr>
+        <tr><td>Full re-render per streamed item</td><td><code>renderItems()</code></td><td>Rebuilds the entire list's <code>innerHTML</code> on every <code>item_found</code>. O(n²) over a scan of hundreds of items.</td></tr>
+        <tr><td>Risk shown is the item's, not the action's</td><td><code>index.html</code> row render</td><td><code>SimulatorDevices</code> displays <em>Caution</em> while holding a <em>Danger</em> action; <code>~/Downloads</code> displays <em>Safe</em> while holding <code>rm -rf</code>.</td></tr>
+        <tr><td>Tray icon is not a template image</td><td><code>tray.rs</code></td><td>Passes the full-colour app icon, so it won't theme to a light or dark menu bar and won't invert on click. Needs a black+alpha 22×22 / 44×44 asset and <code>.icon_as_template(true)</code>.</td></tr>
+        <tr><td>Permission-denied directories are dropped</td><td>every scanner</td><td>A directory that computes size 0 is discarded with no error. Without Full Disk Access your DerivedData simply doesn't exist, and nothing says why.</td></tr>
+        <tr><td><code>Command</code> args are never safety-checked</td><td><code>action/mod.rs</code>, <code>safety.rs</code></td><td><code>SafetyChecker</code> only gates <code>RemoveDir</code>/<code>RemoveFile</code>. <code>rm -rf ~/Downloads/…</code> and the <code>osascript</code> trash command bypass it entirely — including on paths that are supposedly hard-blocked.</td></tr>
+        <tr><td><code>~/.cargo/registry</code> mislabelled</td><td><code>scanner/rust.rs</code></td><td>Returned as <code>kind: TargetDir</code> with a <em>Safe</em> action labelled “Remove target/” whose path is the global cargo registry. The label and the risk are both wrong for what it does.</td></tr>
+        <tr><td><code>staleness_threshold_days</code> is never read</td><td><code>config.rs</code> + all scanners</td><td>The setting exists and does nothing. The design labels it honestly as a display filter rather than pretending.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sub">
+    <h3>Backend work this design needs</h3>
+    <table class="spec">
+      <thead><tr><th>Needed</th><th>Blocks</th><th class="num">Size</th></tr></thead>
+      <tbody>
+        <tr><td><code>get_disk_usage()</code> via <code>sysinfo</code></td><td>The disk meter in the summary strip, rail and tray. <code>sysinfo</code> is already a dependency.</td><td class="num">S</td></tr>
+        <tr><td>Persist <code>AppConfig</code> on <code>update_config</code></td><td>All of Settings. It currently mutates an in-memory mutex only, so every setting resets on relaunch — which makes the whole screen a lie.</td><td class="num">S</td></tr>
+        <tr><td><code>BatchComplete</code> event</td><td>The completion card. There is no batch-complete signal; the channel just closes and the frontend has to count.</td><td class="num">S</td></tr>
+        <tr><td>Cancellation token in <code>execute_batch</code></td><td>The Stop button — which is why this design doesn't draw one. Trivial given the loop is already sequential.</td><td class="num">S</td></tr>
+        <tr><td><code>estimated_savings_bytes</code> in the <code>Completed</code> event</td><td>Honest “reclaimed” totals. <code>Command</code> and <code>DockerPrune</code> always report <code>bytes_freed: 0</code>.</td><td class="num">S</td></tr>
+        <tr><td>Distinguishable permission-denied errors</td><td>The permission banner. Right now the failure is invisible absence, which is the worst failure mode in the product.</td><td class="num">M</td></tr>
+        <tr><td>Clean-history persistence</td><td>The entire History screen.</td><td class="num">M</td></tr>
+        <tr><td>Safety-check <code>Command</code> arguments</td><td>Nothing visual — but it's the security gap above.</td><td class="num">M</td></tr>
+        <tr><td><code>minWidth: 720, minHeight: 560</code></td><td>The layout below 720px. One line of <code>tauri.conf.json</code>.</td><td class="num">XS</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sub">
+    <h3>Where to start</h3>
+    <p>If only one thing ships from this document, it should be <strong>risk-follows-the-action</strong> plus the
+    per-row action picker. It's the only change here that prevents a user from deleting something they didn't intend
+    to. The palette swap is second — it's mechanical, it's a single CSS block, and it fixes an AA failure and a
+    colorblind-safety failure at the same time. The layout work is third; it's the largest change and the least
+    urgent, because the current layout is merely cramped rather than wrong.</p>
+  </div>
+</section>
+
+</div><!-- /.doc -->
+
+<script>
+/* ══════════════════ LIVE SPEC RENDERERS ══════════════════ */
+
+/* Hidden probes so every value shown is read from the real stylesheet. */
+const probe = {};
+['dark','light'].forEach(t => {
+  const d = document.createElement('div');
+  d.className = 'app'; d.dataset.theme = t;
+  d.style.cssText = 'position:absolute;left:-9999px;width:0;height:0;overflow:hidden';
+  document.body.appendChild(d); probe[t] = d;
+});
+const val = (t, name) => getComputedStyle(probe[t]).getPropertyValue(name).trim();
+
+const TOKENS = [
+  ['Surfaces', ['surface-base','surface-raised','surface-sunken','surface-overlay','surface-inset']],
+  ['Borders', ['border-subtle','border-default','border-strong']],
+  ['Text', ['text-primary','text-secondary','text-tertiary','text-disabled']],
+  ['Accent', ['accent-bg','accent-bg-hover','accent-subtle','accent-text','accent-border-strong']],
+  ['Safe', ['safe-text','safe-solid','safe-bg-subtle','safe-border-strong']],
+  ['Caution', ['caution-text','caution-solid','caution-bg-subtle','caution-border-strong']],
+  ['Danger', ['danger-text','danger-solid','danger-bg-subtle','danger-border-strong']],
+  ['State', ['state-hover','state-selected','focus-ring','chart-track']]
+];
+function renderTokens(theme, host){
+  host.innerHTML = TOKENS.map(([grp, names]) =>
+    `<div style="grid-column:1/-1;margin-top:6px" class="t-overline">${grp}</div>` +
+    names.map(n => {
+      const v = val(theme, '--' + n);
+      return `<div class="tok"><span class="sw2" style="background:${v}"></span>
+        <span class="tx"><span class="nm2">--${n}</span><span class="hx">${v}</span></span></div>`;
+    }).join('')
+  ).join('');
+}
+renderTokens('dark', document.getElementById('tokDark'));
+renderTokens('light', document.getElementById('tokLight'));
+
+/* ── Risk swatches ── */
+document.getElementById('riskSwatches').innerHTML = ['dark','light'].map(t => `
+  <div style="margin-top:14px">
+    <div class="t-overline" style="color:var(--doc-fg-3);margin-bottom:8px">${t}</div>
+    <div class="app" data-theme="${t}" style="width:100%;height:auto;display:flex;flex-direction:row;gap:10px;flex-wrap:wrap;
+      padding:16px;border-radius:8px;box-shadow:none;border:1px solid var(--border-subtle)">
+      ${[['safe','Safe','check'],['caution','Caution','warning'],['danger','Danger','alert-circle']].map(([k,l,ic])=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;
+          background:var(--${k}-bg-subtle);border:1px solid var(--${k}-border)
+          ${k==='danger'?';border-left:2px solid var(--danger-border-strong)':''}">
+          <span style="color:var(--${k}-text);display:flex">${I(ic,'icon icon-sm')}</span>
+          <span class="t-label" style="color:var(--${k}-text)">${l}</span>
+          <span style="width:1px;height:16px;background:var(--border-default)"></span>
+          <span style="width:18px;height:18px;border-radius:4px;background:var(--${k}-solid)"></span>
+          <span class="t-mono-xs" style="color:var(--text-tertiary)">${val(t,'--'+k+'-text')}</span>
+        </div>`).join('')}
+    </div>
+  </div>`).join('');
+
+/* ── Ecosystem table ── */
+const ECOROWS = [
+  ['Rust','#FF8505',0.740,'#BB5F00',0.585,'brand orange, held'],
+  ['Java / JVM','#C37D6F',0.660,'#954D3F',0.505,'re-derived as roasted clay — low chroma clears both Rust and Danger'],
+  ['Homebrew','#A0A645',0.700,'#777B18',0.560,'amber rotated to olive-gold to clear Caution'],
+  ['Node.js','#3AA831',0.645,'#097200',0.480,'brand green, held — freed by moving Safe to jade'],
+  ['Go','#31C7D5',0.760,'#0095A1',0.610,'brand cyan, held'],
+  ['Docker','#009AC7',0.640,'#007397',0.520,'classic whale cyan-blue'],
+  ['Python','#2174B7',0.545,'#004E85',0.415,'brand blue, essentially held'],
+  ['Apple / Xcode','#AAB4FF',0.790,'#6D74D8',0.600,'Xcode blue lifted to a pale aluminium'],
+  ['.NET','#A676F9',0.672,'#712DC3',0.480,'brand violet, held'],
+  ['JetBrains','#A34AAA',0.560,'#811288',0.435,'magenta end of the JB gradient — moved off Danger'],
+  ['System','#FF89C0',0.775,'#C63E86',0.580,'rose']
+];
+document.getElementById('ecoRows').innerHTML = ECOROWS.map(([n,d,dl,l,ll,note]) =>
+  `<tr><td>${n}</td>
+   <td><span class="ed" style="background:${d}"></span><code>${d}</code></td><td class="num">${dl.toFixed(3)}</td>
+   <td><span class="ed" style="background:${l}"></span><code>${l}</code></td><td class="num">${ll.toFixed(3)}</td>
+   <td>${note}</td></tr>`).join('');
+
+/* ── Type specimen ── */
+const ROLES = [
+  ['display','Reclaim your disk space'],['title','142.6 GB reclaimable'],
+  ['metric-xl','340.2 GB'],['metric-lg','340.2 GB'],['metric-md','142.6 GB'],
+  ['metric-sm','142.6 GB'],['metric-xs','4.1 GB'],
+  ['page-title','Find what your builds left behind'],['section-title','Choose an action'],
+  ['overline','Needs your attention'],['colhead','Name'],
+  ['body-lg','Void walks your scan roots and reports what it finds.'],
+  ['body','Delete the entire node_modules directory'],
+  ['body-strong','Remove Maven repository'],['body-sm','Dependencies will re-download.'],
+  ['prose','Nothing is deleted until you pick it and confirm.'],
+  ['label-lg','Scan roots'],['label','Walker threads'],
+  ['caption','384 items · scanned 2m ago'],['micro','23%'],
+  ['mono-md','cargo clean'],['mono-sm','~/git/void-web/node_modules'],['mono-xs','rm -rf ~/Downloads/xcode_14.3.xip']
+];
+document.getElementById('typeSpec').innerHTML = ROLES.map(([r, sample]) => {
+  const g = p => val('dark', `--t-${r}-${p}`);
+  return `<div class="typerow">
+    <span class="role">.t-${r}</span>
+    <span class="t-${r}" style="color:var(--doc-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sample}</span>
+    <span class="metrics">${g('size')} / ${g('lh')} · ${g('w')} · ${g('ls')}</span>
+  </div>`;
+}).join('');
+
+/* ── Path + size specimen ── */
+document.getElementById('pathSpec').innerHTML = ['dark','light'].map(t => `
+  <div class="app" data-theme="${t}" style="width:100%;height:auto;display:block;padding:16px;margin-top:12px;
+    border-radius:8px;box-shadow:none;border:1px solid var(--border-subtle)">
+    <div style="display:flex;flex-direction:column;gap:9px">
+      ${Path('~/git/void-web/node_modules','void-web')}
+      ${Path('~/Library/Developer/Xcode/DerivedData','Xcode')}
+      ${Path('/var/run/docker.sock',null)}
+      ${Path('~/.m2/repository',null)}
+    </div>
+    <div style="display:flex;gap:26px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border-subtle);align-items:flex-end">
+      ${[22.1e9, 4.1e9, 340e6, 12e6, null].map(b=>`<span style="text-align:right">${Size(b)}</span>`).join('')}
+      <span class="t-caption" style="color:var(--text-tertiary);margin-left:auto">four size tiers + the unknown state</span>
+    </div>
+  </div>`).join('');
+
+/* ── Wordmark specimen ── */
+document.getElementById('markSpec').innerHTML = ['dark','light'].map(t => `
+  <div class="app" data-theme="${t}" style="width:100%;height:auto;display:flex;flex-direction:row;align-items:center;gap:42px;flex-wrap:wrap;
+    padding:26px;margin-top:12px;border-radius:8px;box-shadow:none;border:1px solid var(--border-subtle)">
+    <div class="void-lockup" style="gap:16px">
+      <span class="void-mark"><svg viewBox="0 0 20 20" width="44" height="44" aria-hidden="true">
+        <circle cx="10" cy="10" r="6.75" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+        pathLength="100" stroke-dasharray="88 12" stroke-dashoffset="-81"/></svg></span>
+      <span class="void-word" style="font-size:44px;font-weight:620;letter-spacing:-.03em"><span class="v">V</span>oid</span>
+    </div>
+    <div class="void-lockup"><span class="void-mark">${MARK}</span><span class="void-word"><span class="v">V</span>oid</span></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="void-mark" style="animation:void-spin 900ms linear infinite">${MARK}</span>
+      <span class="t-caption" style="color:var(--text-tertiary)">scanning</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:5px 10px;border-radius:6px;background:var(--surface-sunken)">
+      <span style="color:var(--text-primary)"><svg viewBox="0 0 22 22" width="18" height="18" aria-hidden="true">
+        <circle cx="11" cy="11" r="7.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+        pathLength="100" stroke-dasharray="88 12" stroke-dashoffset="-81"/></svg></span>
+      <span class="t-caption" style="color:var(--text-tertiary)">tray, 22×22 template</span>
+    </div>
+  </div>`).join('');
+
+/* ── Depth specimen ── */
+document.getElementById('depthSpec').innerHTML = ['dark','light'].map(t => `
+  <div class="app" data-theme="${t}" style="width:100%;height:auto;display:flex;flex-direction:row;gap:22px;flex-wrap:wrap;
+    padding:30px;margin-top:12px;border-radius:8px;box-shadow:none;border:1px solid var(--border-subtle);
+    background:var(--surface-base)">
+    ${[['0','sits — rows, cards, controls','none','1px solid var(--border-subtle)'],
+       ['1','sticky header once scrolled','var(--shadow-1)','1px solid var(--border-subtle)'],
+       ['2','menus, popovers, tooltips','var(--shadow-2)','1px solid var(--border-default)'],
+       ['3','modals and dialogs','var(--shadow-3)','1px solid var(--border-default)']].map(([n,use,sh,bd])=>`
+      <div style="width:190px;height:88px;border-radius:8px;background:var(--surface-raised);border:${bd};
+        box-shadow:${sh};padding:12px;display:flex;flex-direction:column;justify-content:space-between">
+        <span class="t-overline" style="color:var(--text-quaternary)">Elevation ${n}</span>
+        <span class="t-caption" style="color:var(--text-secondary)">${use}</span>
+      </div>`).join('')}
+  </div>`).join('');
+</script>
+
+<script>
+/* ══════════════════ COMPONENT GALLERY ══════════════════ */
+const row = (name, desc, content, stack) =>
+  `<div class="gal-row"><div class="gal-k"><div class="n">${name}</div><div class="d">${desc}</div></div>
+   <div class="gal-v${stack?' stack':''}">${content}</div></div>`;
+const st = (lb, html) => `<div class="gal-state"><span class="lb">${lb}</span>${html}</div>`;
+
+function gallery(){
+  let h = '<div class="gallery">';
+
+  h += row('Button — primary','The single verb per screen',
+    st('default','<button class="btn btn-primary">Scan now</button>') +
+    st('hover','<button class="btn btn-primary" style="background:var(--accent-bg-hover)">Scan now</button>') +
+    st('active','<button class="btn btn-primary" style="background:var(--accent-bg-active)">Scan now</button>') +
+    st('focus','<button class="btn btn-primary is-focused">Scan now</button>') +
+    st('loading','<button class="btn btn-primary is-disabled"><span class="spinring" style="border-color:currentColor;border-right-color:transparent"></span>Scanning…</button>') +
+    st('disabled','<button class="btn btn-primary is-disabled">Scan now</button>'));
+
+  h += row('Button — secondary / ghost','Everything that isn\'t the verb',
+    st('secondary','<button class="btn btn-secondary">Cancel</button>') +
+    st('sec · hover','<button class="btn btn-secondary" style="background:var(--state-hover);border-color:var(--border-strong)">Cancel</button>') +
+    st('ghost','<button class="btn btn-ghost">Scan again</button>') +
+    st('ghost · hover','<button class="btn btn-ghost" style="background:var(--state-hover);color:var(--text-primary)">Scan again</button>') +
+    st('with icon','<button class="btn btn-secondary">'+I('copy','icon icon-sm')+'Copy</button>') +
+    st('sizes','<span style="display:flex;gap:8px;align-items:center"><button class="btn btn-secondary btn-sm">Small</button><button class="btn btn-secondary">Medium</button><button class="btn btn-secondary btn-lg">Large</button></span>'));
+
+  h += row('Button — destructive','Only ever the committed action',
+    st('default','<button class="btn btn-danger">Clean 18 items</button>') +
+    st('hover','<button class="btn btn-danger" style="background:var(--danger-solid-hover)">Clean 18 items</button>') +
+    st('disabled','<button class="btn btn-danger is-disabled">Clean 18 items</button>') +
+    st('secondary','<button class="btn" style="background:var(--danger-bg-subtle);color:var(--danger-text);border-color:var(--danger-border)">Delete permanently</button>'));
+
+  h += row('Icon button','28px, always with a tooltip and aria-label',
+    st('default','<button class="iconbtn">'+I('more-horizontal')+'</button>') +
+    st('hover','<button class="iconbtn" style="background:var(--state-hover);color:var(--text-primary)">'+I('more-horizontal')+'</button>') +
+    st('active','<button class="iconbtn is-active">'+I('filter')+'</button>') +
+    st('focus','<button class="iconbtn is-focused">'+I('settings')+'</button>'));
+
+  h += row('Checkbox','Row, group and select-all',
+    st('unchecked', CB('false')) + st('checked', CB('true')) + st('mixed', CB('mixed')) +
+    st('disabled','<span class="cb is-disabled" aria-checked="false">'+I('check')+'</span>'));
+
+  h += row('Risk badge','Never color alone — glyph, shape and word',
+    st('safe','<span class="badge badge-safe" style="border-radius:999px">'+I('check','icon icon-sm')+' safe</span>') +
+    st('caution','<span class="badge badge-caution">'+I('warning','icon icon-sm')+' caution</span>') +
+    st('danger','<span class="badge badge-danger" style="border-left:2px solid var(--danger-border-strong);border-radius:3px">'+I('alert-circle','icon icon-sm')+' danger</span>') +
+    st('neutral','<span class="badge badge-neutral">estimated</span>') +
+    st('count','<span class="countpill tnum">94</span>'));
+
+  h += row('Chip','Filter, group-by, sort',
+    st('default','<button class="chip">Group: Ecosystem '+I('chevron-down','icon icon-sm')+'</button>') +
+    st('hover','<button class="chip" style="border-color:var(--border-strong);color:var(--text-primary)">Size '+I('chevron-down','icon icon-sm')+'</button>') +
+    st('active','<button class="chip is-active">'+I('filter')+' Filters</button>') +
+    st('with count','<button class="chip">'+I('filter')+' Filters <span class="countpill" style="margin-left:2px">2</span></button>') +
+    st('token','<span class="token">&gt;1gb <span class="x">'+I('close','icon icon-sm')+'</span></span>'));
+
+  h += row('Size cell','Four typographic tiers plus unknown',
+    st('≥10 GB', Size(22.1e9)) + st('1–10 GB', Size(4.1e9)) + st('100 MB–1 GB', Size(340e6)) +
+    st('&lt;100 MB', Size(12e6)) + st('unknown', Size(null)));
+
+  h += row('Magnitude &amp; share','sqrt-scaled, per group',
+    st('magnitude bar','<span style="width:56px;display:block"><span class="magbar" style="--eco-accent:var(--eco-node)"><i style="width:64%;background:var(--eco-node)"></i></span></span>') +
+    st('group share','<span class="gshare" style="width:100px;display:block;height:6px;border-radius:3px;background:var(--chart-track);overflow:hidden"><i style="display:block;height:100%;width:78%;background:var(--eco-apple);border-radius:3px"></i></span>') +
+    st('disk meter','<span style="width:200px;display:block"><span class="diskmeter"><i class="seg-used" style="width:49%"></i><i class="seg-recl" style="width:14%"></i></span></span>'));
+
+  h += row('Progress','Indeterminate for scan, determinate for clean',
+    st('indeterminate','<span style="width:220px;display:block"><span class="progress progress-indeterminate" style="display:block"></span></span>') +
+    st('determinate','<span style="width:220px;display:block"><span class="bigbar" style="--pct:39;display:block"><i></i></span></span>') +
+    st('spinner','<span class="spinring"></span>'));
+
+  h += row('Ecosystem marks','Always paired with the name',
+    Object.entries(ECO).map(([k,v]) =>
+      `<span style="display:inline-flex;align-items:center;gap:6px;color:var(--eco-${v.k})">
+        ${I('eco-'+v.k,'icon icon-sm')}<span class="t-caption" style="color:var(--text-secondary)">${v.n}</span></span>`).join(''));
+
+  h += row('Toggle &amp; slider','Settings controls',
+    st('off','<span class="toggle"><i></i></span>') + st('on','<span class="toggle is-on"><i></i></span>') +
+    st('slider','<span style="width:200px;display:block"><span class="slider" style="--pct:50;display:block"><i></i><b></b></span></span>'));
+
+  h += row('Segmented control','Settings nav below 1024px',
+    '<div class="seg"><button class="is-on">Scanning</button><button>Ecosystems</button><button>Safety</button></div>');
+
+  h += row('Item row','Every state the list can be in',
+    Item(GROUPS[0].items[0],'node') +
+    Item({...GROUPS[0].items[0], sel:true},'node') +
+    Item({...GROUPS[1].items[0]},'apple') +
+    Item({...GROUPS[6].items[0]},'docker'), true);
+
+  h += row('Group header','Collapsed and expanded, with tri-state',
+    Group(GROUPS[1], true) + Group(GROUPS[4], false), true);
+
+  h += row('Command line','Machine text is always mono, always selectable',
+    '<div style="width:100%;display:flex;flex-direction:column;gap:8px">' +
+    '<span class="cmdline"><span class="glyph">▶</span>cargo clean<br>in ~/git/void</span>' +
+    '<span class="cmdline"><span class="glyph">⌫</span>Delete directory recursively</span>' +
+    '<span class="cmdline"><span class="glyph">▶</span>docker builder prune -f</span></div>', true);
+
+  h += row('Error plate','Verbatim system output, never paraphrased',
+    '<div class="error-plate" style="margin:0">IO error: No such file or directory (os error 2)\n  while walking ~/Library/Developer/CoreSimulator/Devices</div>', true);
+
+  h += row('Banner','Permission and info, dismissible',
+    '<div style="width:100%;display:flex;flex-direction:column;gap:8px">' +
+    '<div class="banner" style="border-radius:6px;border:1px solid var(--caution-border)">'+I('lock')+
+      '<span class="txt">Some folders couldn\'t be read.</span><button class="btn btn-secondary btn-sm">Grant access</button></div>' +
+    '<div class="banner info" style="border-radius:6px;border:1px solid var(--accent-border)">'+I('info')+
+      '<span class="txt">Changes apply to your next scan.</span><button class="btn btn-ghost btn-sm">Rescan now</button></div></div>', true);
+
+  h += row('Skeleton','6 rows, only after 300ms, minimum 300ms visible',
+    '<div style="width:100%;display:flex;flex-direction:column;gap:8px">' +
+    [62,88,45].map(w=>`<div style="display:flex;gap:10px;align-items:center">
+      <span class="skeleton" style="width:14px;height:14px"></span>
+      <span style="flex:1"><span class="skeleton" style="display:block;height:15px;width:${w}%;margin-bottom:3px"></span>
+      <span class="skeleton" style="display:block;height:13px;width:${w-18}%"></span></span>
+      <span class="skeleton" style="width:48px;height:16px"></span></div>`).join('') + '</div>', true);
+
+  h += row('Empty state','An empty screen is an invitation to act',
+    `<div class="state" data-size="sm" style="width:100%;padding:24px 16px">
+      ${I('filter','glyph icon icon-lg')}
+      <div class="title">No Rust artifacts</div>
+      <div class="body">The scan found 412 items, none in this ecosystem.</div>
+      <div class="actions"><button class="btn btn-ghost btn-sm">Clear filter</button></div>
+    </div>`, true);
+
+  return h + '</div>';
+}
+document.querySelectorAll('[data-gallery]').forEach(el => el.innerHTML = gallery());
+</script>

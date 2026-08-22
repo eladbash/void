@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- The mark: a ring with a gap — an event horizon. Same shape the app uses
+       in its header, as its scan indicator, and in the menu bar. -->
+  <rect width="32" height="32" rx="7" fill="#010306"/>
+  <circle cx="16" cy="16" r="9.5" fill="none" stroke="#389BFF" stroke-width="3.4"
+          stroke-linecap="round" pathLength="100" stroke-dasharray="88 12" stroke-dashoffset="-81"/>
+</svg>

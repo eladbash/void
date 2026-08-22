@@ -2,10 +2,12 @@
   "$schema": "https://raw.githubusercontent.com/nickkadutskyi/jb-tauri-plugin/main/crates/tauri-utils/schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "core:event:default",
-    "shell:allow-open"
+    "dialog:allow-open"
   ]
 }

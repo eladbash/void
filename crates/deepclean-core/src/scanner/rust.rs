@@ -33,7 +33,12 @@ impl EcosystemScanner for RustScanner {
             return Ok(None);
         }
 
-        let parent = path.parent().unwrap();
+        // `parent()` is None only at a filesystem root, which cannot be a
+        // build artifact — but this walks arbitrary user paths, so it returns
+        // rather than panicking.
+        let Some(parent) = path.parent() else {
+            return Ok(None);
+        };
         let project_name = parent
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -105,18 +110,10 @@ impl EcosystemScanner for RustScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        let mut locs = vec![];
-        if let Some(home) = dirs::home_dir() {
-            let registry = home.join(".cargo/registry");
-            if registry.is_dir() {
-                locs.push(registry);
-            }
-            let git = home.join(".cargo/git");
-            if git.is_dir() {
-                locs.push(git);
-            }
-        }
-        locs
+        super::existing_home_dirs([
+            ".cargo/registry",
+            ".cargo/git",
+        ])
     }
 }
 

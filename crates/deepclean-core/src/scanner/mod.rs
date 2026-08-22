@@ -10,8 +10,9 @@ pub mod python;
 pub mod rust;
 pub mod system;
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use async_trait::async_trait;
 use ignore::WalkBuilder;
@@ -40,6 +41,26 @@ pub trait EcosystemScanner: Send + Sync {
     }
 }
 
+/// Resolve fixed locations under the user's home directory, keeping the ones
+/// that exist.
+///
+/// Seven scanners were each hand-rolling this same loop; the shape is always
+/// "a known list of paths relative to home, minus the ones not installed".
+pub fn existing_home_dirs<I, S>(relative: I) -> Vec<PathBuf>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<Path>,
+{
+    let Some(home) = dirs::home_dir() else {
+        return Vec::new();
+    };
+    relative
+        .into_iter()
+        .map(|rel| home.join(rel))
+        .filter(|path| path.is_dir())
+        .collect()
+}
+
 /// Orchestrates scanning across all ecosystems.
 pub struct ScanOrchestrator {
     scanners: Vec<Arc<dyn EcosystemScanner>>,
@@ -57,7 +78,9 @@ impl ScanOrchestrator {
 
         tokio::spawn(async move {
             let start = std::time::Instant::now();
-            let semaphore = Arc::new(Semaphore::new(self.config.max_concurrent_analyses));
+            // `.max(1)`: a semaphore with zero permits never returns Err from
+            // acquire, it pends forever — the scan would hang, not fail.
+            let semaphore = Arc::new(Semaphore::new(self.config.max_concurrent_analyses.max(1)));
 
             // Notify scanners starting
             for scanner in &self.scanners {
@@ -78,12 +101,26 @@ impl ScanOrchestrator {
                 let sem = semaphore.clone();
                 let tx = tx.clone();
                 let handle = tokio::spawn(async move {
-                    let _permit = sem.acquire().await.unwrap();
+                    // Acquire fails only if the semaphore is closed, which
+                    // happens when the orchestrator is being torn down. There
+                    // is nothing useful to analyze at that point.
+                    let Ok(_permit) = sem.acquire().await else {
+                        return;
+                    };
                     match scanner.analyze(&path).await {
                         Ok(Some(item)) => {
                             let _ = tx.send(ScanEvent::ItemFound { item }).await;
                         }
-                        Ok(None) => {}
+                        Ok(None) => {
+                            // A directory Void cannot read computes a size of
+                            // zero and is dropped as "nothing here". Tell the
+                            // difference before it vanishes silently.
+                            if is_permission_denied(&path) {
+                                let _ = tx
+                                    .send(ScanEvent::PermissionDenied { path: path.clone() })
+                                    .await;
+                            }
+                        }
                         Err(e) => {
                             warn!("Analysis error for {}: {}", path.display(), e);
                             let _ = tx
@@ -104,12 +141,20 @@ impl ScanOrchestrator {
                     let sem = semaphore.clone();
                     let tx = tx.clone();
                     let handle = tokio::spawn(async move {
-                        let _permit = sem.acquire().await.unwrap();
+                        let Ok(_permit) = sem.acquire().await else {
+                            return;
+                        };
                         match scanner.analyze(&loc).await {
                             Ok(Some(item)) => {
                                 let _ = tx.send(ScanEvent::ItemFound { item }).await;
                             }
-                            Ok(None) => {}
+                            Ok(None) => {
+                                if is_permission_denied(&loc) {
+                                    let _ = tx
+                                        .send(ScanEvent::PermissionDenied { path: loc.clone() })
+                                        .await;
+                                }
+                            }
                             Err(e) => {
                                 warn!("Global analysis error for {}: {}", loc.display(), e);
                             }
@@ -151,6 +196,9 @@ impl ScanOrchestrator {
             let mut candidates: Vec<(Arc<dyn EcosystemScanner>, PathBuf)> = vec![];
             let candidates_mutex = std::sync::Mutex::new(&mut candidates);
             let paths_scanned = std::sync::atomic::AtomicU64::new(0);
+            // One event per unreadable directory would be thousands on a Mac
+            // without Full Disk Access; report distinct locations, bounded.
+            let denied_seen: Mutex<HashSet<PathBuf>> = Mutex::new(HashSet::new());
 
             for root in &config.scan_roots {
                 if !root.is_dir() {
@@ -173,13 +221,17 @@ impl ScanOrchestrator {
                     let scanners = &scanners;
                     let candidates_mutex = &candidates_mutex;
                     let paths_scanned = &paths_scanned;
+                    let denied_seen = &denied_seen;
                     let tx = &tx;
                     let enabled = enabled.clone();
 
                     Box::new(move |entry| {
                         let entry = match entry {
                             Ok(e) => e,
-                            Err(_) => return ignore::WalkState::Continue,
+                            Err(err) => {
+                                report_walk_error(&err, denied_seen, tx);
+                                return ignore::WalkState::Continue;
+                            }
                         };
 
                         let count =
@@ -207,9 +259,10 @@ impl ScanOrchestrator {
                                 && scanner.is_candidate(file_name, path)
                             {
                                 debug!("Found candidate: {}", path.display());
-                                if let Ok(mut cands) = candidates_mutex.lock() {
-                                    cands.push((scanner.clone(), path.to_path_buf()));
-                                }
+                                let mut cands = candidates_mutex
+                                    .lock()
+                                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                                cands.push((scanner.clone(), path.to_path_buf()));
                                 // Don't descend into candidate directories
                                 return ignore::WalkState::Skip;
                             }
@@ -227,10 +280,110 @@ impl ScanOrchestrator {
     }
 }
 
+/// Maximum distinct unreadable directories reported per scan.
+///
+/// A Mac without Full Disk Access denies thousands of paths; the user needs to
+/// know it happened and roughly where, not a transcript.
+const MAX_DENIED_REPORTS: usize = 40;
+
+/// Whether a path exists but cannot be read.
+///
+/// Distinguishes "empty, nothing to clean" from "invisible because Void was
+/// refused access", which otherwise look identical: both yield a size of zero.
+fn is_permission_denied(path: &Path) -> bool {
+    match std::fs::read_dir(path) {
+        Err(err) => err.kind() == std::io::ErrorKind::PermissionDenied && path.exists(),
+        Ok(_) => false,
+    }
+}
+
+/// Dig the offending path out of a walker error.
+///
+/// `ignore::Error` nests: the path lives in a `WithPath` wrapper that may sit
+/// under `WithDepth` or `WithLineNumber`.
+fn walk_error_path(err: &ignore::Error) -> Option<&Path> {
+    match err {
+        ignore::Error::WithPath { path, .. } => Some(path.as_path()),
+        ignore::Error::WithDepth { err, .. } | ignore::Error::WithLineNumber { err, .. } => {
+            walk_error_path(err)
+        }
+        _ => None,
+    }
+}
+
+/// Surface a walker error as a permission event, deduplicated and bounded.
+fn report_walk_error(
+    err: &ignore::Error,
+    seen: &Mutex<HashSet<PathBuf>>,
+    tx: &mpsc::Sender<ScanEvent>,
+) {
+    let Some(io_err) = err.io_error() else {
+        return;
+    };
+    if io_err.kind() != std::io::ErrorKind::PermissionDenied {
+        return;
+    }
+    let Some(path) = walk_error_path(err) else {
+        return;
+    };
+
+    // `ignore` reports a directory-open failure against the unreadable
+    // directory itself, so this is already the right path. Walking up to the
+    // parent would name a directory that read just fine.
+    let dir = path.to_path_buf();
+
+    {
+        let mut seen = seen.lock().unwrap_or_else(PoisonError::into_inner);
+        if seen.len() >= MAX_DENIED_REPORTS || !seen.insert(dir.clone()) {
+            return;
+        }
+    }
+
+    let _ = tx.blocking_send(ScanEvent::PermissionDenied { path: dir });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::scanner::rust::RustScanner;
+
+    #[test]
+    fn empty_readable_directory_is_not_permission_denied() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(!is_permission_denied(tmp.path()));
+    }
+
+    #[test]
+    fn missing_directory_is_not_permission_denied() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(!is_permission_denied(&tmp.path().join("nope")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unreadable_directory_is_reported_rather_than_looking_empty() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let locked = tmp.path().join("locked");
+        std::fs::create_dir(&locked).unwrap();
+        std::fs::write(locked.join("secret.bin"), vec![0u8; 1024]).unwrap();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+        let denied = is_permission_denied(&locked);
+        // Root reads anything, so the distinction cannot be tested there.
+        let is_root = std::fs::read_dir(&locked).is_ok();
+
+        // Restore so the tempdir can clean itself up.
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        if !is_root {
+            assert!(
+                denied,
+                "an unreadable directory must be distinguishable from an empty one"
+            );
+        }
+    }
 
     #[tokio::test]
     async fn orchestrator_finds_rust_target() {

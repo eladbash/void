@@ -1,6 +1,8 @@
 pub mod action;
 pub mod config;
+pub mod disk;
 pub mod error;
+pub mod history;
 pub mod model;
 pub mod path_env;
 pub mod safety;

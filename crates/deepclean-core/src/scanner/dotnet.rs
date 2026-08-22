@@ -55,14 +55,9 @@ impl EcosystemScanner for DotNetScanner {
     }
 
     fn global_locations(&self) -> Vec<PathBuf> {
-        let mut locs = vec![];
-        if let Some(home) = dirs::home_dir() {
-            let nuget = home.join(".nuget/packages");
-            if nuget.is_dir() {
-                locs.push(nuget);
-            }
-        }
-        locs
+        super::existing_home_dirs([
+            ".nuget/packages",
+        ])
     }
 }
 
