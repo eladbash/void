@@ -19,5 +19,5 @@ ignore = "0.4"
 sysinfo = "0.39"
 bytesize = { version = "2", features = ["serde"] }
 async-trait = "0.1"
-dirs = "6"
+dirs = "7"
 deepclean-core = { path = "crates/deepclean-core" }
