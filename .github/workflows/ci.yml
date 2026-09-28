@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Tests build their own hermetic git repos; keep the runner's system git
+  # config out of them.
+  GIT_CONFIG_NOSYSTEM: 1
+
 jobs:
   fmt:
     runs-on: ubuntu-latest
@@ -33,7 +38,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev
-      - run: cargo clippy --workspace -- -D warnings
+      - run: cargo clippy --workspace --all-targets -- -D warnings
 
   test:
     runs-on: ubuntu-latest
@@ -48,3 +53,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev
       - run: cargo test --workspace
+
+  # deepclean-core and void-cli don't depend on Tauri, so no WebKit here. This
+  # is where the macOS-only paths get exercised: APFS clones for duplicate
+  # models, ~/Library locations, the system Trash layout.
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+      - run: cargo test -p deepclean-core -p void-cli
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: npm test

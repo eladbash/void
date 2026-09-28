@@ -4,17 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Void — Reclaim your disk space</title>
-<meta name="description" content="Void finds and cleans developer build artifacts across 11 ecosystems. One scan, gigabytes back. Free and open source for macOS, Windows and Linux.">
+<meta name="description" content="Void cleans up after your AI agents — and your agents can call Void themselves. Agent worktrees, transcripts, local models and build artifacts across 15 ecosystems. Free, open source and fully local, for macOS, Windows and Linux.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
 <meta property="og:title" content="Void — Reclaim your disk space">
-<meta property="og:description" content="Finds and cleans developer build artifacts across 11 ecosystems. One scan, gigabytes back.">
+<meta property="og:description" content="Void cleans up after your AI agents — and your agents can call Void themselves. One scan, gigabytes back.">
 <meta property="og:image" content="https://eladbash.github.io/void/shot-dark.png">
 <meta property="og:url" content="https://eladbash.github.io/void/">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Void — Reclaim your disk space">
+<meta name="twitter:description" content="Void cleans up after your AI agents — and your agents can call Void themselves.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,6 +45,7 @@
   --eco-rust:#BB5F00; --eco-java:#954D3F; --eco-homebrew:#777B18; --eco-node:#097200;
   --eco-go:#0095A1; --eco-docker:#007397; --eco-python:#004E85; --eco-apple:#6D74D8;
   --eco-dotnet:#712DC3; --eco-jetbrains:#811288; --eco-system:#C63E86;
+  --eco-worktrees:#0064B5; --eco-agents:#A2501F; --eco-models:#4F5BD5; --eco-projects:#5E6770;
 
   --font-sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI","Noto Sans",Cantarell,Ubuntu,system-ui,sans-serif;
   --font-mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Mono","Segoe UI Mono","Roboto Mono","DejaVu Sans Mono",Menlo,Consolas,monospace;
@@ -63,6 +66,7 @@
     --eco-rust:#FF8505; --eco-java:#C37D6F; --eco-homebrew:#A0A645; --eco-node:#3AA831;
     --eco-go:#31C7D5; --eco-docker:#009AC7; --eco-python:#2174B7; --eco-apple:#AAB4FF;
     --eco-dotnet:#A676F9; --eco-jetbrains:#A34AAA; --eco-system:#FF89C0;
+    --eco-worktrees:#6BB2FF; --eco-agents:#E8956A; --eco-models:#9AA3FF; --eco-projects:#A5ABB3;
   }
 }
 :root[data-theme="dark"] {
@@ -79,6 +83,7 @@
   --eco-rust:#FF8505; --eco-java:#C37D6F; --eco-homebrew:#A0A645; --eco-node:#3AA831;
   --eco-go:#31C7D5; --eco-docker:#009AC7; --eco-python:#2174B7; --eco-apple:#AAB4FF;
   --eco-dotnet:#A676F9; --eco-jetbrains:#A34AAA; --eco-system:#FF89C0;
+  --eco-worktrees:#6BB2FF; --eco-agents:#E8956A; --eco-models:#9AA3FF; --eco-projects:#A5ABB3;
 }
 
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
@@ -266,6 +271,37 @@ section { padding:88px 0; }
 }
 .eco-tag .dot { width:8px; height:8px; border-radius:2px; background:var(--c); flex:none; }
 
+/* ── Agents: terminal ──
+   Same inset surface and mono stack as the install line, so the two read as
+   one family: things you type. */
+.split { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap:16px; align-items:start; }
+.split > * { min-width:0; }
+.terminal {
+  background:var(--surface-inset); border:1px solid var(--border-subtle);
+  border-radius:11px; overflow:hidden;
+}
+.terminal .bar {
+  display:flex; align-items:center; gap:6px; height:34px; padding:0 14px;
+  border-bottom:1px solid var(--border-subtle);
+  font-size:12px; font-weight:540; color:var(--text-tertiary);
+}
+.terminal pre {
+  margin:0; padding:16px; overflow-x:auto;
+  font-family:var(--font-mono); font-size:12.5px; line-height:1.75; color:var(--text-secondary);
+}
+.terminal .p { color:var(--text-tertiary); user-select:none; }
+.terminal .c { color:var(--text-tertiary); }
+.terminal .k { color:var(--text-primary); }
+.terminal + .terminal { margin-top:16px; }
+.tool-list { list-style:none; display:flex; flex-direction:column; gap:10px; }
+.tool-list li { font-size:14px; color:var(--text-secondary); line-height:1.5; }
+.tool-list code {
+  font-family:var(--font-mono); font-size:12.5px;
+  background:var(--surface-inset); border:1px solid var(--border-subtle);
+  border-radius:4px; padding:1px 5px; color:var(--text-primary);
+}
+.note { margin-top:14px; font-size:13px; color:var(--text-tertiary); }
+
 /* ── Footer ── */
 footer {
   border-top:1px solid var(--border-subtle); padding:36px 0;
@@ -298,6 +334,7 @@ footer a:hover { color:var(--text-primary); }
     </a>
     <nav>
       <a href="#features" class="hide-sm">Features</a>
+      <a href="#agents" class="hide-sm">Agents</a>
       <a href="#safety" class="hide-sm">Safety</a>
       <a href="https://github.com/eladbash/void">GitHub</a>
       <a href="https://github.com/eladbash/void/releases">Releases</a>
@@ -317,8 +354,9 @@ footer a:hover { color:var(--text-primary); }
   <div class="container">
     <h1>Reclaim your <em>disk space</em></h1>
     <p class="lede">
-      Void finds the build artifacts your projects left behind — across 11 ecosystems —
-      and tells you exactly what each cleanup will do before it runs.
+      Void cleans up after your AI agents — and your agents can call Void themselves.
+      Worktrees, transcripts, local models and the build artifacts behind them, across
+      15 ecosystems, with exactly what each cleanup will do shown before it runs.
     </p>
     <div class="actions">
       <a href="https://github.com/eladbash/void/releases" class="btn btn-primary">Download for macOS</a>
@@ -329,7 +367,7 @@ footer a:hover { color:var(--text-primary); }
       <span class="scroller"><code id="installCmd">curl -fsSL https://raw.githubusercontent.com/eladbash/void/main/install.sh | sh</code></span>
       <button id="copyBtn" type="button">Copy</button>
     </div>
-    <p class="platforms">macOS, Windows and Linux · MIT licensed · no account, no telemetry</p>
+    <p class="platforms">macOS, Windows and Linux · MIT licensed · runs locally · no account, no telemetry</p>
   </div>
 </section>
 
@@ -387,6 +425,106 @@ footer a:hover { color:var(--text-primary); }
   </div>
 </section>
 
+<section id="ai">
+  <div class="container">
+    <div class="section-head">
+      <h2>Built for the AI era</h2>
+      <p>Agents work in parallel, and every parallel session leaves a worktree, a transcript and a build folder behind. Void knows where they all live.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="3.5" r="1.75"/><circle cx="4.5" cy="12.5" r="1.75"/><circle cx="11.5" cy="5.5" r="1.75"/><path d="M4.5 5.25v5.5"/><path d="M11.5 7.25c0 2.5-3 2.5-5.6 4"/></svg>
+        <h3>Agent worktrees</h3>
+        <p>Finds worktrees from Claude Code, Cursor, Codex and Conductor, with branch, uncommitted and unpushed work, merge state and lock. Trim the build artifacts and keep the worktree, or remove a clean one with <code>git worktree remove</code> — re-checked when it runs, never <code>--force</code>.</p>
+      </div>
+      <div class="card">
+        <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.25h11v7.5H7.2L4.5 13v-2.25h-2z"/><path d="M5.25 6.1h5.5"/><path d="M5.25 8.1h3.5"/></svg>
+        <h3>Agent data, kept tidy</h3>
+        <p>Old Claude Code transcripts, file history and debug logs, Codex sessions, and the <code>state.vscdb</code> files Cursor, VS Code and Windsurf grow forever — compacted with VACUUM, never deleted, so your chat history stays. Settings, credentials, memory and <code>CLAUDE.md</code> are never touched.</p>
+      </div>
+      <div class="card">
+        <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.75 13.75 5v6L8 14.25 2.25 11V5z"/><path d="M2.25 5 8 8.25 13.75 5"/><path d="M8 8.25v6"/></svg>
+        <h3>Local models</h3>
+        <p>Ollama per model, counting shared layers once, plus orphaned blobs. The Hugging Face cache per repo, with detached revisions and incomplete downloads. LM Studio, torch hub and ComfyUI too.</p>
+      </div>
+      <div class="card">
+        <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.75" y="1.75" width="8" height="8" rx="1.6"/><rect x="6.25" y="6.25" width="8" height="8" rx="1.6"/></svg>
+        <h3>Duplicate models, without deleting</h3>
+        <p>The same weights downloaded into two stores are replaced by APFS copy-on-write clones (or hardlinks). Every path keeps working, the space comes back, and contents are re-hashed right before anything changes.</p>
+      </div>
+      <div class="card">
+        <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.25 13.75h11.5"/><path d="M3.75 13.75v-4"/><path d="M8 13.75v-10"/><path d="M12.25 13.75v-6.5"/></svg>
+        <h3>Usage by agent</h3>
+        <p>Everything added up per tool, so you can see that Claude Code is costing you 38 GB — 30 in worktrees, 6 in transcripts, 2 in browsers.</p>
+      </div>
+      <div class="card">
+        <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 4.5a1.25 1.25 0 0 1 1.25-1.25h3.1l1.5 1.75H13a1.25 1.25 0 0 1 1.25 1.25v5.75A1.25 1.25 0 0 1 13 12.25H3a1.25 1.25 0 0 1-1.25-1.25z"/><path d="M8 7.25v2.5"/><path d="M8 11.25h.01"/></svg>
+        <h3>Project graveyard</h3>
+        <p>Git projects with no commit and no edit in 90 days, with their remote, unpushed commits and dirty state up front. Strip the artifacts and keep the code, or move the project to the Trash.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="agents" class="safety">
+  <div class="container">
+    <div class="section-head">
+      <h2>Your agents can call Void</h2>
+      <p>The agent filling your disk is the first to notice it filling up. Give it a CLI, an MCP server and a hook, and it can ask for a cleanup plan itself.</p>
+    </div>
+    <div class="split">
+      <div>
+        <div class="terminal">
+          <div class="bar">Claude Code</div>
+<pre><span class="p">$ </span><span class="k">claude mcp add void -- void mcp</span>
+<span class="p">$ </span><span class="k">void hook install</span>
+<span class="c"># SessionStart: warn when disk is low
+# WorktreeRemove: trim build artifacts</span></pre>
+        </div>
+        <div class="terminal">
+          <div class="bar">Any shell, any agent</div>
+<pre><span class="p">$ </span><span class="k">void scan --json</span>
+<span class="p">$ </span><span class="k">void usage</span>
+<span class="p">$ </span><span class="k">void plan</span>      <span class="c"># dry run, expires in an hour</span>
+<span class="p">$ </span><span class="k">void apply</span>     <span class="c"># only a plan you reviewed</span>
+<span class="p">$ </span><span class="k">void mcp-config</span> <span class="c"># snippet for other MCP clients</span></pre>
+        </div>
+      </div>
+      <div class="card">
+        <h3>MCP tools</h3>
+        <ul class="tool-list" style="margin-top:12px">
+          <li><code>disk_status</code> free and used space on the volume</li>
+          <li><code>scan</code> everything reclaimable, by ecosystem</li>
+          <li><code>explain_item</code> what an item is and what each action would do</li>
+          <li><code>plan_cleanup</code> a dry-run plan</li>
+          <li><code>apply_plan</code> runs a plan, only with explicit confirmation</li>
+          <li><code>usage_by_agent</code> disk usage per AI tool</li>
+        </ul>
+        <p class="note">Danger actions are never offered over MCP. Anything permanent stays with you.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="guard">
+  <div class="container narrow">
+    <div class="section-head" style="margin-bottom:28px">
+      <h2>Guard mode</h2>
+      <p>Void watches free space in the background and tells you before a build fails for lack of it.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h3>Warned early</h3>
+        <p>A notification at 15% free and an urgent one at 5%. The menu bar shows where you stand, and Void can launch at login.</p>
+      </div>
+      <div class="card">
+        <h3>Auto-clean, if you want it</h3>
+        <p>Off by default. Turn on a policy — trim idle agent worktrees, clear old agent logs, remove stale build folders — and it runs Safe actions only.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="safety" class="safety">
   <div class="container narrow">
     <div class="section-head" style="margin-bottom:28px">
@@ -412,7 +550,15 @@ footer a:hover { color:var(--text-primary); }
       </div>
       <div class="card">
         <h3>Places it refuses to go</h3>
-        <p>Keychains, SSH and GPG keys, cloud credentials, shell config and your Documents folder are protected regardless of how Void is configured.</p>
+        <p>Keychains, SSH and GPG keys, cloud credentials, shell config, your Documents folder, your home directory itself, and your agents' settings, credentials and memory are protected regardless of how Void is configured.</p>
+      </div>
+      <div class="card">
+        <h3>Git work, checked twice</h3>
+        <p>A worktree is removed only if it is still clean when the action runs. Void never passes <code>--force</code>, and deletes branches with <code>-d</code>, so git refuses anything unmerged.</p>
+      </div>
+      <div class="card">
+        <h3>Sizes you can trust</h3>
+        <p>Hardlinked files are counted once and sparse files by what they really occupy, so the space Void promises is the space you get back.</p>
       </div>
       <div class="card">
         <h3>The Trash, where possible</h3>
@@ -425,10 +571,14 @@ footer a:hover { color:var(--text-primary); }
 <section>
   <div class="container">
     <div class="section-head">
-      <h2>Eleven ecosystems</h2>
-      <p>Void knows what each toolchain leaves behind and how that toolchain prefers to clean it up.</p>
+      <h2>Fifteen ecosystems</h2>
+      <p>Void knows what each toolchain leaves behind and how that toolchain prefers to clean it up — from uv, Bun and Playwright browsers to Docker build cache and Next.js caches.</p>
     </div>
     <div class="eco-tags">
+      <span class="eco-tag" style="--c:var(--eco-worktrees)"><i class="dot"></i>Agent worktrees</span>
+      <span class="eco-tag" style="--c:var(--eco-agents)"><i class="dot"></i>AI agent data</span>
+      <span class="eco-tag" style="--c:var(--eco-models)"><i class="dot"></i>Local AI models</span>
+      <span class="eco-tag" style="--c:var(--eco-projects)"><i class="dot"></i>Stale projects</span>
       <span class="eco-tag" style="--c:var(--eco-rust)"><i class="dot"></i>Rust</span>
       <span class="eco-tag" style="--c:var(--eco-node)"><i class="dot"></i>Node.js</span>
       <span class="eco-tag" style="--c:var(--eco-python)"><i class="dot"></i>Python</span>

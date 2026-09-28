@@ -9,15 +9,23 @@ use crate::error::ActionError;
 use crate::model::{ActionEvent, ActionMethod, CleanAction, CleanableItem};
 use crate::safety::SafetyChecker;
 use crate::staleness;
+use crate::trash::TrashBackend;
 
 /// Executes clean actions with safety checks.
 pub struct ActionExecutor {
     safety: SafetyChecker,
+    trash: TrashBackend,
 }
 
 impl ActionExecutor {
     pub fn new(safety: SafetyChecker) -> Self {
-        Self { safety }
+        Self::with_trash(safety, TrashBackend::System)
+    }
+
+    /// An executor whose "Move to Trash" goes to `trash` — tests and the
+    /// sandbox pass a directory so nothing reaches the real Trash.
+    pub fn with_trash(safety: SafetyChecker, trash: TrashBackend) -> Self {
+        Self { safety, trash }
     }
 
     /// Execute a batch of (item, action) pairs, returning a channel of events.
@@ -186,8 +194,60 @@ impl ActionExecutor {
             ActionMethod::DockerPrune { .. } => {
                 // Docker prune doesn't operate on filesystem paths directly
             }
+            ActionMethod::MoveToTrash { path } => {
+                if !self.safety.is_trash_allowed(path) {
+                    return Err(ActionError::PathBlocked(path.display().to_string()));
+                }
+            }
+            ActionMethod::RemoveDirs { paths } | ActionMethod::RemoveFiles { paths } => {
+                if paths.is_empty() {
+                    return Err(ActionError::CommandFailed("nothing to remove".into()));
+                }
+                for path in paths {
+                    self.require_allowed(path)?;
+                }
+            }
+            ActionMethod::GitWorktreeRemove { repo, worktree, .. } => {
+                if !self.safety.is_workdir_allowed(repo) {
+                    return Err(ActionError::PathBlocked(repo.display().to_string()));
+                }
+                // Full check, sentinels included: a worktree holding a `.env`
+                // or credentials is not removed wholesale — trim its build
+                // artifacts instead.
+                self.require_allowed(worktree)?;
+            }
+            ActionMethod::GitWorktreePrune { repo }
+            | ActionMethod::GitDeleteBranches { repo, .. } => {
+                if !self.safety.is_workdir_allowed(repo) {
+                    return Err(ActionError::PathBlocked(repo.display().to_string()));
+                }
+            }
+            ActionMethod::RemoveOllamaOrphans { store, blobs } => {
+                if !self.safety.is_workdir_allowed(store) {
+                    return Err(ActionError::PathBlocked(store.display().to_string()));
+                }
+                for blob in blobs {
+                    self.require_allowed(blob)?;
+                }
+            }
+            ActionMethod::DedupFiles { groups } => {
+                for group in groups {
+                    self.require_allowed(&group.keep)?;
+                    for dup in &group.duplicates {
+                        self.require_allowed(dup)?;
+                    }
+                }
+            }
         }
         Ok(())
+    }
+
+    fn require_allowed(&self, path: &Path) -> Result<(), ActionError> {
+        if self.safety.is_path_allowed(path) {
+            Ok(())
+        } else {
+            Err(ActionError::PathBlocked(path.display().to_string()))
+        }
     }
 
     /// Execute a single action method.
@@ -250,6 +310,83 @@ impl ActionExecutor {
                 }
                 Ok(0)
             }
+            ActionMethod::MoveToTrash { path } => {
+                info!(path = %path.display(), "Moving to Trash");
+                let size = if path.is_dir() {
+                    staleness::compute_dir_size(path).await
+                } else {
+                    file_size(path).await.unwrap_or(0)
+                };
+                let trash = self.trash.clone();
+                let target = path.clone();
+                tokio::task::spawn_blocking(move || trash.trash(&target))
+                    .await
+                    .map_err(|err| ActionError::CommandFailed(err.to_string()))?
+                    .map_err(ActionError::CommandFailed)?;
+                Ok(size)
+            }
+            ActionMethod::RemoveDirs { paths } => {
+                let mut freed = 0;
+                for path in paths {
+                    // A listed directory already gone (the user ran
+                    // `npm ci` since the scan) is not a failure.
+                    if !path.exists() {
+                        continue;
+                    }
+                    info!(path = %path.display(), "Removing directory");
+                    freed += staleness::compute_dir_size(path).await;
+                    tokio::fs::remove_dir_all(path).await?;
+                }
+                Ok(freed)
+            }
+            ActionMethod::RemoveFiles { paths } => {
+                let mut freed = 0;
+                for path in paths {
+                    if !path.exists() {
+                        continue;
+                    }
+                    info!(path = %path.display(), "Removing file");
+                    freed += file_size(path).await?;
+                    tokio::fs::remove_file(path).await?;
+                }
+                Ok(freed)
+            }
+            ActionMethod::GitWorktreeRemove {
+                repo,
+                worktree,
+                delete_branch,
+            } => {
+                info!(worktree = %worktree.display(), "Removing git worktree");
+                let size = staleness::compute_dir_size(worktree).await;
+                crate::git::remove_worktree_checked(repo, worktree, delete_branch.as_deref())
+                    .await
+                    .map_err(ActionError::CommandFailed)?;
+                Ok(size)
+            }
+            ActionMethod::GitWorktreePrune { repo } => {
+                crate::git::prune_worktrees(repo)
+                    .await
+                    .map_err(ActionError::CommandFailed)?;
+                Ok(0)
+            }
+            ActionMethod::GitDeleteBranches { repo, branches } => {
+                crate::git::delete_merged_branches(repo, branches)
+                    .await
+                    .map_err(ActionError::CommandFailed)?;
+                Ok(0)
+            }
+            ActionMethod::RemoveOllamaOrphans { store, blobs } => {
+                let (store, blobs) = (store.clone(), blobs.clone());
+                tokio::task::spawn_blocking(move || {
+                    crate::scanner::models::remove_orphans_checked(&store, &blobs)
+                })
+                .await
+                .map_err(|err| ActionError::CommandFailed(err.to_string()))?
+                .map_err(ActionError::CommandFailed)
+            }
+            ActionMethod::DedupFiles { groups } => crate::dedup::apply_groups(groups)
+                .await
+                .map_err(ActionError::CommandFailed),
         }
     }
 }
@@ -273,6 +410,8 @@ mod tests {
     /// Helper to build a minimal CleanableItem for testing.
     fn test_item(path: PathBuf) -> CleanableItem {
         CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.clone(),
             ecosystem: Ecosystem::Rust,

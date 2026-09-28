@@ -1,8 +1,9 @@
 [package]
 name = "deepclean-core"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 rust-version.workspace = true
+description = "Scanning engine, safety checker and action executor behind Void"
 
 [dependencies]
 serde = { workspace = true }
@@ -17,6 +18,8 @@ sysinfo = { workspace = true }
 bytesize = { workspace = true }
 async-trait = { workspace = true }
 dirs = { workspace = true }
+trash = { workspace = true }
+blake3 = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

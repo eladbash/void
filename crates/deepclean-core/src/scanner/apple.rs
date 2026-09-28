@@ -154,6 +154,8 @@ impl AppleScanner {
         }
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Apple,
@@ -212,6 +214,8 @@ impl AppleScanner {
         }
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Apple,
@@ -237,6 +241,8 @@ impl AppleScanner {
         let days_stale = last_modified.map(staleness::days_since);
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Apple,
@@ -275,6 +281,8 @@ impl AppleScanner {
         let days_stale = last_modified.map(staleness::days_since);
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Apple,
@@ -326,6 +334,8 @@ impl AppleScanner {
         let days_stale = last_modified.map(staleness::days_since);
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Apple,
@@ -363,6 +373,8 @@ impl AppleScanner {
         let days_stale = last_modified.map(staleness::days_since);
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Apple,
@@ -399,6 +411,8 @@ impl AppleScanner {
         let days_stale = last_modified.map(staleness::days_since);
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Apple,
@@ -436,6 +450,8 @@ impl AppleScanner {
         let days_stale = last_modified.map(staleness::days_since);
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Apple,

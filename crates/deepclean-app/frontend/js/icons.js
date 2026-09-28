@@ -48,6 +48,13 @@ const SPRITE = `
 <symbol id="i-eco-homebrew" viewBox="0 0 16 16"><path d="M8 2.2c2.6 0 4.6 2 4.6 4.6 0 3.4-2.7 6.05-4.6 7.2C6.1 12.85 3.4 10.2 3.4 6.8 3.4 4.2 5.4 2.2 8 2.2z"/><path d="M8 5v6.6"/><path d="m5.6 6.5 2.4 1.85 2.4-1.85"/><path d="m5.8 9.2 2.2 1.7 2.2-1.7"/></symbol>
 <symbol id="i-eco-jet_brains" viewBox="0 0 16 16"><rect x="1.9" y="1.9" width="12.2" height="12.2" rx="2.3"/><path d="M4.4 11.9h4.3"/><path d="M9.5 4.5v3.35a1.75 1.75 0 0 1-3.4.55"/></symbol>
 <symbol id="i-eco-dot_net" viewBox="0 0 16 16"><circle cx="2.3" cy="12" r="1.15" data-solid/><path d="M5.6 12.5V3.5l5.6 9V3.5"/><path d="M12.9 3.5h1.6M13.7 3.5v9"/></symbol>
+<symbol id="i-sparkle" viewBox="0 0 16 16"><path d="M7 1.9c.35 2.6 1.5 3.75 4.1 4.1-2.6.35-3.75 1.5-4.1 4.1-.35-2.6-1.5-3.75-4.1-4.1 2.6-.35 3.75-1.5 4.1-4.1z"/><path d="M12.2 9.6c.18 1.3.75 1.87 2.05 2.05-1.3.18-1.87.75-2.05 2.05-.18-1.3-.75-1.87-2.05-2.05 1.3-.18 1.87-.75 2.05-2.05z"/></symbol>
+<symbol id="i-git-branch" viewBox="0 0 16 16"><circle cx="4.5" cy="3.6" r="1.6"/><circle cx="4.5" cy="12.4" r="1.6"/><circle cx="11.5" cy="5.2" r="1.6"/><path d="M4.5 5.2v5.6"/><path d="M11.5 6.8c0 2.6-2.2 3.2-5.6 4.3"/></symbol>
+<symbol id="i-plug" viewBox="0 0 16 16"><path d="M5.6 1.9v3M10.4 1.9v3"/><path d="M3.9 4.9h8.2v2.4a4.1 4.1 0 0 1-8.2 0z"/><path d="M8 11.4v2.7"/></symbol>
+<symbol id="i-eco-worktrees" viewBox="0 0 16 16"><circle cx="4.5" cy="3.6" r="1.6"/><circle cx="4.5" cy="12.4" r="1.6"/><circle cx="11.5" cy="5.2" r="1.6"/><path d="M4.5 5.2v5.6"/><path d="M11.5 6.8c0 2.6-2.2 3.2-5.6 4.3"/></symbol>
+<symbol id="i-eco-agent_data" viewBox="0 0 16 16"><path d="M2.4 4.1c0-.8.65-1.45 1.45-1.45h8.3c.8 0 1.45.65 1.45 1.45v5.3c0 .8-.65 1.45-1.45 1.45H7.3L4.4 13.3v-2.45h-.55c-.8 0-1.45-.65-1.45-1.45z"/><path d="M5.3 5.6h5.4M5.3 7.9h3.4"/></symbol>
+<symbol id="i-eco-models" viewBox="0 0 16 16"><path d="M8 1.7 13.5 4.8v6.4L8 14.3l-5.5-3.1V4.8z"/><path d="M2.5 4.8 8 7.9l5.5-3.1M8 7.9v6.4"/></symbol>
+<symbol id="i-eco-projects" viewBox="0 0 16 16"><rect x="1.9" y="2.6" width="12.2" height="3.3" rx="1"/><path d="M3 5.9v6.2c0 .75.6 1.35 1.35 1.35h7.3c.75 0 1.35-.6 1.35-1.35V5.9"/><path d="M6.3 8.6h3.4"/></symbol>
 </defs></svg>`;
 
 /** The brand mark: a ring with a gap. Also the scan indicator and tray glyph. */

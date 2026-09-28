@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/deepclean-core", "crates/deepclean-app"]
+members = ["crates/deepclean-core", "crates/deepclean-app", "crates/void-cli"]
 resolver = "2"
 
 [workspace.package]
@@ -20,4 +20,6 @@ sysinfo = "0.39"
 bytesize = { version = "2", features = ["serde"] }
 async-trait = "0.1"
 dirs = "6"
+trash = "5"
+blake3 = "1"
 deepclean-core = { path = "crates/deepclean-core" }

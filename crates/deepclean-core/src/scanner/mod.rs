@@ -1,3 +1,4 @@
+pub mod agents;
 pub mod apple;
 pub mod docker;
 pub mod dotnet;
@@ -5,10 +6,14 @@ pub mod go;
 pub mod homebrew;
 pub mod java;
 pub mod jetbrains;
+pub mod models;
 pub mod node;
+pub mod projects;
 pub mod python;
+pub mod registry;
 pub mod rust;
 pub mod system;
+pub mod worktrees;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -35,6 +40,15 @@ pub trait EcosystemScanner: Send + Sync {
     /// Analyze a candidate path and produce a cleanable item.
     async fn analyze(&self, path: &Path) -> Result<Option<CleanableItem>, ScanError>;
 
+    /// Analyze a candidate that may yield several items — a worktree root
+    /// holding five worktrees, a model store holding twelve models.
+    ///
+    /// The orchestrator always calls this; the default wraps [`Self::analyze`]
+    /// so single-item scanners need not know it exists.
+    async fn analyze_many(&self, path: &Path) -> Result<Vec<CleanableItem>, ScanError> {
+        Ok(self.analyze(path).await?.into_iter().collect())
+    }
+
     /// Global (non-project) locations to check.
     fn global_locations(&self) -> Vec<PathBuf> {
         vec![]
@@ -51,7 +65,7 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<Path>,
 {
-    let Some(home) = dirs::home_dir() else {
+    let Some(home) = crate::paths::home_dir() else {
         return Vec::new();
     };
     relative
@@ -94,6 +108,13 @@ impl ScanOrchestrator {
             // Phase 1: Walk filesystem for project-local artifacts
             let walk_candidates = self.walk_phase(&tx).await;
 
+            // A global location the walk already matched (an agent worktree
+            // root under a scan root, say) must not be analyzed twice.
+            let walked: HashSet<(Ecosystem, PathBuf)> = walk_candidates
+                .iter()
+                .map(|(s, p)| (s.ecosystem(), p.clone()))
+                .collect();
+
             // Phase 2: Analyze candidates concurrently
             let mut analyze_handles = vec![];
 
@@ -107,11 +128,14 @@ impl ScanOrchestrator {
                     let Ok(_permit) = sem.acquire().await else {
                         return;
                     };
-                    match scanner.analyze(&path).await {
-                        Ok(Some(item)) => {
-                            let _ = tx.send(ScanEvent::ItemFound { item }).await;
+                    match scanner.analyze_many(&path).await {
+                        Ok(items) if !items.is_empty() => {
+                            for item in items {
+                                let item = crate::trash::add_trash_alternatives(item);
+                                let _ = tx.send(ScanEvent::ItemFound { item }).await;
+                            }
                         }
-                        Ok(None) => {
+                        Ok(_) => {
                             // A directory Void cannot read computes a size of
                             // zero and is dropped as "nothing here". Tell the
                             // difference before it vanishes silently.
@@ -135,8 +159,13 @@ impl ScanOrchestrator {
             }
 
             // Phase 3: Check global locations
+            let mut globals_seen: HashSet<(Ecosystem, PathBuf)> = HashSet::new();
             for scanner in &self.scanners {
                 for loc in scanner.global_locations() {
+                    let key = (scanner.ecosystem(), loc.clone());
+                    if walked.contains(&key) || !globals_seen.insert(key) {
+                        continue;
+                    }
                     let scanner = scanner.clone();
                     let sem = semaphore.clone();
                     let tx = tx.clone();
@@ -144,11 +173,14 @@ impl ScanOrchestrator {
                         let Ok(_permit) = sem.acquire().await else {
                             return;
                         };
-                        match scanner.analyze(&loc).await {
-                            Ok(Some(item)) => {
-                                let _ = tx.send(ScanEvent::ItemFound { item }).await;
+                        match scanner.analyze_many(&loc).await {
+                            Ok(items) if !items.is_empty() => {
+                                for item in items {
+                                    let item = crate::trash::add_trash_alternatives(item);
+                                    let _ = tx.send(ScanEvent::ItemFound { item }).await;
+                                }
                             }
-                            Ok(None) => {
+                            Ok(_) => {
                                 if is_permission_denied(&loc) {
                                     let _ = tx
                                         .send(ScanEvent::PermissionDenied { path: loc.clone() })

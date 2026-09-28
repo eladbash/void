@@ -2,13 +2,16 @@ import * as api from './api.js';
 import { icon, MARK } from './icons.js';
 import { setHome, escapeHtml, formatBytes, count } from './format.js';
 import {
-  store, visibleItems, selectionSummary, resetFilters, recordIssue, filtersActive,
+  store, visibleItems, selectionSummary, resetFilters, recordIssue, filtersActive, presetFor,
 } from './store.js';
-import { selectedAction, effectiveRisk, ALL_ECOSYSTEMS, ECO_NAMES, kindLabel } from './actions.js';
+import {
+  selectedAction, effectiveRisk, ALL_ECOSYSTEMS, ECO_NAMES, kindLabel, isActionable,
+} from './actions.js';
 import { renderResults, groupsFor } from './screens/results.js';
 import { renderDrawer, renderConfirm, renderIssues, buildPlan } from './screens/panels.js';
 import { renderSettings } from './screens/settings.js';
 import { renderHistory } from './screens/history.js';
+import { renderAgents } from './screens/agents.js';
 import { installSprite } from './icons.js';
 
 const root = document.getElementById('root');
@@ -31,8 +34,9 @@ function rail() {
   return `<nav class="rail" aria-label="Sections">
     <div class="rail-mark${store.scanning ? ' is-scanning' : ''}" aria-hidden="true">${MARK}</div>
     ${btn('results', 'sidebar-toggle', 'Results', '⌘1')}
-    ${btn('history', 'history', 'History', '⌘2')}
-    ${btn('settings', 'settings', 'Settings', '⌘3')}
+    ${btn('agents', 'sparkle', 'Agents', '⌘2')}
+    ${btn('history', 'history', 'History', '⌘3')}
+    ${btn('settings', 'settings', 'Settings', '⌘4')}
     <span class="spacer"></span>
     ${disk ? `<div class="rail-disk" title="${escapeHtml(formatBytes(disk.available_bytes))} free of ${escapeHtml(formatBytes(disk.total_bytes))}">
       <span class="rail-disk-bar">
@@ -47,7 +51,7 @@ function rail() {
 /* Scroll containers that must survive a re-render. Rendering replaces the
    whole subtree, so without this a checkbox click would send the list back to
    the top — the row you just ticked jumps out from under the cursor. */
-const SCROLLERS = ['#list', '.drawer-body', '.settings-scroll'];
+const SCROLLERS = ['#list', '.drawer-body', '.settings-scroll', '.agents-scroll'];
 
 function captureScroll() {
   const saved = new Map();
@@ -66,12 +70,35 @@ function restoreScroll(saved) {
   }
 }
 
+/* A settings field being typed into must keep focus and caret across the
+   re-render its own save triggers, or every keystroke would blur it. */
+function captureFocus() {
+  const el = document.activeElement;
+  if (!el || !root.contains(el) || el.tagName !== 'INPUT') return null;
+  const sel = el.dataset.cfgpath ? `[data-cfgpath="${el.dataset.cfgpath}"]`
+    : el.dataset.cfg ? `[data-cfg="${el.dataset.cfg}"]` : null;
+  if (!sel) return null;
+  let range = null;
+  try { range = [el.selectionStart, el.selectionEnd]; } catch { /* number inputs have none */ }
+  return { sel, range };
+}
+
+function restoreFocus(saved) {
+  if (!saved) return;
+  const el = root.querySelector(saved.sel);
+  if (!el) return;
+  el.focus();
+  try { if (saved.range && saved.range[0] != null) el.setSelectionRange(...saved.range); } catch { /* not a text field */ }
+}
+
 function render() {
   const scroll = captureScroll();
+  const focus = captureFocus();
 
   const screen =
     store.route === 'settings' ? renderSettings()
     : store.route === 'history' ? renderHistory()
+    : store.route === 'agents' ? renderAgents()
     : renderResults();
 
   const overlays =
@@ -85,6 +112,7 @@ function render() {
   }${overlays}`;
 
   restoreScroll(scroll);
+  restoreFocus(focus);
 
   // Preserve the caret in the filter field across re-renders.
   if (store.focusFilter) {
@@ -141,7 +169,7 @@ function toast(text, undo = null) {
 /* ── Config ──────────────────────────────────────────────────────────── */
 
 let saveTimer = 0;
-function saveConfig({ dirty = false } = {}) {
+function saveConfig({ dirty = false, render: rerender = true } = {}) {
   if (dirty) store.settingsDirty = true;
   applyPreferences();
   clearTimeout(saveTimer);
@@ -155,7 +183,7 @@ function saveConfig({ dirty = false } = {}) {
       toast(String(err));
     }
   }, 400);
-  scheduleRender();
+  if (rerender) scheduleRender();
 }
 
 function applyPreferences() {
@@ -226,10 +254,62 @@ function onScanEvent(ev) {
         }
       }
       refreshDisk();
+      refreshAgentUsage();
       break;
   }
   scheduleRender();
 }
+
+/* ── Agents screen data ─────────────────────────────────────────────── */
+
+async function refreshAgentUsage() {
+  try { store.agentUsage = await api.getAgentUsage(); } catch { store.agentUsage = null; }
+  scheduleRender();
+}
+
+async function refreshGuard() {
+  try { store.guard = await api.getGuardStatus(); } catch { /* shown as unavailable */ }
+  scheduleRender();
+}
+
+async function refreshIntegrations() {
+  try { store.hooks = await api.getHookStatus(); store.hooksError = null; } catch (err) { store.hooksError = String(err); }
+  try { store.mcp = await api.getMcpSnippet(); store.mcpError = null; } catch (err) { store.mcp = null; store.mcpError = String(err); }
+  scheduleRender();
+}
+
+function refreshAgents() {
+  refreshAgentUsage();
+  refreshGuard();
+  refreshIntegrations();
+}
+
+/** Jump to Results showing one quick filter, e.g. idle worktrees. */
+function applyPreset(id) {
+  const preset = presetFor(id);
+  if (!preset) return;
+  resetFilters();
+  store.preset = preset;
+  store.route = 'results';
+  store.drawerId = null;
+  resetScroll();
+  scheduleRender();
+}
+
+/** Set a value in the config by dotted path (`guard.auto_clean`). */
+function configRef(path) {
+  const keys = path.split('.');
+  const last = keys.pop();
+  let obj = store.config;
+  for (const k of keys) {
+    if (obj[k] == null || typeof obj[k] !== 'object') obj[k] = {};
+    obj = obj[k];
+  }
+  return { obj, key: last };
+}
+
+/** Settings under `ai.` change what a scan finds; the rest do not. */
+const affectsScan = (path) => path.startsWith('ai.') || path === 'scan_roots' || path === 'enabled_ecosystems';
 
 async function refreshDisk() {
   try { store.disk = await api.getDiskUsage(); } catch { store.disk = null; }
@@ -349,7 +429,34 @@ async function pickFolder() {
 }
 
 const ACTIONS = {
-  route: (el) => { store.route = el.dataset.route; if (store.route === 'history') refreshHistory(); scheduleRender(); },
+  route: (el) => {
+    store.route = el.dataset.route;
+    if (store.route === 'history') refreshHistory();
+    if (store.route === 'agents') refreshAgents();
+    scheduleRender();
+  },
+  'goto-settings-section': (el) => { store.route = 'settings'; store.settingsSection = el.dataset.section; scheduleRender(); },
+
+  'guard-check': async () => {
+    store.guardChecking = true;
+    scheduleRender();
+    try { store.guard = await api.runGuardNow(); } catch (err) { toast(String(err)); }
+    store.guardChecking = false;
+    scheduleRender();
+  },
+  preset: (el) => applyPreset(el.dataset.preset),
+  'clear-preset': () => { store.preset = null; resetScroll(); scheduleRender(); },
+  'hooks-install': async () => {
+    try { store.hooks = await api.installHooks(); store.hooksError = null; toast('Claude Code hooks installed'); }
+    catch (err) { store.hooksError = String(err); }
+    scheduleRender();
+  },
+  'hooks-uninstall': async () => {
+    try { store.hooks = await api.uninstallHooks(); store.hooksError = null; toast('Claude Code hooks removed'); }
+    catch (err) { store.hooksError = String(err); }
+    scheduleRender();
+  },
+  'copy-text': (el) => { navigator.clipboard?.writeText(el.dataset.text || ''); toast('Copied'); },
   'goto-settings': () => { store.route = 'settings'; scheduleRender(); },
   'goto-results': () => { store.route = 'results'; scheduleRender(); },
   'goto-history': () => { store.route = 'history'; refreshHistory(); scheduleRender(); },
@@ -357,7 +464,11 @@ const ACTIONS = {
   scan: () => startScan(),
   'rescan-now': () => { store.route = 'results'; startScan(); },
 
-  toggle: (el) => toggleSelect(el.dataset.id),
+  toggle: (el) => {
+    const item = store.items.find((i) => i.id === el.dataset.id);
+    if (item && !isActionable(item)) return;
+    toggleSelect(el.dataset.id);
+  },
   open: (el) => { store.drawerId = el.dataset.id; scheduleRender(); },
   'close-drawer': () => { store.drawerId = null; scheduleRender(); },
 
@@ -368,8 +479,9 @@ const ACTIONS = {
     const key = el.dataset.group;
     const group = groupsFor(visibleItems()).find((g) => String(g.key) === key);
     if (!group) return;
-    const all = group.items.every((i) => store.selected.has(i.id));
-    for (const i of group.items) {
+    const selectable = group.items.filter(isActionable);
+    const all = selectable.every((i) => store.selected.has(i.id));
+    for (const i of selectable) {
       if (all) store.selected.delete(i.id);
       else store.selected.add(i.id);
     }
@@ -390,7 +502,7 @@ const ACTIONS = {
 
   'select-safe': () => {
     for (const item of visibleItems()) {
-      if (effectiveRisk(item, store.overrides, store.config?.ui?.prefer_trash) === 'safe') {
+      if (isActionable(item) && effectiveRisk(item, store.overrides, store.config?.ui?.prefer_trash) === 'safe') {
         store.selected.add(item.id);
       }
     }
@@ -519,14 +631,45 @@ const ACTIONS = {
     const dir = await pickFolder();
     if (dir) { store.config.scan_roots.push(dir); saveConfig({ dirty: true }); }
   },
+  'add-worktree-root': async () => {
+    const dir = await pickFolder();
+    if (dir) {
+      const { obj, key } = configRef('ai.extra_worktree_roots');
+      obj[key] = [...(obj[key] || []), dir];
+      saveConfig({ dirty: true });
+    }
+  },
+  'toggle-cfg': (el) => {
+    const path = el.dataset.path;
+    const { obj, key } = configRef(path);
+    obj[key] = !obj[key];
+    saveConfig({ dirty: affectsScan(path) });
+  },
+  'toggle-policy': (el) => {
+    const policy = store.config.guard?.policies?.[Number(el.dataset.index)];
+    if (!policy) return;
+    policy.enabled = !policy.enabled;
+    saveConfig();
+  },
+  'toggle-login': async () => {
+    const next = !store.config.ui.launch_at_login;
+    try {
+      await api.setLaunchAtLogin(next);
+      store.config.ui.launch_at_login = next;
+    } catch (err) {
+      toast(String(err));
+    }
+    scheduleRender();
+  },
   'add-blocked': async () => {
     const dir = await pickFolder();
     if (dir) { store.config.blocked_paths.push(dir); saveConfig(); }
   },
   'remove-path': (el) => {
     const list = el.dataset.list;
-    store.config[list].splice(Number(el.dataset.index), 1);
-    saveConfig({ dirty: list === 'scan_roots' });
+    const { obj, key } = configRef(list);
+    (obj[key] || []).splice(Number(el.dataset.index), 1);
+    saveConfig({ dirty: affectsScan(list) });
   },
   'restore-performance': () => {
     const cores = navigator.hardwareConcurrency || 8;
@@ -561,6 +704,10 @@ root.addEventListener('click', (e) => {
   if (fn) { e.preventDefault(); fn(el); }
 });
 
+root.addEventListener('change', (e) => {
+  if (e.target.type === 'range' && e.target.dataset.cfgpath) scheduleRender();
+});
+
 root.addEventListener('input', (e) => {
   const t = e.target;
   if (t.id === 'filterInput') {
@@ -573,6 +720,22 @@ root.addEventListener('input', (e) => {
   if (t.id === 'confirmInput') {
     const btn = document.getElementById('confirmBtn');
     if (btn) btn.disabled = t.value !== 'delete';
+    return;
+  }
+  const path = t.dataset.cfgpath;
+  if (path) {
+    const n = Number(t.value);
+    if (t.value === '' || !Number.isFinite(n)) return;
+    const { obj, key } = configRef(path);
+    obj[key] = n;
+    // Re-rendering mid-drag would replace the slider under the pointer;
+    // update its readout in place and render when the drag ends.
+    const isRange = t.type === 'range';
+    if (isRange) {
+      const out = t.closest('.field')?.querySelector('.slider-row .t-caption');
+      if (out) out.textContent = `below ${n}% free`;
+    }
+    saveConfig({ dirty: affectsScan(path), render: !isRange });
     return;
   }
   const key = t.dataset.cfg;
@@ -594,8 +757,9 @@ document.addEventListener('keydown', (e) => {
   const typing = /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
 
   if (mod && e.key === '1') { store.route = 'results'; scheduleRender(); return e.preventDefault(); }
-  if (mod && e.key === '2') { store.route = 'history'; refreshHistory(); scheduleRender(); return e.preventDefault(); }
-  if ((mod && e.key === '3') || (mod && e.key === ',')) { store.route = 'settings'; scheduleRender(); return e.preventDefault(); }
+  if (mod && e.key === '2') { store.route = 'agents'; refreshAgents(); scheduleRender(); return e.preventDefault(); }
+  if (mod && e.key === '3') { store.route = 'history'; refreshHistory(); scheduleRender(); return e.preventDefault(); }
+  if ((mod && e.key === '4') || (mod && e.key === ',')) { store.route = 'settings'; scheduleRender(); return e.preventDefault(); }
   if (mod && e.key.toLowerCase() === 'r') { startScan(); return e.preventDefault(); }
 
   if (e.key === 'Escape') {
@@ -624,7 +788,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (e.altKey) ACTIONS['select-safe']();
     else if (e.shiftKey) { store.selected.clear(); scheduleRender(); }
-    else { visibleItems().forEach((i) => store.selected.add(i.id)); scheduleRender(); }
+    else { visibleItems().filter(isActionable).forEach((i) => store.selected.add(i.id)); scheduleRender(); }
     return;
   }
   if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); return ACTIONS.density(); }
@@ -668,6 +832,15 @@ async function boot() {
         confirm_before_cleaning: true, prefer_trash: true,
         launch_at_login: false, show_menu_bar_icon: true,
       },
+      ai: {
+        worktree_idle_days: 3, agent_data_retention_days: 30, large_session_file_mb: 100,
+        stale_project_days: 90, extra_worktree_roots: [], detect_duplicate_models: true,
+        min_duplicate_model_mb: 64,
+      },
+      guard: {
+        enabled: true, check_interval_minutes: 15, warn_free_percent: 15,
+        critical_free_percent: 5, auto_clean: false, policies: [],
+      },
     };
   }
   applyPreferences();
@@ -682,9 +855,26 @@ async function boot() {
   api.onScanEvent(onScanEvent);
   api.onActionEvent(onActionEvent);
   api.onAppWarning((msg) => toast(String(msg)));
+  api.onGuardStatus((view) => { store.guard = view; scheduleRender(); });
+  api.onGuardCleaned((path) => {
+    // Guard's automatic cleanup removed this; drop it so Results match disk.
+    const gone = store.items.filter((i) => String(i.path) === String(path));
+    if (!gone.length) return;
+    store.items = store.items.filter((i) => String(i.path) !== String(path));
+    for (const i of gone) store.selected.delete(i.id);
+    scheduleRender();
+  });
+  api.onHistoryChanged(() => { refreshHistory(); refreshDisk(); refreshGuard(); });
+  api.onTrayAction((what) => {
+    if (what === 'idle-worktrees') {
+      applyPreset('idle-worktrees');
+      if (!store.hasScanned && !store.scanning) startScan();
+    }
+  });
 
   refreshDisk();
   refreshHistory();
+  refreshGuard();
 
   try {
     const warnings = await api.takeStartupWarnings();

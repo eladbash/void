@@ -75,6 +75,8 @@ impl EcosystemScanner for GoScanner {
         );
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Go,
@@ -133,7 +135,7 @@ impl EcosystemScanner for GoScanner {
 
         // If `go env` is not available, try well-known default locations
         if locs.is_empty() {
-            if let Some(home) = dirs::home_dir() {
+            if let Some(home) = crate::paths::home_dir() {
                 let mod_cache = home.join("go/pkg/mod");
                 if mod_cache.is_dir() {
                     locs.push(mod_cache);

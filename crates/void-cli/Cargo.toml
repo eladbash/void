@@ -1,0 +1,24 @@
+[package]
+name = "void-cli"
+version = "1.1.0"
+edition = "2021"
+rust-version.workspace = true
+description = "Void on the command line, and as an MCP server your AI agents can call"
+
+[dependencies]
+deepclean-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+bytesize = { workspace = true }
+dirs = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "void"
+path = "src/main.rs"

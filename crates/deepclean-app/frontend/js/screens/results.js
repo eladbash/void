@@ -9,12 +9,13 @@ import {
 } from '../store.js';
 import {
   selectedAction, effectiveRisk, kindLabel, projectLabel, ECO_NAMES, riskRank, isRecoverable,
+  AI_ECOSYSTEMS, isActionable, worktreeInfo, agentName,
 } from '../actions.js';
 
 /* ── Shared bits ─────────────────────────────────────────────────────── */
 
-function checkbox(state) {
-  return `<span class="cb" aria-checked="${state}" role="checkbox" tabindex="-1">
+function checkbox(state, disabled = false) {
+  return `<span class="cb${disabled ? ' is-disabled' : ''}" aria-checked="${state}" role="checkbox" tabindex="-1"${disabled ? ' aria-disabled="true"' : ''}>
     ${icon('check', 'icon icon-check')}${icon('minus', 'icon icon-mixed')}</span>`;
 }
 
@@ -55,6 +56,12 @@ function groupsFor(items) {
   if (mode === 'risk') {
     // Fixed severity order; Safe first because it is the bulk-select target.
     list.sort((a, b) => riskRank(a.key) - riskRank(b.key));
+  } else if (mode === 'ecosystem') {
+    // AI ecosystems lead: they are what this release is about, and they are
+    // the ones most likely to hold the surprising gigabytes. Size orders the
+    // rest, and each half.
+    const ai = (g) => (AI_ECOSYSTEMS.includes(g.key) ? 0 : 1);
+    list.sort((a, b) => ai(a) - ai(b) || b.bytes - a.bytes);
   } else {
     list.sort((a, b) => b.bytes - a.bytes);
   }
@@ -101,7 +108,7 @@ function itemRow(item, groupMax) {
   else if (cleanState?.state === 'queued') leadCell = '<span class="dim">◦</span>';
   else if (cleanState?.state === 'failed') leadCell = `<span style="color:var(--danger-text);display:flex">${icon('alert-circle', 'icon icon-sm')}</span>`;
   else if (cleanState?.state === 'done') leadCell = `<span style="color:var(--safe-text);display:flex">${icon('check', 'icon icon-sm')}</span>`;
-  else leadCell = checkbox(selected ? 'true' : 'false');
+  else leadCell = checkbox(selected ? 'true' : 'false', !isActionable(item));
 
   const line2 = cleanState?.state === 'failed'
     ? `<span class="t-mono-xs" style="color:var(--danger-text)">${escapeHtml(cleanState.error || 'Failed')}</span>
@@ -109,7 +116,12 @@ function itemRow(item, groupMax) {
     : `${pathHtml(item.path, item.project_name)}
        ${actionCount > 1
         ? `<button class="chip chip-quiet" data-act="actions" data-id="${item.id}">${actionCount} actions ${icon('chevron-down', 'icon icon-sm')}</button>`
-        : action ? `<span class="t-caption via" title="${escapeHtml(action.label)}">via ${escapeHtml(action.label)}</span>` : ''}`;
+        : action ? `<span class="t-caption via" title="${escapeHtml(action.label)}">via ${escapeHtml(action.label)}</span>`
+        : '<span class="t-caption via">informational</span>'}`;
+
+  const wt = item.ecosystem === 'worktrees' ? worktreeInfo(item) : null;
+  const wtChips = wt ? `${wt.branch ? `<span class="wt-branch" title="Branch">${icon('git-branch', 'icon icon-sm')}${escapeHtml(wt.branch)}</span>` : ''}${
+    wt.chips.map((c) => `<span class="badge badge-${c.tone}" title="${escapeHtml(c.title)}">${escapeHtml(c.label)}</span>`).join('')}` : '';
 
   return `<div class="item${selected ? ' is-selected' : ''}${store.focusedId === item.id ? ' is-focused' : ''}${stateClass}"
       data-id="${item.id}" role="row" tabindex="-1"
@@ -120,6 +132,8 @@ function itemRow(item, groupMax) {
       <span class="line1">
         <span class="kindname">${escapeHtml(kindLabel(item))}</span>
         ${projectLabel(item) ? `<span class="projname">· ${escapeHtml(projectLabel(item))}</span>` : ''}
+        ${wtChips}
+        ${item.agent && item.ecosystem !== 'worktrees' ? `<span class="badge badge-agent">${escapeHtml(agentName(item.agent))}</span>` : ''}
         ${riskBadge(risk)}
       </span>
       <span class="line2">${line2}</span>
@@ -133,12 +147,13 @@ function itemRow(item, groupMax) {
 
 function groupHeader(g) {
   const collapsed = store.collapsed.has(g.key);
-  const all = g.items.every((i) => store.selected.has(i.id));
-  const some = g.items.some((i) => store.selected.has(i.id));
+  const selectable = g.items.filter(isActionable);
+  const all = selectable.length > 0 && selectable.every((i) => store.selected.has(i.id));
+  const some = selectable.some((i) => store.selected.has(i.id));
   const state = all ? 'true' : some ? 'mixed' : 'false';
 
   return `<div class="group" data-group="${escapeHtml(String(g.key))}">
-    <span data-act="toggle-group" data-group="${escapeHtml(String(g.key))}">${checkbox(state)}</span>
+    <span data-act="toggle-group" data-group="${escapeHtml(String(g.key))}">${checkbox(state, !selectable.length)}</span>
     <button class="group-toggle" data-act="collapse" data-group="${escapeHtml(String(g.key))}">
       <span class="dim" style="display:flex">${icon(collapsed ? 'chevron-right' : 'chevron-down', 'icon icon-sm')}</span>
       <span style="color:var(--eco-${g.eco});display:flex">${ecoIcon(g.eco)}</span>
@@ -162,7 +177,7 @@ function summaryStrip() {
   const sel = selectionSummary();
   const disk = store.disk;
   const safeCount = store.items.filter(
-    (i) => effectiveRisk(i, store.overrides, store.config?.ui?.prefer_trash) === 'safe'
+    (i) => isActionable(i) && effectiveRisk(i, store.overrides, store.config?.ui?.prefer_trash) === 'safe'
   ).length;
 
   const reclaimPct = disk?.total_bytes ? (total / disk.total_bytes) * 100 : 0;
@@ -189,7 +204,8 @@ function summaryStrip() {
     </div>
     <div class="summary-action">
       ${sel.count
-        ? `<div class="t-caption selinfo"><b>${count(sel.count)} selected</b> · ${formatBytes(sel.bytes)}${sel.hidden ? ` <button class="chip chip-quiet" data-act="clear-filters">${sel.hidden} hidden</button>` : ''}</div>
+        ? `<div class="t-caption selinfo"><b>${count(sel.count)} selected</b> · ${formatBytes(sel.bytes)}${
+            sel.nested ? ` <span class="dim" title="Items inside another selected item are counted once">(${count(sel.nested)} nested)</span>` : ''}${sel.hidden ? ` <button class="chip chip-quiet" data-act="clear-filters">${sel.hidden} hidden</button>` : ''}</div>
            <button class="btn btn-primary" data-act="review">Review &amp; Clean<span class="kbd">⌘↵</span></button>`
         : `<button class="btn btn-ghost btn-sm" data-act="select-safe">Select all safe (${count(safeCount)}) ${icon('arrow-right', 'icon icon-sm')}</button>`}
     </div>
@@ -254,7 +270,7 @@ function ticker() {
 }
 
 function toolbar() {
-  const n = [store.ecoFilter.size, store.riskFilter.size, store.staleOnly ? 1 : 0, store.largeOnly ? 1 : 0]
+  const n = [store.ecoFilter.size, store.riskFilter.size, store.staleOnly ? 1 : 0, store.largeOnly ? 1 : 0, store.preset ? 1 : 0]
     .reduce((a, b) => a + b, 0);
   const groupLabels = { ecosystem: 'Ecosystem', project: 'Project', risk: 'Risk' };
   const sortLabels = { size: 'Size', stale: 'Last modified', name: 'Name', risk: 'Risk' };
@@ -265,6 +281,8 @@ function toolbar() {
       ${store.filter ? `<button class="iconbtn" style="width:18px;height:18px" data-act="clear-search" aria-label="Clear">${icon('close', 'icon icon-sm')}</button>` : ''}
     </div>
     <button class="chip${n ? ' is-active' : ''}" data-act="filters">${icon('filter')}Filters${n ? `<span class="countpill" style="margin-left:2px">${n}</span>` : ''}</button>
+    ${store.preset ? `<button class="chip is-active" data-act="clear-preset" title="Clear this filter">${escapeHtml(store.preset.label)}${
+      store.preset.minDays != null ? ` · ${count(store.preset.minDays)}+ days` : ''} ${icon('close', 'icon icon-sm')}</button>` : ''}
     <div class="toolbar-sep"></div>
     <button class="chip" data-act="group">Group: ${groupLabels[store.config?.ui?.grouping ?? 'ecosystem']} ${icon('chevron-down', 'icon icon-sm')}</button>
     <button class="chip" data-act="sort">${sortLabels[store.sort]} ${icon('chevron-down', 'icon icon-sm')}</button>

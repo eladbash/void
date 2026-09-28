@@ -41,7 +41,7 @@ pub fn usage_for_path(path: &Path) -> Option<DiskUsage> {
 
 /// Report usage for the volume holding the user's home directory.
 pub fn usage_for_home() -> Option<DiskUsage> {
-    let home = dirs::home_dir()?;
+    let home = crate::paths::home_dir()?;
     usage_for_path(&home)
 }
 

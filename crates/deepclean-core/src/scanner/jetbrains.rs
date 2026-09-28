@@ -52,6 +52,8 @@ impl EcosystemScanner for JetBrainsScanner {
         );
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::JetBrains,
@@ -79,7 +81,7 @@ impl EcosystemScanner for JetBrainsScanner {
     fn global_locations(&self) -> Vec<PathBuf> {
         let mut locs = vec![];
 
-        if let Some(home) = dirs::home_dir() {
+        if let Some(home) = crate::paths::home_dir() {
             // macOS
             let mac_caches = home.join("Library/Caches/JetBrains");
             if mac_caches.is_dir() {

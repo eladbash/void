@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -8,18 +9,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use deepclean_core::disk::DiskUsage;
 use deepclean_core::history::{CleanRun, History, RunItem, RunOutcome};
 use deepclean_core::model::*;
-use deepclean_core::scanner::apple::AppleScanner;
-use deepclean_core::scanner::docker::DockerScanner;
-use deepclean_core::scanner::dotnet::DotNetScanner;
-use deepclean_core::scanner::go::GoScanner;
-use deepclean_core::scanner::homebrew::HomebrewScanner;
-use deepclean_core::scanner::java::JavaScanner;
-use deepclean_core::scanner::jetbrains::JetBrainsScanner;
-use deepclean_core::scanner::node::NodeScanner;
-use deepclean_core::scanner::python::PythonScanner;
-use deepclean_core::scanner::rust::RustScanner;
-use deepclean_core::scanner::system::SystemScanner;
-use deepclean_core::scanner::{EcosystemScanner, ScanOrchestrator};
+use deepclean_core::scanner::{registry, ScanOrchestrator};
 
 use crate::state::AppState;
 
@@ -33,25 +23,7 @@ pub async fn start_scan(app: AppHandle, state: State<'_, AppState>) -> Result<()
 
     let config = state.config().clone();
 
-    let scanners: Vec<Arc<dyn EcosystemScanner>> = config
-        .enabled_ecosystems
-        .iter()
-        .map(|eco| -> Arc<dyn EcosystemScanner> {
-            match eco {
-                Ecosystem::Rust => Arc::new(RustScanner),
-                Ecosystem::Node => Arc::new(NodeScanner),
-                Ecosystem::Apple => Arc::new(AppleScanner),
-                Ecosystem::Docker => Arc::new(DockerScanner),
-                Ecosystem::Go => Arc::new(GoScanner),
-                Ecosystem::System => Arc::new(SystemScanner),
-                Ecosystem::Python => Arc::new(PythonScanner),
-                Ecosystem::Java => Arc::new(JavaScanner),
-                Ecosystem::Homebrew => Arc::new(HomebrewScanner),
-                Ecosystem::JetBrains => Arc::new(JetBrainsScanner),
-                Ecosystem::DotNet => Arc::new(DotNetScanner),
-            }
-        })
-        .collect();
+    let scanners = registry::build(&config);
 
     let orchestrator = ScanOrchestrator::new(scanners, config);
     let mut rx = orchestrator.start_scan();
@@ -60,6 +32,17 @@ pub async fn start_scan(app: AppHandle, state: State<'_, AppState>) -> Result<()
     let app_clone = app.clone();
     tokio::spawn(async move {
         while let Some(event) = rx.recv().await {
+            // A sandboxed app (VOID_HOME) must never show — or offer to run —
+            // anything that reaches past the fake home.
+            let event = match (event, deepclean_core::paths::home_override()) {
+                (ScanEvent::ItemFound { item }, Some(home)) => {
+                    match deepclean_core::sandbox::confine(vec![item], &home).pop() {
+                        Some(item) => ScanEvent::ItemFound { item },
+                        None => continue,
+                    }
+                }
+                (event, _) => event,
+            };
             match &event {
                 ScanEvent::ItemFound { item } => {
                     // Store result
@@ -71,6 +54,7 @@ pub async fn start_scan(app: AppHandle, state: State<'_, AppState>) -> Result<()
                     if let Some(handle) = app_clone.try_state::<AppState>() {
                         *handle.summary() = summary.clone();
                     }
+                    crate::tray::refresh(&app_clone);
                 }
                 _ => {}
             }
@@ -157,6 +141,33 @@ pub async fn execute_clean(
     state.reset_cancel();
     let cancel = state.cancel_flag();
 
+    tokio::spawn(run_batch(app, pairs, cancel, None));
+    Ok(())
+}
+
+/// What a finished batch did, for callers that wait on it (Guard mode).
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct BatchOutcome {
+    pub succeeded: usize,
+    pub failed: usize,
+    pub bytes_freed: u64,
+}
+
+/// Run a batch through the executor, record it in history, and keep the
+/// authoritative result list in step.
+///
+/// `trigger` is `None` for a clean the user started. Anything else (`"guard"`)
+/// is unattended: its progress is not streamed as `action-event`s — the
+/// frontend would mistake them for the user's own batch — and it does not
+/// touch the user's cancel flag.
+pub(crate) async fn run_batch(
+    app: AppHandle,
+    pairs: Vec<(CleanableItem, CleanAction)>,
+    cancel: Arc<AtomicBool>,
+    trigger: Option<String>,
+) -> BatchOutcome {
+    let interactive = trigger.is_none();
+
     // Everything needed to write the history record, captured before the
     // batch consumes the pairs.
     let pending: HashMap<uuid::Uuid, PendingRecord> = pairs
@@ -175,73 +186,100 @@ pub async fn execute_clean(
         })
         .collect();
 
-    let executor = state.create_executor();
+    let executor = match app.try_state::<AppState>() {
+        Some(handle) => handle.create_executor(),
+        None => return BatchOutcome::default(),
+    };
     let mut rx = executor.execute_batch_with_cancel(pairs, cancel);
 
-    let app_clone = app.clone();
-    tokio::spawn(async move {
-        let started_at = chrono::Utc::now();
-        let start = std::time::Instant::now();
-        let mut recorded: Vec<RunItem> = Vec::new();
+    let started_at = chrono::Utc::now();
+    let start = std::time::Instant::now();
+    let mut recorded: Vec<RunItem> = Vec::new();
+    let mut outcome = BatchOutcome::default();
 
-        while let Some(event) = rx.recv().await {
-            match &event {
-                ActionEvent::Completed {
-                    item_id,
-                    bytes_freed,
-                    estimated_bytes,
-                    ..
-                } => {
-                    // Drop it from the authoritative list too, or a second
-                    // clean could re-select something already gone.
-                    if let Some(handle) = app_clone.try_state::<AppState>() {
-                        handle.results().retain(|i| i.id != *item_id);
-                    }
-                    if let Some(p) = pending.get(item_id) {
-                        recorded.push(p.to_run_item(
-                            *bytes_freed,
-                            *estimated_bytes,
-                            RunOutcome::Succeeded,
-                        ));
+    while let Some(event) = rx.recv().await {
+        match &event {
+            ActionEvent::Completed {
+                item_id,
+                bytes_freed,
+                estimated_bytes,
+                ..
+            } => {
+                let path = pending.get(item_id).map(|p| p.path.clone());
+                // Drop it from the authoritative list too, or a second clean
+                // could re-select something already gone. An unattended run
+                // cleaned items from its own scan, so they are matched on
+                // path as well as id.
+                if let Some(handle) = app.try_state::<AppState>() {
+                    handle.results().retain(|i| {
+                        i.id != *item_id && (interactive || Some(&i.path) != path.as_ref())
+                    });
+                }
+                if !interactive {
+                    if let Some(path) = &path {
+                        let _ = app.emit("guard-cleaned", path);
                     }
                 }
-                ActionEvent::Failed { item_id, error, .. } => {
-                    if let Some(p) = pending.get(item_id) {
-                        recorded.push(p.to_run_item(
-                            0,
-                            0,
-                            RunOutcome::Failed {
-                                error: error.clone(),
-                            },
-                        ));
-                    }
+                if let Some(p) = pending.get(item_id) {
+                    recorded.push(p.to_run_item(
+                        *bytes_freed,
+                        *estimated_bytes,
+                        RunOutcome::Succeeded,
+                    ));
                 }
-                ActionEvent::BatchComplete { .. } => {
-                    if !recorded.is_empty() {
-                        if let Some(handle) = app_clone.try_state::<AppState>() {
-                            let run = CleanRun {
-                                id: uuid::Uuid::new_v4(),
-                                started_at,
-                                duration_ms: start.elapsed().as_millis() as u64,
-                                items: std::mem::take(&mut recorded),
-                            };
-                            handle.history().push(run);
-                            if let Err(err) = handle.persist_history() {
-                                let _ = app_clone.emit("app-warning", &err);
-                            }
+            }
+            ActionEvent::Failed { item_id, error, .. } => {
+                if let Some(p) = pending.get(item_id) {
+                    recorded.push(p.to_run_item(
+                        0,
+                        0,
+                        RunOutcome::Failed {
+                            error: error.clone(),
+                        },
+                    ));
+                }
+            }
+            ActionEvent::BatchComplete {
+                succeeded,
+                failed,
+                bytes_freed,
+                ..
+            } => {
+                outcome = BatchOutcome {
+                    succeeded: *succeeded,
+                    failed: *failed,
+                    bytes_freed: *bytes_freed,
+                };
+                if !recorded.is_empty() {
+                    if let Some(handle) = app.try_state::<AppState>() {
+                        let run = CleanRun {
+                            id: uuid::Uuid::new_v4(),
+                            started_at,
+                            duration_ms: start.elapsed().as_millis() as u64,
+                            items: std::mem::take(&mut recorded),
+                            trigger: trigger.clone(),
+                        };
+                        handle.history().push(run);
+                        if let Err(err) = handle.persist_history() {
+                            let _ = app.emit("app-warning", &err);
                         }
                     }
-                    if let Some(handle) = app_clone.try_state::<AppState>() {
+                }
+                if interactive {
+                    if let Some(handle) = app.try_state::<AppState>() {
                         handle.reset_cancel();
                     }
                 }
-                _ => {}
+                crate::tray::refresh(&app);
             }
-            let _ = app_clone.emit("action-event", &event);
+            _ => {}
         }
-    });
+        if interactive {
+            let _ = app.emit("action-event", &event);
+        }
+    }
 
-    Ok(())
+    outcome
 }
 
 /// Details of a queued item, held so a history record can be written when its
@@ -278,7 +316,7 @@ impl PendingRecord {
 ///
 /// For commands this is the literal command line — the only honest disclosure
 /// available, since Void does not interpret what a command removes.
-fn describe_method(method: &ActionMethod) -> String {
+pub(crate) fn describe_method(method: &ActionMethod) -> String {
     match method {
         ActionMethod::Command {
             program,
@@ -297,6 +335,32 @@ fn describe_method(method: &ActionMethod) -> String {
         ActionMethod::RemoveDir { .. } => "Delete directory recursively".into(),
         ActionMethod::RemoveFile { .. } => "Delete file".into(),
         ActionMethod::DockerPrune { prune_type } => format!("docker {prune_type} prune -f"),
+        ActionMethod::MoveToTrash { .. } => "Move to Trash".into(),
+        ActionMethod::RemoveDirs { paths } => format!("Delete {} directories", paths.len()),
+        ActionMethod::RemoveFiles { paths } => format!("Delete {} files", paths.len()),
+        ActionMethod::GitWorktreeRemove {
+            worktree,
+            delete_branch,
+            ..
+        } => match delete_branch {
+            Some(branch) => format!(
+                "git worktree remove {} && git branch -d {branch}",
+                worktree.display()
+            ),
+            None => format!("git worktree remove {}", worktree.display()),
+        },
+        ActionMethod::GitWorktreePrune { .. } => "git worktree prune".into(),
+        ActionMethod::RemoveOllamaOrphans { blobs, .. } => format!(
+            "Delete {} unreferenced Ollama blobs (manifests re-checked first)",
+            blobs.len()
+        ),
+        ActionMethod::GitDeleteBranches { branches, .. } => {
+            format!("git branch -d {}", branches.join(" "))
+        }
+        ActionMethod::DedupFiles { groups } => format!(
+            "Replace {} duplicate files with copy-on-write clones",
+            groups.iter().map(|g| g.duplicates.len()).sum::<usize>()
+        ),
     }
 }
 
@@ -377,6 +441,7 @@ pub async fn get_config(
 
 #[tauri::command]
 pub async fn update_config(
+    app: AppHandle,
     state: State<'_, AppState>,
     config: deepclean_core::config::AppConfig,
 ) -> Result<(), String> {
@@ -384,7 +449,26 @@ pub async fn update_config(
     // so the UI's slider bounds are not a guarantee. Zero concurrency would
     // wedge every future scan on an empty semaphore.
     let config = config.sanitized();
-    *state.config() = config;
+    let previous = std::mem::replace(&mut *state.config(), config.clone());
+
+    // Settings that act on the OS take effect as soon as they are saved, not
+    // at the next launch.
+    if previous.ui.show_menu_bar_icon != config.ui.show_menu_bar_icon {
+        crate::tray::set_visible(&app, config.ui.show_menu_bar_icon);
+    }
+    if previous.ui.launch_at_login != config.ui.launch_at_login {
+        if let Err(err) =
+            crate::integrations::apply_launch_at_login(&app, config.ui.launch_at_login)
+        {
+            // Keep the file honest: it must not claim a login item that the
+            // OS refused to register.
+            state.config().ui.launch_at_login = previous.ui.launch_at_login;
+            let _ = state.persist_config();
+            return Err(err);
+        }
+    }
+    crate::tray::refresh(&app);
+
     // Persist immediately. Settings that silently reset on relaunch are worse
     // than no settings screen at all.
     state.persist_config()

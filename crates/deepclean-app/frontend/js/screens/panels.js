@@ -4,7 +4,9 @@ import { store } from '../store.js';
 import {
   selectedAction, describeMethod, outcomeText, safetyLines, kindLabel,
   ECO_NAMES, isRecoverable, methodClass, riskRank, effectiveRisk, projectLabel,
+  agentName, isActionable, worktreeInfo,
 } from '../actions.js';
+import { outermost, innermostFirst } from '../selection.js';
 
 /* ── Detail drawer ───────────────────────────────────────────────────── */
 
@@ -25,11 +27,34 @@ function actionOption(item, action, chosen) {
       </span>
       <span class="desc">${escapeHtml(action.description)}</span>
       <span class="cmdline">${escapeHtml(method.glyph)} ${escapeHtml(method.text)}${
-        method.workingDir ? `<br>in ${escapeHtml(String(method.workingDir))}` : ''}</span>
+        method.workingDir ? `<br>in ${escapeHtml(String(method.workingDir))}` : ''}${
+        method.paths?.length ? `<br>${method.paths.slice(0, 6).map((p) => escapeHtml(String(p))).join('<br>')}${
+          method.paths.length > 6 ? `<br>…and ${count(method.paths.length - 6)} more` : ''}` : ''}</span>
       <span class="outcome">Frees ${outcome.frees ? formatBytes(outcome.frees) : 'unknown'} ·
         <span class="${outcome.recoverable ? 'recoverable' : ''}">${outcome.note}</span></span>
     </span>
   </button>`;
+}
+
+/**
+ * The scanner's facts about an item, as a definition list. Worktree state
+ * (dirty, unpushed, merged) is repeated as chips above it because it is the
+ * thing that decides whether removing the worktree loses work.
+ */
+function detailsSection(item) {
+  const details = item.details || [];
+  if (!details.length) return '';
+  const wt = item.ecosystem === 'worktrees' ? worktreeInfo(item) : null;
+  return `<div class="drawer-sect">
+    <div class="t-overline">Details</div>
+    ${wt && (wt.branch || wt.chips.length) ? `<div class="wt-chips" style="margin-bottom:10px">
+      ${wt.branch ? `<span class="wt-branch">${icon('git-branch', 'icon icon-sm')}${escapeHtml(wt.branch)}</span>` : ''}
+      ${wt.chips.map((c) => `<span class="badge badge-${c.tone}" title="${escapeHtml(c.title)}">${escapeHtml(c.label)}</span>`).join('')}
+    </div>` : ''}
+    <dl class="facts t-body-sm">
+      ${details.map((d) => `<dt>${escapeHtml(d.label)}</dt><dd>${escapeHtml(d.value)}</dd>`).join('')}
+    </dl>
+  </div>`;
 }
 
 export function renderDrawer() {
@@ -52,6 +77,7 @@ export function renderDrawer() {
       <div class="drawer-sect" style="padding-bottom:12px">
         <div style="display:flex;align-items:center;gap:6px;color:var(--eco-${item.ecosystem})">
           ${ecoIcon(item.ecosystem)}<span class="t-body-sm">${escapeHtml(ECO_NAMES[item.ecosystem] || item.ecosystem)}</span>
+          ${item.agent ? `<span class="badge badge-agent" title="Created by ${escapeHtml(agentName(item.agent))}">${icon('sparkle')} ${escapeHtml(agentName(item.agent))}</span>` : ''}
         </div>
         <div class="t-page-title" style="margin-top:4px">${escapeHtml(kindLabel(item))}</div>
         ${projectLabel(item) ? `<div class="t-body-sm dim">${escapeHtml(projectLabel(item))}</div>` : ''}
@@ -74,12 +100,14 @@ export function renderDrawer() {
         </dl>
       </div>
 
+      ${detailsSection(item)}
+
       <div class="drawer-sect">
         <div class="t-overline">Choose an action</div>
         ${actions.length > 6 ? `<div class="t-caption dim" style="margin-bottom:8px">${count(actions.length)} actions available</div>` : ''}
         <div style="${actions.length > 6 ? 'max-height:320px;overflow-y:auto' : ''}">
           ${actions.map((a) => actionOption(item, a, chosen && a.id === chosen.id)).join('')
-            || '<div class="t-body-sm dim">No actions available for this item.</div>'}
+            || `<div class="safety-line">${icon('info')}<span>Informational — nothing to clean automatically.</span></div>`}
         </div>
       </div>
 
@@ -91,7 +119,7 @@ export function renderDrawer() {
     </div>
     <div class="drawer-foot">
       <button class="btn btn-secondary" style="flex:1" data-act="exclude-path" data-id="${item.id}">Exclude this path</button>
-      <button class="btn btn-primary" style="flex:1" data-act="clean-one" data-id="${item.id}">Clean this item</button>
+      <button class="btn btn-primary" style="flex:1" data-act="clean-one" data-id="${item.id}" ${isActionable(item) ? '' : 'disabled'}>Clean this item</button>
     </div>
   </aside>`;
 }
@@ -101,7 +129,7 @@ export function renderDrawer() {
 /** Everything the modal needs, derived from the current selection. */
 export function buildPlan() {
   const preferTrash = store.config?.ui?.prefer_trash ?? true;
-  const entries = [];
+  let entries = [];
 
   for (const id of store.selected) {
     const item = store.items.find((i) => i.id === id);
@@ -111,8 +139,18 @@ export function buildPlan() {
     entries.push({ item, action });
   }
 
-  const effects = { directories: 0, files: 0, commands: 0 };
-  const bytes = { directories: 0, files: 0, commands: 0 };
+  // Nested selections run innermost first: clearing a worktree's
+  // `node_modules` and then removing the worktree works; the other order
+  // fails the inner action on a path that is already gone.
+  entries = innermostFirst(entries, (e) => e.item.path);
+
+  // Bytes count only the outermost selected item — an inner item's space is
+  // already inside its container's size.
+  const counted = new Set(outermost(entries.map((e) => e.item)).map((i) => i.id));
+  const sizeOf = (item) => (counted.has(item.id) ? item.size_bytes || 0 : 0);
+
+  const effects = { directories: 0, files: 0, commands: 0, dedup: 0 };
+  const bytes = { directories: 0, files: 0, commands: 0, dedup: 0 };
   let trashed = 0;
   let trashedBytes = 0;
   let estimated = 0;
@@ -121,13 +159,13 @@ export function buildPlan() {
   for (const { item, action } of entries) {
     if (isRecoverable(action)) {
       trashed += 1;
-      trashedBytes += item.size_bytes || 0;
+      trashedBytes += sizeOf(item);
     } else {
       const k = methodClass(action.method);
       effects[k] += 1;
-      bytes[k] += item.size_bytes || 0;
+      bytes[k] += sizeOf(item);
     }
-    estimated += item.size_bytes || 0;
+    estimated += sizeOf(item);
     if (action.risk === 'danger') hasDanger = true;
   }
 
@@ -150,6 +188,9 @@ export function renderConfirm(plan) {
   }
   if (plan.effects.commands) {
     rows.push({ ico: 'terminal', txt: `${count(plan.effects.commands)} command${plan.effects.commands === 1 ? '' : 's'} run`, amt: plan.bytes.commands });
+  }
+  if (plan.effects.dedup) {
+    rows.push({ ico: 'copy', txt: `${count(plan.effects.dedup)} duplicate set${plan.effects.dedup === 1 ? '' : 's'} replaced with clones`, amt: plan.bytes.dedup });
   }
   if (plan.trashed) {
     rows.push({ ico: 'refresh', txt: `${count(plan.trashed)} item${plan.trashed === 1 ? '' : 's'} moved to the Trash`, amt: plan.trashedBytes });
@@ -185,7 +226,7 @@ export function renderConfirm(plan) {
                   <span class="amt">${item.size_bytes ? formatBytes(item.size_bytes) : 'unknown'}</span>
                 </div>
                 <div class="t-mono-xs dim">${escapeHtml(String(item.path))}</div>
-                ${action.method.type === 'command' || action.method.type === 'docker_prune'
+                ${['command', 'docker_prune', 'git_worktree_remove', 'git_worktree_prune', 'git_delete_branches'].includes(action.method.type)
                   ? `<div class="cmdline" style="margin-top:4px">${escapeHtml(m.glyph)} ${escapeHtml(m.text)}</div>`
                   : `<div class="t-body-sm dim" style="margin-top:3px">${escapeHtml(action.description)}</div>`}
               </div>`;
@@ -193,7 +234,8 @@ export function renderConfirm(plan) {
           </div>` : ''}
 
         <p class="t-body-sm dim" style="margin-top:16px">
-          Deletions and commands bypass the Trash and cannot be undone.</p>
+          Deletions and commands bypass the Trash and cannot be undone.${
+            plan.trashed ? ' Items moved to the Trash free their space only once the Trash is emptied.' : ''}</p>
 
         ${plan.hasDanger ? `
           <div style="margin-top:14px">
