@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-29
+
 Void cleans up after your AI agents — and your agents can call Void themselves.
 
 ### Added
@@ -52,10 +54,16 @@ Void cleans up after your AI agents — and your agents can call Void themselves
   `docker builder prune`; Docker Desktop, OrbStack and Colima VM disk sizes
   (informational); Linux Trash
 - Move to Trash alongside permanent deletion for items worth recovering
+  (projects, orphaned worktrees, transcripts); regenerable caches keep
+  permanent deletion as the default, since the Trash frees nothing until emptied
+- Orphaned Ollama blobs are re-checked against every manifest when the clean
+  runs, so a model pulled after the scan is never broken
 - Item details (branch, dirty state, model tag, agent…) shown in the item drawer
-- Developer harness: `void dev seed <dir>` builds a realistic fake home and
-  `void --home <dir> scan` runs every scanner against it; frontend logic tests
-  run with `node --test`
+- Developer harness: `void dev seed <dir>` builds a realistic fake home;
+  `void --home <dir> …` runs the CLI against it and `VOID_HOME=<dir>` runs the
+  desktop app against it, with scans, settings, history and the Trash confined
+  to the sandbox and any action that could reach the real machine dropped;
+  frontend logic tests run with `npm test` (`node --test`, no dependencies)
 - CI: frontend test job and a macOS test job for `deepclean-core` and `void-cli`
 
 ### Changed
@@ -66,7 +74,10 @@ Void cleans up after your AI agents — and your agents can call Void themselves
   protects agent configuration (`~/.claude.json`, `~/.claude/settings.json`,
   memory, skills, agents, commands, plugins, `history.jsonl`; Codex `auth.json`,
   `config.toml`, memories), and treats `.claude.json`, `auth.json`, `CLAUDE.md`
-  and `AGENTS.md` as sentinel files
+  and `AGENTS.md` as sentinel files. Agent docs (`CLAUDE.md`, `AGENTS.md`) do
+  not block a recoverable Move to Trash; credentials and `.env` still do
+- On Linux, Cursor / VS Code / Windsurf state under `~/.config/<editor>/User`
+  is cleanable while the rest of `~/.config` stays protected
 - CI clippy now checks all targets, including tests
 
 ### Fixed
@@ -78,7 +89,8 @@ Void cleans up after your AI agents — and your agents can call Void themselves
   locked worktrees) or items nested inside another counted item — a Docker.raw
   was being added on top of the Docker data it contains, showing more
   reclaimable space than the disk holds
-- Linux was offered a PowerShell action
+- Linux was offered a PowerShell action for Downloads; it now uses
+  `gio trash`
 - The README promised `docker builder prune`, which Void did not actually offer
 
 ## [1.0.0] - 2026-08-22
@@ -125,3 +137,10 @@ Void cleans up after your AI agents — and your agents can call Void themselves
 - Action executor with safety gates for cleaning artifacts
 - Tauri 2 desktop app with system tray integration
 - Configurable scan roots, ecosystems, and staleness thresholds
+
+[Unreleased]: https://github.com/eladbash/void/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/eladbash/void/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/eladbash/void/compare/v0.1.2...v1.0.0
+[0.1.2]: https://github.com/eladbash/void/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/eladbash/void/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/eladbash/void/releases/tag/v0.1.0

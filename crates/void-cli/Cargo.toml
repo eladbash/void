@@ -1,6 +1,6 @@
 [package]
 name = "void-cli"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 rust-version.workspace = true
 description = "Void on the command line, and as an MCP server your AI agents can call"
