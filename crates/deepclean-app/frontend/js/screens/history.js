@@ -27,7 +27,8 @@ function detail(run) {
       <div class="modal-head">
         <div style="flex:1">
           <div class="t-page-title">${escapeHtml(new Date(run.started_at).toLocaleString())}</div>
-          <div class="t-body-sm dim tnum">${formatBytes(runBytes(run))} freed · ${count(run.items.length)} items · ${duration(run.duration_ms)}</div>
+          <div class="t-body-sm dim tnum">${formatBytes(runBytes(run))} freed · ${count(run.items.length)} items · ${duration(run.duration_ms)}${
+            run.trigger === 'guard' ? ' · run automatically by Guard' : ''}</div>
         </div>
         <button class="iconbtn" data-act="close-run" aria-label="Close">${icon('close')}</button>
       </div>
@@ -96,7 +97,7 @@ export function renderHistory() {
           <span class="n t-body-sm">${count(r.items.length)}</span>
           <span class="f t-body">${formatBytes(runBytes(r))}${runIsEstimated(r) ? '*' : ''}</span>
           <span class="r t-body-sm">
-            <span class="ok-text">${count(t.ok)} ok</span>${t.failed ? ` · <span class="fail-text">${count(t.failed)} failed</span>` : ''}
+            ${r.trigger === 'guard' ? '<span class="badge badge-neutral" title="Run by Guard mode’s automatic cleanup" style="margin-right:6px">auto</span>' : ''}<span class="ok-text">${count(t.ok)} ok</span>${t.failed ? ` · <span class="fail-text">${count(t.failed)} failed</span>` : ''}
           </span>
           <span class="col-chev dim">${icon('chevron-right', 'icon icon-sm')}</span>
         </div>`;

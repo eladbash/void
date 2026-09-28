@@ -43,6 +43,8 @@ impl EcosystemScanner for HomebrewScanner {
         );
 
         Ok(Some(CleanableItem {
+            details: Vec::new(),
+            agent: None,
             id: Uuid::new_v4(),
             path: path.to_path_buf(),
             ecosystem: Ecosystem::Homebrew,

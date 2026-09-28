@@ -3,6 +3,7 @@ name = "deepclean-app"
 version = "1.0.0"
 edition = "2021"
 rust-version.workspace = true
+description = "Void cleans up after your AI agents — and your agents can call Void themselves."
 
 [dependencies]
 deepclean-core = { workspace = true }
@@ -12,6 +13,9 @@ tokio = { workspace = true }
 uuid = { workspace = true }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-autostart = "2"
+sysinfo = { workspace = true }
 chrono = { workspace = true }
 dirs = { workspace = true }
 

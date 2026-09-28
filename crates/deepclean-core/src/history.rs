@@ -64,6 +64,11 @@ pub struct CleanRun {
     pub started_at: DateTime<Utc>,
     pub duration_ms: u64,
     pub items: Vec<RunItem>,
+    /// What started the run, when it was not the user: `"guard"` for Guard
+    /// mode's automatic cleanup. `None` (the default, and every run recorded
+    /// before this field existed) means the user ran it by hand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger: Option<String>,
 }
 
 impl CleanRun {
@@ -199,6 +204,7 @@ mod tests {
             started_at: Utc::now(),
             duration_ms: 1000,
             items,
+            trigger: None,
         }
     }
 
@@ -256,6 +262,20 @@ mod tests {
             history.push(run(vec![item(1, 0, true)]));
         }
         assert_eq!(history.runs.len(), History::MAX_RUNS);
+    }
+
+    #[test]
+    fn runs_recorded_before_trigger_existed_still_load() {
+        let raw = r#"{"runs":[{"id":"00000000-0000-0000-0000-000000000001",
+            "started_at":"2026-01-01T00:00:00Z","duration_ms":5,"items":[]}]}"#;
+        let history: History = serde_json::from_str(raw).unwrap();
+        assert_eq!(history.runs[0].trigger, None);
+
+        let mut auto = run(vec![item(1, 0, true)]);
+        auto.trigger = Some("guard".into());
+        let json = serde_json::to_string(&auto).unwrap();
+        let back: CleanRun = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.trigger.as_deref(), Some("guard"));
     }
 
     #[test]

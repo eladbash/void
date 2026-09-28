@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# Void — developer disk space reclaimer
+# Void — cleans up after your AI agents, and your agents can call it themselves
 # Install: curl -fsSL https://raw.githubusercontent.com/eladbash/void/main/install.sh | sh
 
 REPO="eladbash/void"

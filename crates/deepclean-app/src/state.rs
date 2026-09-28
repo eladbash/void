@@ -8,6 +8,8 @@ use deepclean_core::history::History;
 use deepclean_core::model::{CleanableItem, ScanSummary};
 use deepclean_core::safety::SafetyChecker;
 
+use crate::guard_mode::GuardView;
+
 /// Application state managed by Tauri.
 ///
 /// Fields are private and reached through the accessors below. That is not
@@ -32,6 +34,12 @@ pub struct AppState {
     /// Problems encountered while loading state at startup, surfaced to the UI
     /// rather than silently swallowed.
     startup_warnings: Mutex<Vec<String>>,
+
+    /// Guard mode's latest verdict, shown on the Agents screen and in the tray.
+    guard: Mutex<GuardView>,
+    /// Set while a guard check (and any automatic cleanup it starts) runs, so
+    /// the timer and "Check now" never overlap.
+    guard_busy: AtomicBool,
 }
 
 /// Take a lock, recovering rather than panicking if it was poisoned.
@@ -53,7 +61,12 @@ impl AppState {
         let config_path = config_dir.join(AppConfig::FILE_NAME);
         let history_path = config_dir.join(History::FILE_NAME);
 
-        let (config, config_err) = AppConfig::load(&config_path);
+        let (mut config, config_err) = AppConfig::load(&config_path);
+        // Sandboxed (VOID_HOME): scan only the fake home, whatever the
+        // sandbox config says.
+        if let Some(home) = deepclean_core::paths::home_override() {
+            config.scan_roots = vec![home];
+        }
         let (history, history_err) = History::load(&history_path);
 
         let warnings = [
@@ -74,6 +87,8 @@ impl AppState {
             history_path,
             cancel_clean: Arc::new(AtomicBool::new(false)),
             startup_warnings: Mutex::new(warnings),
+            guard: Mutex::new(GuardView::default()),
+            guard_busy: AtomicBool::new(false),
         }
     }
 
@@ -114,6 +129,26 @@ impl AppState {
         *guard(&self.is_scanning) = false;
     }
 
+    /// Whether a user-started scan is running, without claiming the slot.
+    pub fn is_scanning(&self) -> bool {
+        *guard(&self.is_scanning)
+    }
+
+    pub fn guard_view(&self) -> MutexGuard<'_, GuardView> {
+        guard(&self.guard)
+    }
+
+    /// Claim the guard slot. Returns `false` when a check is already running.
+    pub fn begin_guard(&self) -> bool {
+        self.guard_busy
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
+
+    pub fn finish_guard(&self) {
+        self.guard_busy.store(false, Ordering::Release);
+    }
+
     /// Cancellation flag for the running clean batch.
     pub fn cancel_flag(&self) -> Arc<AtomicBool> {
         Arc::clone(&self.cancel_clean)
@@ -135,7 +170,17 @@ impl AppState {
 
     pub fn create_executor(&self) -> ActionExecutor {
         let blocked = self.config().blocked_paths.clone();
-        ActionExecutor::new(SafetyChecker::new(blocked))
+        match deepclean_core::paths::home_override() {
+            // Sandboxed: protect the fake home as if it were real, and trash
+            // into a folder inside it rather than the real Trash.
+            Some(home) => ActionExecutor::with_trash(
+                SafetyChecker::with_home(home.clone(), blocked),
+                deepclean_core::trash::TrashBackend::Directory(
+                    home.join(deepclean_core::sandbox::SANDBOX_TRASH),
+                ),
+            ),
+            None => ActionExecutor::new(SafetyChecker::new(blocked)),
+        }
     }
 
     /// Write the current config to disk.
@@ -221,6 +266,17 @@ mod tests {
             state.begin_scan(),
             "slot should be reusable after finishing"
         );
+    }
+
+    #[test]
+    fn only_one_guard_check_runs_at_a_time() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state = AppState::load_from(tmp.path().to_path_buf());
+
+        assert!(state.begin_guard());
+        assert!(!state.begin_guard(), "timer and Check now must not overlap");
+        state.finish_guard();
+        assert!(state.begin_guard());
     }
 
     #[test]

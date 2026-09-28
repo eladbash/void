@@ -540,3 +540,68 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================================
+   AI-ERA ADDITIONS
+   Ecosystem accents for the four new ecosystems, aliases for the two keys the
+   backend serialises with an underscore (`jet_brains`, `dot_net` — rows used
+   `var(--eco-${ecosystem})` and rendered those two uncoloured), and a
+   categorical series palette for the usage-by-agent chart, validated for
+   colour-vision deficiency in both modes (slots follow the category, never
+   its rank).
+   ============================================================================ */
+
+:root {
+  --eco-worktrees: #0B69C7;
+  --eco-agent_data: #5B45C9;
+  --eco-models: #9A6B00;
+  --eco-projects: #5E6873;
+  --eco-jet_brains: var(--eco-jetbrains);
+  --eco-dot_net: var(--eco-dotnet);
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --series-other: #A5ABB3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --eco-worktrees: #4DA3FF;
+    --eco-agent_data: #9C8CFF;
+    --eco-models: #D9A520;
+    --eco-projects: #9AA4AF;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --series-other: #515963;
+  }
+}
+
+:root[data-theme="dark"] {
+  --eco-worktrees: #4DA3FF;
+  --eco-agent_data: #9C8CFF;
+  --eco-models: #D9A520;
+  --eco-projects: #9AA4AF;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --series-other: #515963;
+}
