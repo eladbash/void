@@ -416,7 +416,9 @@ fn hooks_install_and_uninstall_in_the_sandbox_home(cx: &mut TestAppContext) {
     let mcp = view
         .read_with(cx, |v, _| v.mcp.clone())
         .expect("MCP snippet with the CLI on PATH");
-    assert!(mcp.json.contains(&exe.display().to_string()));
+    // The path appears JSON-escaped (Windows backslashes are doubled).
+    let escaped = serde_json::to_string(&exe.display().to_string()).unwrap();
+    assert!(mcp.json.contains(escaped.trim_matches('"')), "{}", mcp.json);
     assert_eq!(mcp.command, "claude mcp add void -- void mcp");
 
     view.update(cx, |v, cx| v.hooks(true, cx));
