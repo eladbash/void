@@ -137,3 +137,16 @@ time, and the worker runtime can no longer be dropped on a worker thread
 asserts the hook finishes in under 5 s. On this machine, while other builds
 were running, it took 24–29 s when run alongside the rest of its test binary
 and 0.78 s alone. The CLI is unchanged on this branch.
+
+## Windows CI
+
+On Windows CI the desktop app's full suite passes (82 tests, including the
+headless scan → clean → History round trip against a Windows fixture home).
+`deepclean-core` and `void-cli` had never been tested on Windows before this
+branch; with `--no-fail-fast`, 57 of their tests fail there. Most failures are
+in the shared test kit: it hands git verbatim `\\?\C:\…` paths, which git
+rejects, and ages files through read-only handles, which Windows refuses. A
+few unit tests may be real Windows bugs (`path_env` merging, `gitdir` link
+resolution, the Documents/Desktop/Pictures block). The Windows CI job
+therefore runs `-p deepclean-app` only; core and CLI stay tested on Linux and
+macOS, as before. Making core pass on Windows is follow-up work.
