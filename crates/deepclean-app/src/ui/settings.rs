@@ -2,7 +2,6 @@
 
 use gpui_kit::component::input::Input;
 use gpui_kit::component::slider::Slider;
-use gpui_kit::component::Sizable;
 use gpui_kit::{div, prelude::*, px, Context, Div, ElementId, FontWeight, Window};
 
 use deepclean_core::config::{Density, Grouping, Theme as ThemePref};
@@ -25,6 +24,9 @@ const PROTECTED: [&str; 3] = [
     "~/Library/Keychains · ~/Library/Preferences",
     ".ssh · .gnupg · .aws · .config · .gitconfig · .zshrc · .bashrc · .env · .Trash",
 ];
+
+/// What clicking one option of a segmented row does.
+type SegApply = Box<dyn Fn(&mut AppView, &Window, &mut Context<AppView>)>;
 
 /// Which list a path row belongs to, for its remove button.
 #[derive(Clone, Copy)]
@@ -246,24 +248,22 @@ impl AppView {
         let p = self.p;
         let input = self.number_inputs.get(path).cloned();
         field()
-            .child(
-                div()
-                    .t_label()
-                    .text_color(p.text_primary)
-                    .mb(px(4.))
-                    .child(label.to_string()),
-            )
+            .when(!label.is_empty(), |d| {
+                d.child(
+                    div()
+                        .t_label()
+                        .text_color(p.text_primary)
+                        .mb(px(4.))
+                        .child(label.to_string()),
+                )
+            })
             .when(!help_text.is_empty(), |d| d.child(help(help_text, &p)))
             .child(
                 div()
                     .flex()
                     .items_center()
                     .gap(px(8.))
-                    .child(
-                        div()
-                            .w(px(88.))
-                            .children(input.map(|i| Input::new(&i).small())),
-                    )
+                    .child(div().w(px(88.)).children(input.map(|i| Input::new(&i))))
                     .child(
                         div()
                             .t_body()
@@ -374,8 +374,7 @@ impl AppView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let p = self.p;
-        btn(id, BtnKind::Secondary, BtnSize::Sm, false, &p)
-            .mt(px(8.))
+        let button = btn(id, BtnKind::Secondary, BtnSize::Sm, false, &p)
             .child(icon("plus", px(14.), p.text_primary))
             .child("Add folder…")
             .on_click(cx.listener(move |this, _, _, cx| {
@@ -397,7 +396,9 @@ impl AppView {
                     };
                     this.save_config(dirty, cx);
                 });
-            }))
+            }));
+        // In a block container a button would stretch to the full width.
+        div().flex().mt(px(8.)).child(button)
     }
 
     // ── Sections ────────────────────────────────────────────────────────
@@ -422,7 +423,7 @@ impl AppView {
             .child(
                 field()
                     .child(overline("Staleness", p.text_tertiary).mb(px(8.)))
-                    .child(self.number_field("", "Flag artifacts untouched for longer than", "staleness_threshold_days", "days"))
+                    .child(self.number_field("", "Flag artifacts untouched for longer than", "staleness_threshold_days", "days").mb_0())
                     .child(foot(
                         "Affects the stale marker and the “Stale only” filter. It does not change what Void scans.",
                         &p,
@@ -443,7 +444,7 @@ impl AppView {
         }
         // Sorted by what they actually cost, so the expensive ones carry the
         // numbers that justify the toggle.
-        stats.sort_by(|a, b| b.1.cmp(&a.1));
+        stats.sort_by_key(|s| std::cmp::Reverse(s.1));
         let mut list = pathlist(&p);
         let n = stats.len();
         for (i, (eco, bytes, items)) in stats.into_iter().enumerate() {
@@ -793,11 +794,7 @@ impl AppView {
         let p = self.p;
         let ui = self.ui.config.ui.clone();
         let seg_row = |label: &str,
-                       options: Vec<(
-            &'static str,
-            bool,
-            Box<dyn Fn(&mut AppView, &Window, &mut Context<AppView>)>,
-        )>,
+                       options: Vec<(&'static str, bool, SegApply)>,
                        key: &'static str,
                        cx: &mut Context<Self>| {
             let mut seg = div()
@@ -855,13 +852,11 @@ impl AppView {
                 )
                 .child(seg)
         };
-        let theme = |t: ThemePref| -> Box<dyn Fn(&mut AppView, &Window, &mut Context<AppView>)> {
-            Box::new(move |this, _, _| this.ui.config.ui.theme = t)
-        };
-        let density = |d: Density| -> Box<dyn Fn(&mut AppView, &Window, &mut Context<AppView>)> {
-            Box::new(move |this, _, _| this.ui.config.ui.density = d)
-        };
-        let grouping = |g: Grouping| -> Box<dyn Fn(&mut AppView, &Window, &mut Context<AppView>)> {
+        let theme =
+            |t: ThemePref| -> SegApply { Box::new(move |this, _, _| this.ui.config.ui.theme = t) };
+        let density =
+            |d: Density| -> SegApply { Box::new(move |this, _, _| this.ui.config.ui.density = d) };
+        let grouping = |g: Grouping| -> SegApply {
             Box::new(move |this, _, _| {
                 this.ui.config.ui.grouping = g;
                 this.ui.collapsed.clear();

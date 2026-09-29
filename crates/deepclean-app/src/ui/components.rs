@@ -298,6 +298,13 @@ pub fn agent_badge(name: &str, p: &Palette) -> Div {
         .text_size(px(10.))
         .font_weight(FontWeight(600.))
         .whitespace_nowrap()
+        .when(!name.is_empty(), |d| d.child(name.to_string()))
+}
+
+/// An agent badge led by a glyph, as in the drawer header.
+pub fn agent_badge_with_icon(name: &str, glyph: &str, p: &Palette) -> Div {
+    agent_badge("", p)
+        .child(icon(glyph, px(10.), p.accent_text))
         .child(name.to_string())
 }
 

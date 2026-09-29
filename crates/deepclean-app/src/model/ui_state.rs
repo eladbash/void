@@ -498,7 +498,7 @@ impl UiState {
                     .cmp(&!is_ai(b.eco))
                     .then(b.bytes.cmp(&a.bytes))
             }),
-            Grouping::Project => list.sort_by(|a, b| b.bytes.cmp(&a.bytes)),
+            Grouping::Project => list.sort_by_key(|g| std::cmp::Reverse(g.bytes)),
         }
         let max = list.iter().map(|g| g.bytes).max().unwrap_or(0).max(1);
         for g in &mut list {
@@ -1012,8 +1012,10 @@ mod tests {
     use deepclean_core::model::ScanSummary;
 
     fn state() -> UiState {
-        let mut config = AppConfig::default();
-        config.staleness_threshold_days = 30;
+        let mut config = AppConfig {
+            staleness_threshold_days: 30,
+            ..Default::default()
+        };
         config.ai.worktree_idle_days = 3;
         config.ai.agent_data_retention_days = 30;
         let mut s = UiState::new(config);

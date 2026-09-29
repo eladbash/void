@@ -149,7 +149,9 @@ impl AppView {
             .first()
             .map(|r| r.display().to_string().trim_end_matches('/').to_string())
             .unwrap_or_default();
+        set_app_appearance(config.ui.theme, cx);
         let p = Palette::resolve(config.ui.theme, window.appearance());
+        super::theme::sync_component_theme(&p, cx);
         let filter_input = cx
             .new(|cx| InputState::new(window, cx).placeholder("Filter by path, project, or type"));
         let confirm_input = cx.new(|cx| InputState::new(window, cx));
@@ -178,6 +180,7 @@ impl AppView {
         ));
         subscriptions.push(cx.observe_window_appearance(window, |this, window, cx| {
             this.p = Palette::resolve(this.ui.config.ui.theme, window.appearance());
+            super::theme::sync_component_theme(&this.p, cx);
             cx.notify();
         }));
 
@@ -731,7 +734,9 @@ impl AppView {
 
     /// Live preferences that change how the window looks.
     pub(crate) fn apply_look(&mut self, window: &Window, cx: &mut Context<Self>) {
+        set_app_appearance(self.ui.config.ui.theme, cx);
         self.p = Palette::resolve(self.ui.config.ui.theme, window.appearance());
+        super::theme::sync_component_theme(&self.p, cx);
         self.list.remeasure();
         self.changed(cx);
     }
@@ -1014,6 +1019,17 @@ impl AppView {
                 ),
         )
     }
+}
+
+/// Make the native title bar follow Void's theme, not only the OS's.
+/// Only macOS honours this; elsewhere it is a no-op.
+fn set_app_appearance(pref: deepclean_core::config::Theme, cx: &mut App) {
+    use deepclean_core::config::Theme;
+    cx.set_window_appearance(match pref {
+        Theme::Light => Some(gpui_kit::WindowAppearance::Light),
+        Theme::Dark => Some(gpui_kit::WindowAppearance::Dark),
+        Theme::System => None,
+    });
 }
 
 /// Stable element ids for things tests and the accessibility tree address.

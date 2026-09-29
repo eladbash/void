@@ -7,7 +7,7 @@ use deepclean_core::model::{CleanAction, CleanableItem, Ecosystem, RiskLevel};
 use super::app_view::AppView;
 use super::components::*;
 use super::icons::{eco_icon, icon};
-use super::theme::{Palette, DRAWER_W, RAIL_W};
+use super::theme::{Palette, DRAWER_W};
 use crate::model::actions::{
     describe_method, is_actionable, outcome_text, risk_id, safety_lines, worktree_info, Tone,
 };
@@ -99,11 +99,7 @@ impl AppView {
             .child(eco_icon(item.ecosystem, px(14.), p.eco(item.ecosystem)))
             .child(div().t_body_sm().child(eco_name(item.ecosystem)));
         if let Some(agent) = &item.agent {
-            head_eco = head_eco.child(agent_badge(&agent_name(agent), &p).child(icon(
-                "sparkle",
-                px(10.),
-                p.accent_text,
-            )));
+            head_eco = head_eco.child(agent_badge_with_icon(&agent_name(agent), "sparkle", &p));
         }
 
         let mut fact_rows = vec![
@@ -358,7 +354,7 @@ impl AppView {
                 .absolute()
                 .top_0()
                 .bottom_0()
-                .left(px(RAIL_W))
+                .left_0()
                 .right_0()
                 .child(
                     div()

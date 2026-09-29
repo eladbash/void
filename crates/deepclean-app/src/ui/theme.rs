@@ -289,3 +289,36 @@ pub fn mono_family() -> &'static str {
         "DejaVu Sans Mono"
     }
 }
+
+/// Point gpui-component's own theme (text fields, sliders) at our palette so
+/// its widgets sit in the design instead of on top of it.
+pub fn sync_component_theme(p: &Palette, cx: &mut gpui_kit::App) {
+    use gpui_kit::component::theme::{Theme, ThemeMode};
+    Theme::change(
+        if p.dark {
+            ThemeMode::Dark
+        } else {
+            ThemeMode::Light
+        },
+        None,
+        cx,
+    );
+    Theme::update(cx, |t| {
+        let c = &mut t.colors;
+        c.background = p.surface_sunken;
+        c.foreground = p.text_primary;
+        c.input = p.border_strong;
+        c.border = p.border_default;
+        c.muted_foreground = p.text_disabled;
+        c.ring = p.accent_border_strong;
+        c.caret = p.text_primary;
+        c.selection = p.accent_subtle;
+        c.primary = p.accent_bg;
+        c.primary_foreground = p.accent_on_solid;
+        c.accent = p.state_hover;
+        c.popover = p.surface_overlay;
+        c.slider_bar = p.accent_bg;
+        c.slider_thumb = p.surface_raised;
+        t.radius = px(RADIUS_SM);
+    });
+}

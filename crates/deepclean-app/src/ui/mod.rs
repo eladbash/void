@@ -73,3 +73,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("alt-up", DrawerPrev, Some(LIST)),
     ]);
 }
+
+#[cfg(test)]
+mod tests;

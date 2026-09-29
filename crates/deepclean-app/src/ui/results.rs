@@ -60,7 +60,9 @@ impl AppView {
         if ui.scanning && !ui.scanner_status.is_empty() {
             col = col.child(self.ticker());
         }
-        if ui.has_scanned && !show_empty {
+        // Kept while a filter matches nothing: the filter field lives here,
+        // and hiding it would drop focus mid-word.
+        if ui.has_scanned && !ui.items.is_empty() {
             col = col.child(self.toolbar(window, cx)).child(self.table_head());
         }
         let body = if show_empty {
@@ -601,7 +603,8 @@ impl AppView {
             .child(
                 div().flex_1().max_w(px(320.)).min_w(px(120.)).child(
                     Input::new(&self.filter_input)
-                        .small()
+                        // 12px text in a 24px box, as the original search field.
+                        .with_size(gpui_kit::component::Size::Size(px(13.72)))
                         .prefix(icon("search", px(14.), p.text_tertiary))
                         .cleanable(true),
                 ),
@@ -762,6 +765,7 @@ impl AppView {
         let k2 = key.clone();
         div()
             .id(("group", ix))
+            .w_full()
             .h(px(36.))
             .flex()
             .items_center()
@@ -1009,6 +1013,7 @@ impl AppView {
 
         div()
             .id(("row", id.as_u128() as u64 as usize))
+            .w_full()
             .relative()
             .h(m.row_h)
             .flex()
@@ -1107,7 +1112,7 @@ impl AppView {
                                 .rounded(px(2.))
                                 .bg(accent)
                                 .opacity(0.85)
-                                .w(gpui_kit::relative((ratio.max(0.03)).min(1.))),
+                                .w(gpui_kit::relative(ratio.clamp(0.03, 1.))),
                         ),
                 ),
             )
