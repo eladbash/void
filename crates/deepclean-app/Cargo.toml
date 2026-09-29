@@ -7,23 +7,24 @@ description = "Void cleans up after your AI agents — and your agents can call 
 
 [dependencies]
 deepclean-core = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
-tauri = { version = "2", features = ["tray-icon", "image-png"] }
-tauri-plugin-dialog = "2"
-tauri-plugin-notification = "2"
-tauri-plugin-autostart = "2"
 sysinfo = { workspace = true }
 chrono = { workspace = true }
 dirs = { workspace = true }
+gpui-kit = { version = "0.7", default-features = false, features = ["component"] }
+futures = "0.3"
+# ksni: the StatusNotifierItem D-Bus tray on Linux — no GTK event loop to
+# host next to GPUI's. Its dependency is Linux-only, so this is a no-op elsewhere.
+tray-icon = { version = "0.25", default-features = false, features = ["ksni"] }
+notify-rust = "4"
+auto-launch = "0.6"
+png = "0.17"
 
 [dev-dependencies]
 tempfile = "3"
-
-[build-dependencies]
-tauri-build = { version = "2", features = [] }
+gpui-kit = { version = "0.7", default-features = false, features = ["component", "test-support"] }
 
 [lib]
 name = "void_app_lib"
