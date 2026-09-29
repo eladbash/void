@@ -1,20 +1,26 @@
-mod commands;
-mod guard_mode;
-mod integrations;
+mod backend;
+pub mod model;
+mod platform;
 mod state;
-mod tray;
+pub mod ui;
 
-use tauri::Manager;
+use std::rc::Rc;
+use std::sync::Arc;
 
-use state::AppState;
+use gpui_kit::{
+    px, size, App, AppContext, Bounds, Menu, MenuItem, TitlebarOptions, WindowBounds, WindowOptions,
+};
+
+pub use backend::{Backend, UiEvent};
+pub use state::AppState;
+pub use ui::app_view::{native_folder_picker, AppView, FolderPicker};
 
 /// `VOID_HOME=<dir>`: run the whole app against a fake home, for
 /// development and demos (`void dev seed <dir>` builds one). Scans, settings,
 /// history and the Trash all stay inside `<dir>`; see
 /// `deepclean_core::sandbox`.
 ///
-/// Must run before anything resolves home, so it is set as the very first
-/// step of setup.
+/// Must run before anything resolves home, so it is the first step.
 fn sandbox_home() -> Option<std::path::PathBuf> {
     let dir = std::env::var_os("VOID_HOME").filter(|v| !v.is_empty())?;
     let dir = std::path::PathBuf::from(dir);
@@ -42,85 +48,100 @@ fn sandbox_home() -> Option<std::path::PathBuf> {
     Some(dir)
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Where settings and history live. Same folder the Tauri build used for the
+/// `com.void.app` identifier, so an upgrade keeps both:
+///   macOS   ~/Library/Application Support/com.void.app/
+///   Linux   ~/.config/com.void.app/
+///   Windows %APPDATA%\com.void.app\
+pub fn config_dir(sandbox: Option<&std::path::Path>) -> std::path::PathBuf {
+    match sandbox {
+        Some(home) => home.join(deepclean_core::sandbox::SANDBOX_CONFIG),
+        None => dirs::config_dir()
+            .unwrap_or_else(std::env::temp_dir)
+            .join("com.void.app"),
+    }
+}
+
 pub fn run() {
-    // GUI launchers hand us a bare PATH; recover the user's real one before any
-    // scanner or clean action tries to shell out to cargo/go/npm/brew/docker.
+    // GUI launchers hand us a bare PATH; recover the user's real one before
+    // any scanner or clean action tries to shell out to cargo/go/npm/brew.
     deepclean_core::path_env::restore_login_shell_path();
 
-    let result = tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ))
-        .invoke_handler(tauri::generate_handler![
-            commands::start_scan,
-            commands::get_scan_results,
-            commands::execute_clean,
-            commands::cancel_clean,
-            commands::get_summary,
-            commands::get_config,
-            commands::update_config,
-            commands::get_config_path,
-            commands::reveal_item,
-            commands::get_disk_usage,
-            commands::get_history,
-            commands::clear_history,
-            commands::take_startup_warnings,
-            guard_mode::get_guard_status,
-            guard_mode::run_guard_now,
-            integrations::get_agent_usage,
-            integrations::get_hook_status,
-            integrations::install_hooks,
-            integrations::uninstall_hooks,
-            integrations::get_mcp_snippet,
-            integrations::set_launch_at_login,
-        ])
-        .setup(|app| {
-            // Settings live beside the bundle identifier, so the path resolver
-            // owns the platform conventions rather than this crate:
-            //   macOS   ~/Library/Application Support/com.void.app/
-            //   Linux   ~/.config/com.void.app/
-            //   Windows %APPDATA%\com.void.app\
-            let sandbox = sandbox_home();
-            let config_dir = match &sandbox {
-                Some(home) => home.join(deepclean_core::sandbox::SANDBOX_CONFIG),
-                None => app.path().app_config_dir().unwrap_or_else(|_| {
-                    dirs::config_dir()
-                        .unwrap_or_else(std::env::temp_dir)
-                        .join("com.void.app")
-                }),
-            };
-            app.manage(AppState::load_from(config_dir));
-            if let (Some(home), Some(window)) = (&sandbox, app.get_webview_window("main")) {
-                let _ = window.set_title(&format!("Void — SANDBOX {}", home.display()));
-            }
+    let sandbox = sandbox_home();
+    let state = Arc::new(AppState::load_from(config_dir(sandbox.as_deref())));
+    let (backend, events) = Backend::new(state.clone());
 
-            tray::setup_tray(app)?;
-
-            // The login item lives in the OS, not in our config; bring it in
-            // line with the saved preference in case either was changed
-            // behind our back.
-            // A sandbox run must not change the real login items.
-            let launch_at_login = app.state::<AppState>().config().ui.launch_at_login;
-            if sandbox.is_none() {
-                if let Err(err) = integrations::apply_launch_at_login(app.handle(), launch_at_login)
-                {
-                    eprintln!("{err}");
-                }
-            }
-
-            guard_mode::spawn(app.handle().clone());
-            Ok(())
-        })
-        .run(tauri::generate_context!());
-
-    // The entry point is the one place with no caller to hand an error to, so
-    // this reports and exits rather than unwinding with a bare panic message.
-    if let Err(err) = result {
-        eprintln!("Void could not start: {err}");
-        std::process::exit(1);
+    // The login item lives in the OS, not in our config; bring it in line
+    // with the saved preference in case either changed behind our back. A
+    // sandbox run must not touch the real login items.
+    if sandbox.is_none() {
+        let wanted = state.config().ui.launch_at_login;
+        if let Err(err) = platform::autostart::apply_launch_at_login(wanted) {
+            eprintln!("{err}");
+        }
     }
+
+    gpui_kit::application()
+        .with_assets(ui::icons::Assets)
+        .run(move |cx: &mut App| {
+            gpui_kit::init(cx);
+            ui::bind_keys(cx);
+            cx.on_action(|_: &ui::Quit, cx| cx.quit());
+            cx.set_menus([Menu {
+                name: "Void".into(),
+                items: vec![
+                    MenuItem::action("Settings…", ui::GoSettings),
+                    MenuItem::separator(),
+                    MenuItem::action("Quit Void", ui::Quit),
+                ],
+                disabled: false,
+            }]);
+
+            // The tray needs the platform event loop running, which it is by
+            // the time this callback runs.
+            let tray = match platform::tray::Tray::new(state.config().ui.show_menu_bar_icon) {
+                Ok((tray, commands)) => Some((Rc::new(tray), commands)),
+                Err(err) => {
+                    eprintln!("tray: {err}");
+                    None
+                }
+            };
+
+            let title = match &sandbox {
+                Some(home) => format!("Void — SANDBOX {}", home.display()),
+                None => "Void".to_string(),
+            };
+            let options = WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
+                    None,
+                    size(px(900.), px(700.)),
+                    cx,
+                ))),
+                window_min_size: Some(size(px(720.), px(560.))),
+                titlebar: Some(TitlebarOptions {
+                    title: Some(title.into()),
+                    ..Default::default()
+                }),
+                app_id: Some("com.void.app".into()),
+                ..Default::default()
+            };
+            backend.spawn_guard_loop();
+            let backend = backend.clone();
+            let opened = gpui_kit::open_window(options, cx, move |window, cx| {
+                cx.new(|cx| AppView::new(backend, events, tray, native_folder_picker(), window, cx))
+            });
+            if let Err(err) = opened {
+                // The entry point has no caller to hand an error to.
+                eprintln!("Void could not open its window: {err}");
+                std::process::exit(1);
+            }
+            // Closing the window quits, as the Tauri build did.
+            cx.on_window_closed(|cx, _| {
+                if cx.windows().is_empty() {
+                    cx.quit();
+                }
+            })
+            .detach();
+            cx.activate(true);
+        });
 }

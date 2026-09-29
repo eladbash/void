@@ -359,7 +359,7 @@ footer a:hover { color:var(--text-primary); }
       15 ecosystems, with exactly what each cleanup will do shown before it runs.
     </p>
     <div class="actions">
-      <a href="https://github.com/eladbash/void/releases" class="btn btn-primary">Download for macOS</a>
+      <a href="https://github.com/eladbash/void/releases/latest" class="btn btn-primary" id="downloadBtn">Download</a>
       <a href="https://github.com/eladbash/void" class="btn btn-secondary">View source</a>
     </div>
     <div class="install">
@@ -367,7 +367,7 @@ footer a:hover { color:var(--text-primary); }
       <span class="scroller"><code id="installCmd">curl -fsSL https://raw.githubusercontent.com/eladbash/void/main/install.sh | sh</code></span>
       <button id="copyBtn" type="button">Copy</button>
     </div>
-    <p class="platforms">macOS, Windows and Linux · MIT licensed · runs locally · no account, no telemetry</p>
+    <p class="platforms">Native on macOS, Windows and Linux · MIT licensed · runs locally · no account, no telemetry</p>
   </div>
 </section>
 
@@ -413,8 +413,8 @@ footer a:hover { color:var(--text-primary); }
       </div>
       <div class="card">
         <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.75" y="4.25" width="12.5" height="7.5" rx="1.9"/><path d="M1.75 8.5h12.5"/><path d="M4.15 10.1h3.1"/></svg>
-        <h3>In your menu bar</h3>
-        <p>Reclaimable space at a glance and a one-click scan, without leaving whatever you were doing.</p>
+        <h3>In your menu bar or system tray</h3>
+        <p>Free space at a glance and a one-click scan, without leaving whatever you were doing. A native, GPU-rendered app on every platform — no webview, no browser engine.</p>
       </div>
       <div class="card">
         <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.3 4.7H7.4"/><path d="M9.3 11.3H3.3"/><circle cx="4.7" cy="4.7" r="2"/><circle cx="11.3" cy="11.3" r="2"/></svg>
@@ -637,6 +637,17 @@ footer a:hover { color:var(--text-primary); }
     applyShot(next === 'dark');
     try { localStorage.setItem('void-theme', next); } catch { /* private mode */ }
   });
+
+  // Name the platform on the download button; the install one-liner is
+  // macOS-only, so other platforms are sent to the release assets instead.
+  const ua = navigator.userAgent;
+  const platform = /Mac/.test(ua) ? 'macOS' : /Win/.test(ua) ? 'Windows' : /Linux|X11/.test(ua) ? 'Linux' : null;
+  const dl = document.getElementById('downloadBtn');
+  if (dl && platform) dl.textContent = `Download for ${platform}`;
+  if (platform && platform !== 'macOS') {
+    const line = document.querySelector('.install');
+    if (line) line.style.display = 'none';
+  }
 
   const btn = document.getElementById('copyBtn');
   btn.addEventListener('click', async () => {

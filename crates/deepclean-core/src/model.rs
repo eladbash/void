@@ -216,8 +216,8 @@ impl CleanableItem {
 ///
 /// An outer item only absorbs a nested one it is at least as large as — a
 /// zero-byte "prune worktree refs" item at a repo root must not hide the
-/// gigabytes of worktrees inside that repo. Mirrors the frontend's
-/// `outermost()` in `selection.js`.
+/// gigabytes of worktrees inside that repo. Mirrors the desktop app's
+/// `outermost()` in `model/selection.rs`.
 pub fn reclaimable_bytes<'a>(items: impl IntoIterator<Item = &'a CleanableItem>) -> u64 {
     let mut counted: Vec<&CleanableItem> =
         items.into_iter().filter(|i| i.is_actionable()).collect();
@@ -465,7 +465,7 @@ pub enum ActionEvent {
     },
     /// Terminal event for a batch.
     ///
-    /// The channel closing is not a usable completion signal — the frontend
+    /// The channel closing is not a usable completion signal — the UI
     /// would have to count `Started` against terminal events to know it is
     /// done.
     BatchComplete {
