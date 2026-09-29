@@ -11,7 +11,7 @@ FROM rust:1-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
       pkg-config libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
       libfontconfig1-dev libfreetype-dev libx11-xcb-dev libxcb1-dev libvulkan-dev \
-      mesa-vulkan-drivers libgl1-mesa-dri libegl1 xvfb x11-apps imagemagick \
+      mesa-vulkan-drivers libgl1-mesa-dri libegl1 xvfb x11-apps x11-utils imagemagick \
       dbus-x11 fonts-dejavu-core git \
     && rm -rf /var/lib/apt/lists/*
 

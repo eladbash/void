@@ -87,7 +87,7 @@ screen had `1.0.0` hard-coded); group headers are not sticky while scrolling
 | N1 | Low-disk notification | real app with warn at 99% | ✅ Guard shows LOW, notification posted without error. **Bug found and fixed**: on macOS the notification library opened a "Choose Application" dialog because no sender was set |
 | K1 | Shortcuts | real app; headless | ✅ |
 | X1 | 720×560 minimum ×T | real app | ✅ disk meter drops below 860pt and Agents stacks below 760pt, as the stylesheet did |
-| X2 | Linux | Docker (Debian bookworm, arm64): build, full test suite, Xvfb launch | see below |
+| X2 | Linux | Docker (Debian bookworm, arm64): build, full test suite, Xvfb launch | ✅ build and all tests; window opens (900×700, app id `com.void.app`), app stays up. ⚠️ pixels not verifiable: Xvfb shows a black window with software Vulkan |
 | X3 | Windows | CI only (no Windows machine here) | pending CI |
 
 ## Platforms
@@ -98,5 +98,12 @@ screen had `1.0.0` hard-coded); group headers are not sticky while scrolling
 - **Linux**: the whole workspace builds in Docker with the libraries in
   `scripts/linux-deps.sh`. The first test run caught three window tests that
   sent `cmd-…` (Super on Linux) instead of the portable `secondary-…`; fixed.
-  The tray reports a D-Bus error without a session bus and the app carries on.
+  After the fix every suite passes on Linux (258 core, 79 app, CLI and
+  integration suites). Launched under Xvfb with a session bus, the app opens
+  its 900×700 window with app id `com.void.app` and keeps running; the tray
+  logs that no StatusNotifier host is present (there is none in a bare X
+  session) and the app carries on. The window's pixels could not be verified:
+  the capture is black because Xvfb does not show frames presented through
+  Mesa's software Vulkan driver. Rendering on a real Linux desktop is
+  unverified.
 - **Windows**: compiled and tested by CI only.
