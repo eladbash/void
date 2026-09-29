@@ -141,3 +141,30 @@ pub struct HistoryView {
     pub bytes_last_30_days: u64,
     pub run_count: usize,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The window can close mid-scan. The scan must still finish, release
+    /// its latch and accept the next one, with nobody listening.
+    #[test]
+    fn scan_survives_dropped_receiver() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("root");
+        std::fs::create_dir_all(root.join("proj/node_modules/x")).unwrap();
+        std::fs::write(root.join("proj/package.json"), "{}").unwrap();
+        let state = Arc::new(AppState::load_from(tmp.path().join("cfg")));
+        state.config().scan_roots = vec![root];
+        let (backend, events) = Backend::new(state.clone());
+        drop(events);
+
+        backend.start_scan().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        while state.is_scanning() {
+            assert!(std::time::Instant::now() < deadline, "scan never finished");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        backend.start_scan().expect("the latch was released");
+    }
+}

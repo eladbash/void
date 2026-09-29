@@ -107,3 +107,33 @@ screen had `1.0.0` hard-coded); group headers are not sticky while scrolling
   Mesa's software Vulkan driver. Rendering on a real Linux desktop is
   unverified.
 - **Windows**: compiled and tested by CI only.
+
+## Code review
+
+A whole-branch review found no critical issues and five important ones,
+all fixed in `b665bdd` with tests:
+
+- "Clean this item" in the drawer (and the missing-tool fallback) ran Danger
+  actions without the typed `delete`. They now go through the confirmation
+  dialog (`cleaning_a_danger_item_from_the_drawer_goes_through_review`).
+  Inherited from the Tauri build.
+- The "Use Remove directory instead" offer disappeared with the batch that
+  failed, so it could never be clicked (R20 is now covered through
+  `BatchComplete`). Inherited from the Tauri build.
+- Launch at login registered an AppImage's temporary mount path; it now
+  registers `$APPIMAGE` (and the `.app` bundle on macOS).
+- Windows release builds opened a console window.
+- The release workflow's `--locked` build failed whenever the tag bumped the
+  version.
+
+Also fixed: pending settings flushed before a scan and on quit, Critical
+capped at Warn, presets clear the filter field, Esc order, one clean at a
+time, and the worker runtime can no longer be dropped on a worker thread
+(`scan_survives_dropped_receiver`).
+
+## Known flaky test (not from this branch)
+
+`void-cli/tests/cli.rs::session_start_warns_only_when_disk_is_low_and_always_exits_zero`
+asserts the hook finishes in under 5 s. On this machine, while other builds
+were running, it took 24–29 s when run alongside the rest of its test binary
+and 0.78 s alone. The CLI is unchanged on this branch.
