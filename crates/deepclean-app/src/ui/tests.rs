@@ -49,8 +49,9 @@ fn seed(dir: &std::path::Path) {
         home.file(format!("{project}/package.json"), "{}");
         home.sized_file(format!("{project}/node_modules/left-pad/index.js"), 2048);
     }
-    home.sized_file(".claude/projects/-code-webapp/session.jsonl", 4096);
-    deepclean_core::testkit::age_tree(&home.path(".claude/projects"), 90);
+    // Files only: Windows cannot open a directory to set its mtime.
+    let session = home.sized_file(".claude/projects/-code-webapp/session.jsonl", 4096);
+    deepclean_core::testkit::age(&session, 90);
     home.file("code/tool/pyproject.toml", "[project]\nname = 'tool'\n");
     home.file("code/tool/.venv/pyvenv.cfg", "home = /usr/bin\n");
     home.sized_file("code/tool/.venv/lib/site.py", 1024);
