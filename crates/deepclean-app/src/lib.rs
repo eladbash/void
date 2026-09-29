@@ -1,6 +1,7 @@
 mod commands;
 mod guard_mode;
 mod integrations;
+pub mod model;
 mod state;
 mod tray;
 
