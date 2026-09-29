@@ -33,3 +33,29 @@ path = "src/lib.rs"
 [[bin]]
 name = "void-app"
 path = "src/main.rs"
+
+# Bundles for every platform: `cargo build --release -p deepclean-app`, then
+# `cargo packager --release` from this directory: .app/.dmg on macOS, .deb/.AppImage on Linux, NSIS/.msi on Windows.
+[package.metadata.packager]
+product-name = "Void"
+identifier = "com.void.app"
+category = "DeveloperTool"
+authors = ["Elad Bash"]
+publisher = "Elad Bash"
+homepage = "https://github.com/eladbash/void"
+description = "Void cleans up after your AI agents — and your agents can call Void themselves."
+long-description = "Void finds and cleans developer disk bloat across 15 ecosystems — agent worktrees, agent transcripts, local AI models and build artifacts. Everything runs locally."
+binaries = [{ path = "void-app", main = true }]
+icons = [
+  "icons/32x32.png",
+  "icons/128x128.png",
+  "icons/128x128@2x.png",
+  "icons/icon.icns",
+  "icons/icon.ico",
+]
+
+[package.metadata.packager.macos]
+minimum-system-version = "11.0"
+
+[package.metadata.packager.deb]
+depends = ["libxkbcommon0", "libxkbcommon-x11-0", "libvulkan1", "libfontconfig1", "libdbus-1-3"]

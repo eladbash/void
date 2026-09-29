@@ -136,6 +136,48 @@ def seed(theme, density, extra=None):
     return home
 
 
+
+def pixels(path):
+    """RGBA pixel reader for a screenshot, at the capture's pixel scale."""
+    from AppKit import NSBitmapImageRep
+    rep = NSBitmapImageRep.imageRepWithContentsOfFile_(path)
+    return rep
+
+
+def find_color(path, rgb, tol=24, step=3):
+    """Centre (in window points) of the pixels close to `rgb`, or None."""
+    rep = pixels(path)
+    w, h = rep.pixelsWide(), rep.pixelsHigh()
+    xs, ys = [], []
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            c = rep.colorAtX_y_(x, y)
+            r, g, b = (int(c.redComponent() * 255), int(c.greenComponent() * 255), int(c.blueComponent() * 255))
+            if abs(r - rgb[0]) <= tol and abs(g - rgb[1]) <= tol and abs(b - rgb[2]) <= tol:
+                xs.append(x)
+                ys.append(y)
+    if len(xs) < 20:
+        return None
+    xs.sort()
+    ys.sort()
+    scale = w / 900 if w > 1000 else 1
+    return (xs[len(xs) // 2] / scale, ys[len(ys) // 2] / scale)
+
+
+def clipboard():
+    return subprocess.run(["pbpaste"], capture_output=True, text=True).stdout
+
+
+# Window-relative click targets (points) in the GPUI build at 900x700, with the
+# macOS title bar (28pt) included. Measured from its screenshots.
+SETTINGS_TABS = {
+    "Scanning": 112, "Ecosystems": 198, "AI": 263, "Guard": 311,
+    "Safety": 372, "Performance": 453, "General": 537, "About": 601,
+}
+TAB_Y = 105
+DANGER = {"light": (0xBF, 0x21, 0x45), "dark": (0xEF, 0x54, 0x6C)}
+
+
 # ── Scenarios ────────────────────────────────────────────────────────────────
 # Keyboard first: the shortcuts are part of the spec and identical in both
 # builds, so the same scenario drives the Tauri baseline and the GPUI app.
@@ -175,16 +217,129 @@ def screens(app, out):
     app.key("d", "command")
 
 
-def clean(app, out):
+
+
+def matrix(app, out, theme="dark"):
+    """The functional matrix, as a user would run it. Screenshots every step;
+    assertions print FAIL lines rather than stopping the run."""
+    results = []
+
+    def check(name, ok, detail=""):
+        results.append((name, ok))
+        print(("  PASS " if ok else "  FAIL ") + name + (f" — {detail}" if detail and not ok else ""))
+
+    app.shot(out("m01-empty"))
     app.key("r", "command")
     time.sleep(6)
+    app.shot(out("m02-results"))
+
+    # Group and sort chips cycle.
+    for i, label in enumerate(["project", "risk", "ecosystem"]):
+        app.click(457, 167)
+        app.shot(out(f"m03-group-{label}"))
+    for i, label in enumerate(["stale", "name", "risk", "size"]):
+        app.click(570, 167)
+        app.shot(out(f"m04-sort-{label}"))
+
+    # Filters chip: large items only (the sandbox has none) → "No items match".
+    app.click(319, 167)
+    app.shot(out("m05-large-only"))
+    app.click(319, 167)
+
+    # Filter by typing, then Escape clears it.
+    app.key("f", "command")
+    app.type("node")
+    app.shot(out("m06-filter-node"))
+    app.key("escape")
+    app.shot(out("m07-filter-cleared"))
+
+    # Collapse/expand all.
+    app.key("e", "command", "shift")
+    app.shot(out("m08-collapsed"))
+    app.key("e", "command", "shift")
+
+    # Keyboard: focus, toggle, drawer, copy path.
+    app.key("down")
+    app.key("space")
+    app.shot(out("m09-one-selected"))
+    app.key("return")
+    app.shot(out("m10-drawer"))
+    before = clipboard()
+    app.click(545, 260)  # Copy
+    after = clipboard()
+    check("drawer Copy puts the path on the clipboard", after != before and after.startswith("/"), after[:80])
+    app.shot(out("m11-copied-toast"))
+    app.key("down", "option")
+    app.shot(out("m12-drawer-next"))
+    app.key("escape")
+    app.key("escape")
+
+    # Select all safe, review, clean.
     app.key("a", "command", "option")
+    app.shot(out("m13-safe-selected"))
     app.key("return", "command")
-    app.key("return")  # nothing focused in the modal; the button is clicked below if needed
-    app.shot(out("01-confirm"))
+    app.shot(out("m14-confirm"))
+    target = find_color(out("m14-confirm"), DANGER[theme])
+    check("confirm dialog shows the Clean button", target is not None)
+    if target:
+        app.click(*target)
+        time.sleep(4)
+    app.shot(out("m15-result-card"))
+
+    # History, run detail.
+    app.key("3", "command")
+    app.shot(out("m16-history"))
+    app.click(300, 338)
+    app.shot(out("m17-run-detail"))
+    app.key("escape")
+
+    # Agents: guard check.
+    app.key("2", "command")
+    time.sleep(1)
+    app.shot(out("m18-agents"))
+    app.click(140, 272)
+    time.sleep(2)
+    app.shot(out("m19-agents-checked"))
+
+    # Every settings section.
+    app.key("4", "command")
+    for name, x in SETTINGS_TABS.items():
+        app.click(x, TAB_Y)
+        app.shot(out(f"m20-settings-{name.lower()}"))
+
+    # Minimum window size.
+    app.resize(720, 560)
+    for keys, name in [("1", "results"), ("2", "agents"), ("4", "settings")]:
+        app.key(keys, "command")
+        app.shot(out(f"m21-min-{name}"))
+    app.resize(900, 700)
+    app.key("1", "command")
+    app.key("d", "command")
+    app.shot(out("m22-compact"))
+    return results
 
 
-SCENARIOS = {"screens": screens, "clean": clean}
+def persistence(app, out):
+    """Settings survive a relaunch; a corrupt settings file is reported once."""
+    app.key("d", "command")  # to compact
+    time.sleep(1.5)  # past the save debounce
+    app.quit()
+    app.launch()
+    app.key("r", "command")
+    time.sleep(6)
+    app.shot(out("p01-relaunched-compact"))
+    app.quit()
+    cfg = os.path.join(app.home, ".void-sandbox-config", "config.json")
+    with open(cfg, "w") as f:
+        f.write("{ broken")
+    app.launch()
+    app.shot(out("p02-corrupt-config-toast"))
+    app.quit()
+    app.launch()
+    app.shot(out("p03-no-toast-second-time"))
+
+
+SCENARIOS = {"screens": screens, "matrix": matrix, "persistence": persistence}
 
 
 def main():
@@ -203,7 +358,12 @@ def main():
             app = App(binary, home)
             try:
                 app.launch()
-                SCENARIOS[name](app, lambda step: os.path.join(out_dir, f"{name}-{theme}-{density}-{step}.png"))
+                fn = SCENARIOS[name]
+                path = lambda step: os.path.join(out_dir, f"{name}-{theme}-{density}-{step}.png")
+                if name == "matrix":
+                    fn(app, path, theme)
+                else:
+                    fn(app, path)
             finally:
                 app.quit()
                 shutil.rmtree(home, ignore_errors=True)
