@@ -94,8 +94,20 @@ pub fn age_tree(path: &Path, days: u64) {
         .flatten()
     {
         // Children first would be nicer, but set_modified on a directory does
-        // not bump its parent, so order does not matter.
-        age(entry.path(), days);
+        // not bump its parent, so order does not matter. An entry can vanish
+        // between the listing and the open (git's own lock and temp files);
+        // there is nothing left to age then.
+        let path = entry.path();
+        let when = SystemTime::now() - Duration::from_secs(days * 86_400);
+        match std::fs::File::options()
+            .read(true)
+            .open(path)
+            .or_else(|_| std::fs::File::open(path))
+        {
+            Ok(file) => file.set_modified(when).expect("set mtime"),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => panic!("open for set_modified: {err:?}"),
+        }
     }
 }
 
@@ -107,6 +119,13 @@ pub fn git(dir: &Path, args: &[&str]) -> String {
         .current_dir(dir)
         .env("GIT_CONFIG_GLOBAL", "/dev/null")
         .env("GIT_CONFIG_SYSTEM", "/dev/null")
+        // No background `gc --auto` or maintenance touching the fixture
+        // while tests read or age it.
+        .env("GIT_CONFIG_COUNT", "2")
+        .env("GIT_CONFIG_KEY_0", "gc.auto")
+        .env("GIT_CONFIG_VALUE_0", "0")
+        .env("GIT_CONFIG_KEY_1", "maintenance.auto")
+        .env("GIT_CONFIG_VALUE_1", "false")
         .env("GIT_AUTHOR_NAME", "Void Test")
         .env("GIT_AUTHOR_EMAIL", "test@void.invalid")
         .env("GIT_COMMITTER_NAME", "Void Test")
