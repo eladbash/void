@@ -343,7 +343,9 @@ impl AppView {
                         .flex_1()
                         .child("Clean this item")
                         .when(actionable, |b| {
-                            b.on_click(cx.listener(move |this, _, _, cx| this.clean_one(id, cx)))
+                            b.on_click(cx.listener(move |this, _, window, cx| {
+                                this.clean_one(id, window, cx)
+                            }))
                         }),
                     ),
             );

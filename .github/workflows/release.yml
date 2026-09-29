@@ -67,7 +67,8 @@ jobs:
         run: cargo install cargo-packager --locked
 
       - name: Build
-        run: cargo build --release --locked -p deepclean-app -p void-cli --target ${{ matrix.target }}
+        # Not --locked: syncing the version to the tag changes the lockfile.
+        run: cargo build --release -p deepclean-app -p void-cli --target ${{ matrix.target }}
 
       - name: Bundle
         working-directory: crates/deepclean-app

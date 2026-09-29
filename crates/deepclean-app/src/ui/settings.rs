@@ -13,7 +13,7 @@ use super::drawer::{facts, safety_row, text};
 use super::icons::{eco_icon, icon};
 use super::results::statusbar_frame;
 use super::theme::{Palette, PAD_X};
-use crate::model::format::{count, format_bytes, plural, relative_time};
+use crate::model::format::{format_bytes, plural, relative_time};
 use crate::model::labels::eco_name;
 use crate::model::ui_state::SettingsSection;
 
@@ -989,9 +989,4 @@ impl AppView {
                 &p,
             ))
     }
-}
-
-#[allow(dead_code)]
-fn unused(n: usize) -> String {
-    count(n)
 }

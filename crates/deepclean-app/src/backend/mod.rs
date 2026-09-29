@@ -41,25 +41,37 @@ pub enum UiEvent {
     TrayRefresh,
 }
 
+/// The worker runtime lives for the whole process. Background tasks hold
+/// `Backend` clones; if one of them dropped the last owner of the runtime on
+/// a worker thread, tokio would panic.
+fn runtime() -> tokio::runtime::Handle {
+    static RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
+    RUNTIME
+        .get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .thread_name("void-worker")
+                .build()
+                .expect("tokio runtime")
+        })
+        .handle()
+        .clone()
+}
+
 /// Handle to the background work. Cheap to clone.
 #[derive(Clone)]
 pub struct Backend {
-    rt: Arc<tokio::runtime::Runtime>,
+    rt: tokio::runtime::Handle,
     state: Arc<AppState>,
     tx: UnboundedSender<UiEvent>,
 }
 
 impl Backend {
     pub fn new(state: Arc<AppState>) -> (Self, UnboundedReceiver<UiEvent>) {
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .thread_name("void-worker")
-            .build()
-            .expect("tokio runtime");
         let (tx, rx) = unbounded();
         (
             Self {
-                rt: Arc::new(rt),
+                rt: runtime(),
                 state,
                 tx,
             },
@@ -71,7 +83,7 @@ impl Backend {
         &self.state
     }
 
-    pub fn runtime(&self) -> &tokio::runtime::Runtime {
+    pub fn runtime(&self) -> &tokio::runtime::Handle {
         &self.rt
     }
 

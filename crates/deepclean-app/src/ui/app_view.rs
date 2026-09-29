@@ -124,6 +124,8 @@ pub struct AppView {
     picker: FolderPicker,
     last_paint: Instant,
     repaint_task: Option<Task<()>>,
+    /// A slider's value was clamped by the model; push it back on next paint.
+    pending_slider_sync: bool,
     _subscriptions: Vec<Subscription>,
     _tasks: Vec<Task<()>>,
 }
@@ -147,7 +149,14 @@ impl AppView {
         let home = config
             .scan_roots
             .first()
-            .map(|r| r.display().to_string().trim_end_matches('/').to_string())
+            // Paths are compared with forward slashes, Windows ones included.
+            .map(|r| {
+                r.display()
+                    .to_string()
+                    .replace('\\', "/")
+                    .trim_end_matches('/')
+                    .to_string()
+            })
             .unwrap_or_default();
         set_app_appearance(config.ui.theme, cx);
         let p = Palette::resolve(config.ui.theme, window.appearance());
@@ -178,6 +187,11 @@ impl AppView {
                 }
             },
         ));
+        // A change still in its save debounce is written before quitting.
+        subscriptions.push(cx.on_app_quit(|this, cx| {
+            this.flush_config(cx);
+            async {}
+        }));
         subscriptions.push(cx.observe_window_appearance(window, |this, window, cx| {
             this.p = Palette::resolve(this.ui.config.ui.theme, window.appearance());
             super::theme::sync_component_theme(&this.p, cx);
@@ -229,6 +243,7 @@ impl AppView {
             picker,
             last_paint: Instant::now(),
             repaint_task: None,
+            pending_slider_sync: false,
             _subscriptions: subscriptions,
             _tasks: tasks,
         };
@@ -367,7 +382,7 @@ impl AppView {
             TrayCommand::OpenDashboard => window.activate_window(),
             TrayCommand::TrimIdleWorktrees => {
                 window.activate_window();
-                self.apply_preset(PresetId::IdleWorktrees, cx);
+                self.apply_preset(PresetId::IdleWorktrees, window, cx);
                 if !self.ui.has_scanned && !self.ui.scanning {
                     self.start_scan(cx);
                 }
@@ -508,9 +523,12 @@ impl AppView {
     }
 
     pub(crate) fn start_scan(&mut self, cx: &mut Context<Self>) {
-        if self.ui.scanning {
+        if self.ui.scanning || self.ui.clean.is_some() {
             return;
         }
+        // A settings change still waiting out its debounce (a root just
+        // added, an ecosystem just enabled) must reach this scan.
+        self.flush_config(cx);
         self.ui.begin_scan();
         self.agent_usage = None;
         if let Err(err) = self.backend.start_scan() {
@@ -522,16 +540,30 @@ impl AppView {
         self.changed(cx);
     }
 
-    pub(crate) fn apply_preset(&mut self, id: PresetId, cx: &mut Context<Self>) {
+    pub(crate) fn apply_preset(
+        &mut self,
+        id: PresetId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.ui.apply_preset(id);
+        // The preset replaces the filter; the field must not keep showing
+        // (and on the next keystroke reapply) the old text.
+        self.filter_input
+            .update(cx, |s, cx| s.set_value("", window, cx));
         self.list.scroll_to(Default::default());
         self.changed(cx);
     }
 
     pub(crate) fn open_review(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.ui.selected.is_empty() {
+        if self.ui.selected.is_empty() || self.ui.clean.is_some() {
             return;
         }
+        self.ui.confirm_only = None;
+        self.show_confirm(window, cx);
+    }
+
+    fn show_confirm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.ui.show_confirm = true;
         self.confirm_text.clear();
         self.confirm_input
@@ -540,7 +572,9 @@ impl AppView {
     }
 
     pub(crate) fn run_clean(&mut self, selections: Vec<(Uuid, Uuid)>, cx: &mut Context<Self>) {
-        if selections.is_empty() {
+        // One batch at a time: a second would replace the progress state and
+        // share the first one's cancel flag.
+        if selections.is_empty() || self.ui.clean.is_some() {
             return;
         }
         self.ui.begin_clean(&selections);
@@ -556,24 +590,35 @@ impl AppView {
         self.run_clean(selections, cx);
     }
 
-    pub(crate) fn clean_one(&mut self, id: Uuid, cx: &mut Context<Self>) {
+    /// "Clean this item". Safe actions run straight away; anything riskier
+    /// goes through the confirmation dialog, where Danger needs `delete`.
+    pub(crate) fn clean_one(&mut self, id: Uuid, window: &mut Window, cx: &mut Context<Self>) {
+        if self.ui.clean.is_some() {
+            return;
+        }
         let Some(item) = self.ui.item(id) else { return };
         let Some(action) = self.ui.action_for(item) else {
             return;
         };
         let sel = vec![(item.id, action.id)];
         self.ui.drawer = None;
+        if self.ui.needs_review(id) {
+            self.ui.confirm_only = Some(id);
+            self.show_confirm(window, cx);
+            return;
+        }
         self.run_clean(sel, cx);
     }
 
-    pub(crate) fn fallback(&mut self, id: Uuid, cx: &mut Context<Self>) {
+    /// Retry a failed item with its plain directory delete.
+    pub(crate) fn fallback(&mut self, id: Uuid, window: &mut Window, cx: &mut Context<Self>) {
         let Some(item) = self.ui.item(id) else { return };
         let Some(alt) = crate::model::ui_state::fallback_action(item) else {
             return;
         };
         let alt_id = alt.id;
         self.ui.choose_action(id, alt_id);
-        self.run_clean(vec![(id, alt_id)], cx);
+        self.clean_one(id, window, cx);
     }
 
     pub(crate) fn copy(&mut self, text: String, toast: &str, cx: &mut Context<Self>) {
@@ -690,6 +735,13 @@ impl AppView {
         cx.notify();
     }
 
+    /// Write a pending debounced change now, if there is one.
+    pub(crate) fn flush_config(&mut self, cx: &mut Context<Self>) {
+        if self.save_task.is_some() {
+            self.commit_config(cx);
+        }
+    }
+
     /// Write the settings now and apply the ones that act on the OS.
     pub(crate) fn commit_config(&mut self, cx: &mut Context<Self>) {
         self.save_task = None;
@@ -744,8 +796,14 @@ impl AppView {
     // ── Keyboard ────────────────────────────────────────────────────────
 
     fn on_dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Overlays close first, innermost outwards; only then does Esc clear
+        // a focused filter, as before.
+        let overlay = self.ui.show_confirm
+            || self.ui.show_issues
+            || self.ui.open_run.is_some()
+            || self.ui.drawer.is_some();
         let typing = self.filter_input.focus_handle(cx).is_focused(window);
-        if typing && !self.ui.show_confirm {
+        if typing && !overlay {
             self.filter_input
                 .update(cx, |s, cx| s.set_value("", window, cx));
             self.ui.filter.clear();
@@ -1046,6 +1104,12 @@ impl SharedStringId {
 
 impl Render for AppView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if std::mem::take(&mut self.pending_slider_sync) {
+            let v = self.ui.config.guard.critical_free_percent as f32;
+            if let Some(slider) = self.sliders.get("guard.critical_free_percent").cloned() {
+                slider.update(cx, |s, cx| s.set_value(v, window, cx));
+            }
+        }
         self.rebuild_rows();
         let p = self.p;
         let base = div()
@@ -1222,12 +1286,12 @@ impl AppView {
                     SliderEvent::Release(v) => (v.start(), true),
                 };
                 set_config_number(&mut this.ui.config, path, v as f64);
-                if path == "guard.warn_free_percent" {
-                    // Critical is never above the warning level.
-                    let warn = this.ui.config.guard.warn_free_percent;
-                    if this.ui.config.guard.critical_free_percent > warn {
-                        this.ui.config.guard.critical_free_percent = warn;
-                    }
+                // Critical is never above the warning level, whichever
+                // slider moved.
+                let warn = this.ui.config.guard.warn_free_percent;
+                if this.ui.config.guard.critical_free_percent > warn {
+                    this.ui.config.guard.critical_free_percent = warn;
+                    this.pending_slider_sync = true;
                 }
                 if release {
                     this.save_config(false, cx);

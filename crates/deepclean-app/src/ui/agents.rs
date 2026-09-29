@@ -322,7 +322,9 @@ impl AppView {
                     .p(px(8.))
                     .rounded(px(5.))
                     .hover(move |s| s.bg(hover))
-                    .on_click(cx.listener(move |this, _, _, cx| this.apply_preset(id, cx)))
+                    .on_click(
+                        cx.listener(move |this, _, window, cx| this.apply_preset(id, window, cx)),
+                    )
                     .child(eco_icon(eco, px(14.), p.eco(eco)))
                     .child(
                         div()

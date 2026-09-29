@@ -282,9 +282,9 @@ fn renders_every_overlay_in_both_themes(cx: &mut TestAppContext) {
             v.ui.show_issues = true;
         });
         draw(cx);
-        view.update(cx, |v, cx| {
+        view.update_in(cx, |v, window, cx| {
             v.ui.show_issues = false;
-            v.apply_preset(PresetId::IdleWorktrees, cx);
+            v.apply_preset(PresetId::IdleWorktrees, window, cx);
         });
         draw(cx);
     }
@@ -393,4 +393,35 @@ fn hooks_install_and_uninstall_in_the_sandbox_home(cx: &mut TestAppContext) {
             .status
             .installed
     );
+}
+
+/// "Clean this item" on a Danger action opens the review with `delete`
+/// required; it never runs on one click.
+#[gpui_kit::test]
+fn cleaning_a_danger_item_from_the_drawer_goes_through_review(cx: &mut TestAppContext) {
+    let (view, cx, _h) = open(cx, None, None);
+    let (wt, _, danger) = fixture(&view, cx);
+    view.update_in(cx, |v, window, cx| {
+        v.ui.selected.insert(wt);
+        v.ui.drawer = Some(danger);
+        v.clean_one(danger, window, cx);
+    });
+    draw(cx);
+    let (confirm, only, cleaning, has_danger) = view.read_with(cx, |v, _| {
+        (
+            v.ui.show_confirm,
+            v.ui.confirm_only,
+            v.ui.clean.is_some(),
+            v.ui.build_plan().has_danger,
+        )
+    });
+    assert!(confirm && !cleaning, "must ask before running");
+    assert_eq!(
+        only,
+        Some(danger),
+        "the dialog is about that one item, not the selection"
+    );
+    assert!(has_danger);
+    cx.simulate_keystrokes("escape");
+    assert!(view.read_with(cx, |v, _| v.ui.confirm_only.is_none()));
 }

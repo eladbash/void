@@ -954,7 +954,9 @@ impl AppView {
                         chip_quiet(("fallback", id.as_u128() as u64 as usize), &p)
                             .child("Use “Remove directory” instead")
                             .child(icon("arrow-right", px(12.), p.text_tertiary))
-                            .on_click(cx.listener(move |this, _, _, cx| this.fallback(id, cx))),
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.fallback(id, window, cx)
+                            })),
                     )
                 }),
             _ => {
@@ -1077,7 +1079,7 @@ impl AppView {
                     .gap(px(if compact { 0. } else { 1. }))
                     .pr(px(12.))
                     .child(line1)
-                    .when(!compact || true, |d| d.child(line2))
+                    .child(line2)
                     .on_click(cx.listener(move |this, ev: &gpui_kit::ClickEvent, _, cx| {
                         this.ui.focused = Some(id);
                         if ev.click_count() >= 2 {

@@ -273,6 +273,12 @@ pub struct UiState {
 
     pub clean: Option<CleanProgress>,
     pub last_result: Option<CleanResult>,
+    /// Rows that failed in the last batch. Kept after it ends so the error
+    /// and the “Remove directory instead” offer stay on screen.
+    pub failures: HashMap<Uuid, RowState>,
+    /// The confirmation dialog is for this one item (the drawer's “Clean
+    /// this item”) rather than the selection.
+    pub confirm_only: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -348,6 +354,8 @@ impl UiState {
             disk: None,
             clean: None,
             last_result: None,
+            failures: HashMap::new(),
+            confirm_only: None,
         }
     }
 
@@ -688,6 +696,7 @@ impl UiState {
     pub fn escape(&mut self) -> bool {
         if self.show_confirm {
             self.show_confirm = false;
+            self.confirm_only = None;
         } else if self.show_issues {
             self.show_issues = false;
         } else if self.open_run.is_some() {
@@ -729,7 +738,10 @@ impl UiState {
         let mut entries: Vec<(&CleanableItem, &CleanAction)> = self
             .items
             .iter()
-            .filter(|i| self.selected.contains(&i.id))
+            .filter(|i| match self.confirm_only {
+                Some(only) => i.id == only,
+                None => self.selected.contains(&i.id),
+            })
             .filter_map(|i| self.action_for(i).map(|a| (i, a)))
             .collect();
         entries = innermost_first(entries, |(i, _)| i.path.as_path());
@@ -813,6 +825,8 @@ impl UiState {
         self.paths_scanned = 0;
         self.last_result = None;
         self.clean = None;
+        self.failures.clear();
+        self.confirm_only = None;
         self.scanner_status = self
             .config
             .enabled_ecosystems
@@ -884,6 +898,8 @@ impl UiState {
 
     pub fn begin_clean(&mut self, selections: &[(Uuid, Uuid)]) {
         self.show_confirm = false;
+        self.confirm_only = None;
+        self.failures.clear();
         self.clean = Some(CleanProgress {
             total: selections.len(),
             completed: 0,
@@ -960,13 +976,30 @@ impl UiState {
                     cancelled,
                     duration_ms: c.started_at.elapsed().as_millis() as u64,
                 });
+                self.failures = c
+                    .states
+                    .drain()
+                    .filter(|(_, st)| matches!(st, RowState::Failed { .. }))
+                    .collect();
                 self.clean = None;
             }
         }
     }
 
     pub fn row_state(&self, id: Uuid) -> Option<&RowState> {
-        self.clean.as_ref().and_then(|c| c.states.get(&id))
+        match &self.clean {
+            Some(c) => c.states.get(&id),
+            None => self.failures.get(&id),
+        }
+    }
+
+    /// The action "Clean this item" would run, when it may run without the
+    /// confirmation dialog: Safe only. Anything riskier goes through review,
+    /// where Danger needs `delete` typed.
+    pub fn needs_review(&self, id: Uuid) -> bool {
+        self.item(id)
+            .and_then(|i| self.action_for(i))
+            .is_some_and(|a| a.risk != RiskLevel::Safe)
     }
 
     /// Guard's automatic cleanup removed this path; drop it so Results match disk.
@@ -1396,6 +1429,43 @@ mod tests {
             })
         );
         assert!(fallback_action(&i).is_some());
+
+        // The offer outlives the batch: a one-item clean's failure and its
+        // BatchComplete usually arrive together.
+        s.apply_action_event(ActionEvent::BatchComplete {
+            total: 1,
+            succeeded: 0,
+            failed: 1,
+            bytes_freed: 0,
+            estimated: false,
+            cancelled: false,
+        });
+        assert!(s.clean.is_none());
+        assert!(matches!(
+            s.row_state(i.id),
+            Some(RowState::Failed {
+                can_fallback: true,
+                ..
+            })
+        ));
+        s.begin_scan();
+        assert!(s.row_state(i.id).is_none());
+    }
+
+    #[test]
+    fn a_single_item_plan_ignores_the_selection_and_flags_danger() {
+        let mut s = state();
+        let a = cleanable("/u/a", 10);
+        let mut d = cleanable("/u/d", 20);
+        d.available_actions[0].risk = RiskLevel::Danger;
+        s.items = vec![a.clone(), d.clone()];
+        s.selected.insert(a.id);
+        assert!(!s.needs_review(a.id));
+        assert!(s.needs_review(d.id));
+        s.confirm_only = Some(d.id);
+        let plan = s.build_plan();
+        assert_eq!(plan.entries.len(), 1);
+        assert!(plan.has_danger);
     }
 
     #[test]
