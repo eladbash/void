@@ -24,7 +24,16 @@ fn home() -> &'static PathBuf {
     HOME.get_or_init(|| {
         let dir = tempfile::tempdir().unwrap().keep();
         let dir = dir.canonicalize().unwrap();
-        deepclean_core::testkit::seed_all(&deepclean_core::testkit::FakeHome::at(&dir));
+        // Windows canonical paths are verbatim (`\\?\C:\…`), which git cannot
+        // create worktrees under; the fixtures are built at the plain form of
+        // the same directory. Scans still see the canonical home, as the CLI
+        // and the app's own sandbox do.
+        let plain = PathBuf::from(
+            dir.to_string_lossy()
+                .trim_start_matches(r"\\?\")
+                .to_string(),
+        );
+        deepclean_core::testkit::seed_all(&deepclean_core::testkit::FakeHome::at(&plain));
         deepclean_core::paths::set_home_override(&dir);
         dir
     })
