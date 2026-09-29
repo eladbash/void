@@ -102,7 +102,7 @@ class App:
     def click(self, x, y, settle=0.5):
         """Click at window-relative point (x, y) in points."""
         _, wx, wy, _, _ = self.bounds()
-        subprocess.run(["cliclick", f"c:{wx + x},{wy + y}"], check=True)
+        subprocess.run(["cliclick", f"c:{int(wx + x)},{int(wy + y)}"], check=True)
         time.sleep(settle)
 
     def quit(self):

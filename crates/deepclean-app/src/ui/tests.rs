@@ -91,11 +91,11 @@ fn draw(cx: &mut VisualTestContext) {
 fn shortcuts_switch_screens_and_every_screen_renders(cx: &mut TestAppContext) {
     let (view, cx, _h) = open(cx, None, None);
     for (keys, route) in [
-        ("cmd-2", Route::Agents),
-        ("cmd-3", Route::History),
-        ("cmd-4", Route::Settings),
-        ("cmd-1", Route::Results),
-        ("cmd-,", Route::Settings),
+        ("secondary-2", Route::Agents),
+        ("secondary-3", Route::History),
+        ("secondary-4", Route::Settings),
+        ("secondary-1", Route::Results),
+        ("secondary-,", Route::Settings),
     ] {
         cx.simulate_keystrokes(keys);
         draw(cx);
@@ -167,22 +167,22 @@ fn keyboard_moves_selects_opens_and_escapes(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("escape");
     assert!(view.read_with(cx, |v, _| v.ui.selected.is_empty()));
 
-    cx.simulate_keystrokes("cmd-alt-a");
+    cx.simulate_keystrokes("secondary-alt-a");
     assert_eq!(
         view.read_with(cx, |v, _| v.ui.selected.len()),
         2,
         "safe items only"
     );
-    cx.simulate_keystrokes("cmd-shift-a");
+    cx.simulate_keystrokes("secondary-shift-a");
     assert!(view.read_with(cx, |v, _| v.ui.selected.is_empty()));
-    cx.simulate_keystrokes("cmd-a");
+    cx.simulate_keystrokes("secondary-a");
     assert_eq!(view.read_with(cx, |v, _| v.ui.selected.len()), 3);
-    cx.simulate_keystrokes("cmd-enter");
+    cx.simulate_keystrokes("secondary-enter");
     draw(cx);
     assert!(view.read_with(cx, |v, _| v.ui.show_confirm));
     cx.simulate_keystrokes("escape");
     assert!(!view.read_with(cx, |v, _| v.ui.show_confirm));
-    cx.simulate_keystrokes("cmd-shift-e");
+    cx.simulate_keystrokes("secondary-shift-e");
     assert!(view.read_with(cx, |v, _| !v.ui.collapsed.is_empty()));
 }
 
@@ -297,7 +297,7 @@ fn scan_select_clean_and_see_it_in_history(cx: &mut TestAppContext) {
     // The scan and clean run on real tokio threads.
     cx.executor().allow_parking();
     let (view, cx, _h) = open(cx, None, None);
-    cx.simulate_keystrokes("cmd-r");
+    cx.simulate_keystrokes("secondary-r");
     assert!(view.read_with(cx, |v, _| v.ui.scanning));
     settle(cx, &view, |v| !v.ui.scanning);
     draw(cx);
@@ -326,7 +326,7 @@ fn scan_select_clean_and_see_it_in_history(cx: &mut TestAppContext) {
         v.ui.selected.extend(targets.iter().map(|t| t.0));
         v.changed(cx);
     });
-    cx.simulate_keystrokes("cmd-enter");
+    cx.simulate_keystrokes("secondary-enter");
     assert!(view.read_with(cx, |v, _| v.ui.show_confirm));
     view.update(cx, |v, cx| v.clean_selection(cx));
     settle(cx, &view, |v| {
@@ -340,7 +340,7 @@ fn scan_select_clean_and_see_it_in_history(cx: &mut TestAppContext) {
     for (_, path) in &targets {
         assert!(!path.exists(), "{} should be gone", path.display());
     }
-    cx.simulate_keystrokes("cmd-3");
+    cx.simulate_keystrokes("secondary-3");
     draw(cx);
     let runs = view.read_with(cx, |v, _| v.history.as_ref().map(|h| h.run_count));
     assert_eq!(runs, Some(1));
@@ -350,4 +350,47 @@ fn scan_select_clean_and_see_it_in_history(cx: &mut TestAppContext) {
         cx.notify();
     });
     draw(cx);
+}
+
+/// Hooks and the MCP snippet need the `void` CLI; with a stand-in on PATH
+/// they install into (and uninstall from) the sandbox home's settings.
+#[gpui_kit::test]
+fn hooks_install_and_uninstall_in_the_sandbox_home(cx: &mut TestAppContext) {
+    let (view, cx, _h) = open(cx, None, None);
+    let bin = tempfile::tempdir().unwrap().keep();
+    let exe = bin.join(if cfg!(windows) { "void.exe" } else { "void" });
+    std::fs::write(&exe, "#!/bin/sh\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let path = std::env::join_paths(std::iter::once(bin.clone()).chain(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    )))
+    .unwrap();
+    // SAFETY: set before the check reads it; no other test depends on PATH.
+    unsafe { std::env::set_var("PATH", path) };
+
+    cx.simulate_keystrokes("secondary-2");
+    draw(cx);
+    let mcp = view
+        .read_with(cx, |v, _| v.mcp.clone())
+        .expect("MCP snippet with the CLI on PATH");
+    assert!(mcp.json.contains(&exe.display().to_string()));
+    assert_eq!(mcp.command, "claude mcp add void -- void mcp");
+
+    view.update(cx, |v, cx| v.hooks(true, cx));
+    draw(cx);
+    let installed = view.read_with(cx, |v, _| v.hooks.clone()).unwrap();
+    assert!(installed.status.installed, "{:?}", installed.status);
+    assert!(installed.status.settings_path.starts_with(home()));
+    view.update(cx, |v, cx| v.hooks(false, cx));
+    assert!(
+        !view
+            .read_with(cx, |v, _| v.hooks.clone())
+            .unwrap()
+            .status
+            .installed
+    );
 }

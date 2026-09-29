@@ -69,7 +69,7 @@ pub(crate) fn safety_row(ok: bool, text: &str, p: &Palette) -> gpui_kit::Div {
                 .mt(px(1.5))
                 .child(icon(if ok { "check" } else { "warning" }, px(13.), color)),
         )
-        .child(div().flex_1().child(text.to_string()))
+        .child(div().flex_1().min_w_0().child(text.to_string()))
 }
 
 fn risk_badge_full(risk: RiskLevel, p: &Palette) -> gpui_kit::Div {

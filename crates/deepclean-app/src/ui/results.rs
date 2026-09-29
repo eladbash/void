@@ -52,7 +52,8 @@ impl AppView {
             col = col.child(indeterminate(&p));
         }
         if ui.has_scanned || ui.scanning {
-            col = col.child(self.summary_strip(cx));
+            let narrow = window.viewport_size().width < px(860.);
+            col = col.child(self.summary_strip(narrow, cx));
         }
         if ui.has_scanned && !ui.denied_paths.is_empty() && !ui.scanning {
             col = col.child(self.banner(cx));
@@ -165,7 +166,10 @@ impl AppView {
             })
     }
 
-    fn summary_strip(&self, cx: &mut Context<Self>) -> AnyElement {
+    /// `narrow`: below the default window width the headline and the action
+    /// leave the disk meter too little room, so it is dropped — the rail keeps
+    /// showing disk usage.
+    fn summary_strip(&self, narrow: bool, cx: &mut Context<Self>) -> AnyElement {
         if self.ui.clean.is_some() {
             return self.progress_strip(cx).into_any_element();
         }
@@ -178,8 +182,6 @@ impl AppView {
         let (n, u) = split_bytes(Some(total));
         let sel = ui.selection_summary();
         let safe = ui.safe_count();
-        let narrow = false;
-
         let disk = match &ui.disk {
             Some(disk) => {
                 let t = disk.total_bytes.max(1) as f32;
@@ -336,7 +338,7 @@ impl AppView {
                             )),
                     ),
             )
-            .child(disk)
+            .when(!narrow, |d| d.child(disk))
             .child(div().w(px(240.)).flex_none().child(action))
             .into_any_element()
     }

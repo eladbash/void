@@ -377,7 +377,15 @@ pub fn toggle(on: bool, p: &Palette) -> Div {
         .w(px(32.))
         .h(px(18.))
         .rounded_full()
-        .bg(if on { p.accent_bg } else { p.chart_track })
+        // Off: in light mode the chart track matches the inset list behind
+        // it and the control vanished, so it gets a visible neutral.
+        .bg(if on {
+            p.accent_bg
+        } else if p.dark {
+            p.chart_track
+        } else {
+            gpui_kit::rgb(0xC2C7CE).into()
+        })
         .child(
             div()
                 .absolute()

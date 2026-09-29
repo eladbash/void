@@ -777,7 +777,7 @@ impl AppView {
                 "",
             ))
             .child(foot("Guard’s automatic cleanup skips a check while overall CPU usage is above this.", &p).mt(px(-10.)).mb(px(18.)))
-            .child(
+            .child(div().flex().child(
                 btn("restore-performance", BtnKind::Secondary, BtnSize::Sm, false, &p)
                     .child("Restore defaults")
                     .on_click(cx.listener(move |this, _, window, cx| {
@@ -787,7 +787,7 @@ impl AppView {
                         this.sync_controls(window, cx);
                         this.save_config(false, cx);
                     })),
-            )
+            ))
     }
 
     fn general_section(&mut self, cx: &mut Context<Self>) -> Div {

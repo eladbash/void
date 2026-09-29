@@ -985,6 +985,8 @@ impl AppView {
                 .left(px(RAIL_W + 16.))
                 .bottom(px(40.))
                 .min_w(px(280.))
+                // Long messages (a settings path) wrap instead of running off the window.
+                .max_w(px(560.))
                 .flex()
                 .items_center()
                 .gap(px(12.))
@@ -998,6 +1000,7 @@ impl AppView {
                 .child(
                     div()
                         .flex_1()
+                        .min_w_0()
                         .t_body_sm()
                         .text_color(p.text_primary)
                         .child(toast.text.clone()),

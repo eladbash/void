@@ -19,14 +19,17 @@ WORKDIR /src
 COPY . .
 RUN cargo build --workspace --locked && cargo test --workspace --locked --no-run
 
-# Tests, then a sandboxed launch: seed a fake home, start the app, wait for
-# its window, save a screenshot.
-CMD set -e; \
-    cargo test --workspace --locked 2>&1 | tail -40; \
+# Tests, then a sandboxed launch: seed a fake home, start the app on a
+# virtual X display with a session bus (the tray and notifications use D-Bus),
+# wait for its window and save a screenshot.
+CMD cargo test --workspace --locked --no-fail-fast 2>&1 | grep -E "^test result|FAILED|panicked" ; \
     ./target/debug/void dev seed /tmp/home >/dev/null; \
+    export XDG_RUNTIME_DIR=/tmp/xdg DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1; mkdir -p -m 700 $XDG_RUNTIME_DIR; \
     Xvfb :99 -screen 0 1280x800x24 & sleep 2; \
-    export DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1; \
-    (VOID_HOME=/tmp/home ./target/debug/void-app > /out/app.log 2>&1 &); \
-    sleep 12; \
+    eval "$(dbus-launch --sh-syntax)"; \
+    (VOID_HOME=/tmp/home RUST_LOG=warn ./target/debug/void-app > /out/app.log 2>&1 &); \
+    sleep 15; \
+    pgrep -f target/debug/void-app >/dev/null && echo "app running" || echo "app exited"; \
+    xwininfo -root -tree | grep -i void || true; \
     import -window root /out/linux-results-empty.png; \
-    echo "screenshot saved"; tail -20 /out/app.log
+    echo "screenshot saved"; cat /out/app.log

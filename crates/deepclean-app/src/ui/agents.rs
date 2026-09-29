@@ -40,7 +40,7 @@ fn cli_hint(p: &Palette) -> Div {
         .t_body_sm()
         .text_color(p.caution_text)
         .child(div().mt(px(1.5)).child(icon("warning", px(13.), p.caution_text)))
-        .child(div().flex_1().child(
+        .child(div().flex_1().min_w_0().child(
             "Needs the void command-line tool on your PATH. Install it with cargo install --path crates/void-cli \
              or from the release download.",
         ))
@@ -49,11 +49,12 @@ fn cli_hint(p: &Palette) -> Div {
 impl AppView {
     pub(crate) fn render_agents(
         &mut self,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let p = self.p;
-        let wide = true;
+        // Two columns only while each card keeps a readable width.
+        let wide = window.viewport_size().width >= px(760.);
         let grid = |a: Div, b: Div| {
             div()
                 .flex()
