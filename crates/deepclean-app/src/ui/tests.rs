@@ -24,19 +24,36 @@ fn home() -> &'static PathBuf {
     HOME.get_or_init(|| {
         let dir = tempfile::tempdir().unwrap().keep();
         let dir = dir.canonicalize().unwrap();
-        // Windows canonical paths are verbatim (`\\?\C:\…`), which git cannot
-        // create worktrees under; the fixtures are built at the plain form of
-        // the same directory. Scans still see the canonical home, as the CLI
-        // and the app's own sandbox do.
-        let plain = PathBuf::from(
-            dir.to_string_lossy()
-                .trim_start_matches(r"\\?\")
-                .to_string(),
-        );
-        deepclean_core::testkit::seed_all(&deepclean_core::testkit::FakeHome::at(&plain));
+        seed(&dir);
         deepclean_core::paths::set_home_override(&dir);
         dir
     })
+}
+
+/// The full `void dev seed` home: worktrees in every state, agent data,
+/// model stores, stale projects.
+#[cfg(not(windows))]
+fn seed(dir: &std::path::Path) {
+    deepclean_core::testkit::seed_all(&deepclean_core::testkit::FakeHome::at(dir));
+}
+
+/// The shared seeds build git worktrees under canonical paths, which on
+/// Windows are verbatim (`\\?\C:\…`) and rejected by git. The window tests
+/// only need cleanable results with nested items, so Windows gets a git-free
+/// home with the same shape: projects with `node_modules`, agent data and a
+/// stale Python venv.
+#[cfg(windows)]
+fn seed(dir: &std::path::Path) {
+    let home = deepclean_core::testkit::FakeHome::at(dir);
+    for project in ["code/webapp", "code/api", "code/agent-spike-todo-app"] {
+        home.file(format!("{project}/package.json"), "{}");
+        home.sized_file(format!("{project}/node_modules/left-pad/index.js"), 2048);
+    }
+    home.sized_file(".claude/projects/-code-webapp/session.jsonl", 4096);
+    deepclean_core::testkit::age_tree(&home.path(".claude/projects"), 90);
+    home.file("code/tool/pyproject.toml", "[project]\nname = 'tool'\n");
+    home.file("code/tool/.venv/pyvenv.cfg", "home = /usr/bin\n");
+    home.sized_file("code/tool/.venv/lib/site.py", 1024);
 }
 
 fn picker(answer: Option<PathBuf>) -> FolderPicker {
@@ -313,11 +330,17 @@ fn scan_select_clean_and_see_it_in_history(cx: &mut TestAppContext) {
     let (count, first_group) = view.read_with(cx, |v, _| {
         (v.ui.items.len(), v.ui.groups().first().map(|g| g.eco))
     });
-    assert!(count >= 10, "seeded home should yield results, got {count}");
-    assert!(matches!(
-        first_group,
-        Some(Ecosystem::Worktrees | Ecosystem::AgentData | Ecosystem::Models)
-    ));
+    let expected = if cfg!(windows) { 3 } else { 10 };
+    assert!(
+        count >= expected,
+        "seeded home should yield results, got {count}"
+    );
+    if cfg!(not(windows)) {
+        assert!(matches!(
+            first_group,
+            Some(Ecosystem::Worktrees | Ecosystem::AgentData | Ecosystem::Models)
+        ));
+    }
 
     // Pick safe node_modules directories: plain deletes whose effect is easy to check.
     let targets: Vec<(uuid::Uuid, PathBuf)> = view.read_with(cx, |v, _| {

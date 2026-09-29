@@ -52,7 +52,8 @@ jobs:
       - name: Install system dependencies
         if: runner.os == 'Linux'
         run: ./scripts/linux-deps.sh
-      - run: cargo test --workspace
+      # --no-fail-fast: one failing crate must not hide the others.
+      - run: cargo test --workspace --no-fail-fast
 
   # The minimum supported Rust version still builds everything.
   msrv:
