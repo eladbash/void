@@ -14,11 +14,10 @@ Open a [feature request](https://github.com/eladbash/void/issues/new?template=fe
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) (stable toolchain)
-- [Node.js](https://nodejs.org/) 22+ (only for the frontend tests)
-- Tauri CLI: `cargo install tauri-cli`
+- [Rust](https://rustup.rs/) 1.95+ (stable toolchain)
 - macOS: Xcode Command Line Tools
-- Linux: `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev`
+- Linux: `./scripts/linux-deps.sh` (Debian/Ubuntu: xkbcommon, Wayland, fontconfig, freetype, Vulkan loader)
+- Windows: the MSVC build tools
 
 ### Building
 
@@ -26,15 +25,14 @@ Open a [feature request](https://github.com/eladbash/void/issues/new?template=fe
 git clone https://github.com/eladbash/void.git
 cd void
 
-# Run tests
+# Run tests (including the desktop window's headless tests)
 cargo test --workspace
-npm test
 
 # Build everything (core, app, CLI)
 cargo build
 
-# Run the Tauri app in dev mode
-cargo tauri dev
+# Run the desktop app
+cargo run -p deepclean-app
 
 # Run the CLI
 cargo run -p void-cli -- scan
@@ -50,15 +48,16 @@ cargo run -p void-cli -- dev seed /tmp/void-home   # fake home: agent worktrees 
                                                     # state, ~/.claude, Ollama / HF stores,
                                                     # stale projects
 cargo run -p void-cli -- --home /tmp/void-home scan
-(cd crates/deepclean-app && VOID_HOME=/tmp/void-home cargo tauri dev)   # the real app, sandboxed
+VOID_HOME=/tmp/void-home cargo run -p deepclean-app                   # the real app, sandboxed
 ```
 
 `VOID_HOME` runs the desktop app against the fake home: scans, settings, history and the
 Trash all stay inside it, the window title says SANDBOX, and any action that could reach the
 real machine (Docker prunes, `ollama rm`, system caches) is dropped.
 
-For UI work, serve the repo root and open `dev/harness.html`: the real frontend
-with a stubbed Tauri bridge (see the comment at the top of the file).
+For UI work on macOS, `python3 scripts/drive.py target/debug/void-app <out-dir>` runs the app in
+a fresh sandbox and saves a window screenshot per step (light and dark, both densities);
+`scripts/compare.py <before> <after> <out>` pairs two runs side by side for review.
 
 ### Project Structure
 
@@ -79,12 +78,14 @@ crates/
       safety.rs     # Path safety checker
       staleness.rs  # Last-modified staleness detection
       config.rs     # App configuration
-  deepclean-app/    # Tauri 2 desktop app
+  deepclean-app/    # Native desktop app (GPUI)
     src/
-      commands.rs   # Tauri IPC commands
-      tray.rs       # System tray setup
-      state.rs      # App state management
-    frontend/       # Vanilla JS UI; tests/ holds node --test suites
+      model/        # UI logic without a window: labels, action choice, selection, filtering, plans
+      backend/      # Scans, cleans, Guard and integrations on a tokio runtime; events to the window
+      platform/     # Tray, notifications, launch at login
+      ui/           # GPUI views: theme, icons, components, one file per screen; tests.rs
+      state.rs      # Shared app state and persistence
+    assets/icons/   # The product's SVG icons
   void-cli/         # `void` CLI and MCP server
 ```
 
@@ -101,9 +102,10 @@ crates/
    the *first* scanner that claims it and does not descend further.
 4. Construct it in `scanner/registry.rs`. The app, the CLI and the MCP server
    all build scanners from there; there is nothing to add in `commands.rs`.
-5. Add display labels for the new ecosystem and kinds in the frontend
-   (`frontend/js/actions.js`, colours in `frontend/js/icons.js`). The frontend
-   labels test fails if one is missing.
+5. Add display labels for the new ecosystem and kinds in
+   `crates/deepclean-app/src/model/labels.rs`, an accent colour in
+   `src/ui/theme.rs` and an `eco-<id>.svg` icon in `assets/icons/`. The label
+   matches are exhaustive, so the app does not compile until every variant has one.
 6. Every item's actions list the lowest-risk option first, sizes come from the
    `staleness` helpers, and facts the user needs to decide go in `details`.
 
@@ -146,7 +148,7 @@ commit with `git commit --no-verify`.
 
 1. Fork the repo and create a feature branch
 2. Make your changes with tests
-3. Ensure `cargo test --workspace`, `cargo clippy` and the frontend tests pass
+3. Ensure `cargo test --workspace` and `cargo clippy` pass
 4. Open a PR with a clear description of the changes
 
 ## Code of Conduct

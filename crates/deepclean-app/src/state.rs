@@ -8,9 +8,9 @@ use deepclean_core::history::History;
 use deepclean_core::model::{CleanableItem, ScanSummary};
 use deepclean_core::safety::SafetyChecker;
 
-use crate::guard_mode::GuardView;
+use crate::backend::GuardView;
 
-/// Application state managed by Tauri.
+/// Application state shared by the window and the background workers.
 ///
 /// Fields are private and reached through the accessors below. That is not
 /// ceremony: it is what keeps the lock-poisoning policy in one place instead of
@@ -23,7 +23,7 @@ pub struct AppState {
     history: Mutex<History>,
 
     /// Where config and history are written. Resolved once at startup from the
-    /// Tauri path resolver so the rest of the app never has to know the
+    /// platform config folder so the rest of the app never has to know the
     /// platform conventions.
     config_path: PathBuf,
     history_path: PathBuf,

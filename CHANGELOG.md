@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-09
+
+The desktop app is now a native GPUI app instead of a Tauri webview.
+
+### Changed
+- The desktop app is rebuilt on [GPUI](https://gpui.rs) (via `gpui-kit`): a GPU-rendered
+  native window — Metal on macOS, DirectX on Windows, Vulkan on Linux — with the same screens,
+  shortcuts, design tokens and icons as before. There is no webview, no JavaScript and no IPC
+  bridge; the UI calls the scanner and executor directly
+- Settings and clean history stay where they were (`com.void.app` in the platform config
+  folder), and the launch-at-login entry keeps its name, so upgrading keeps both
+- Tray icon uses `tray-icon` directly; on Linux it speaks StatusNotifierItem over D-Bus, so it
+  no longer needs GTK or libappindicator. Notifications use `notify-rust`, launch at login
+  `auto-launch`
+- Bundles are built with `cargo-packager`: `.app`/`.dmg` for macOS (Apple Silicon and Intel),
+  `.deb`/`.AppImage` for Linux, NSIS/`.msi` for Windows. Each release also attaches the `void`
+  CLI binary for every platform
+- Linux builds need xkbcommon, Wayland, fontconfig, freetype and the Vulkan loader instead of
+  WebKitGTK (`scripts/linux-deps.sh`)
+- The results filter stays on screen when nothing matches, so typing is no longer cut off
+  mid-word, and ⌥⌘A (select all safe) now works on macOS, where the webview saw `å`
+- Settings → About reports the real version instead of a hard-coded one
+- CI tests every crate on Linux, macOS and Windows and checks the minimum Rust version
+
+### Removed
+- The Tauri app, its JavaScript frontend and the browser harness (`dev/harness.html`). The
+  frontend's logic tests are now Rust tests in `crates/deepclean-app/src/model/`, and the window
+  itself is tested headlessly in `src/ui/tests.rs`
+- The Node.js requirement for development
+
 ## [1.1.0] - 2026-09-29
 
 Void cleans up after your AI agents — and your agents can call Void themselves.
@@ -138,7 +168,8 @@ Void cleans up after your AI agents — and your agents can call Void themselves
 - Tauri 2 desktop app with system tray integration
 - Configurable scan roots, ecosystems, and staleness thresholds
 
-[Unreleased]: https://github.com/eladbash/void/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/eladbash/void/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/eladbash/void/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/eladbash/void/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/eladbash/void/compare/v0.1.2...v1.0.0
 [0.1.2]: https://github.com/eladbash/void/compare/v0.1.1...v0.1.2

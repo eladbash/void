@@ -9,27 +9,33 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  bundle:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
-            args: '--target aarch64-apple-darwin'
-          - platform: macos-latest
-            args: '--target x86_64-apple-darwin'
-          - platform: ubuntu-22.04
-            args: ''
-          - platform: windows-latest
-            args: ''
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            arch: aarch64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            arch: x64
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            arch: amd64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            arch: x64
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 
-      # The bundle version comes from tauri.conf.json, not from the git tag.
-      # Without this the release can be named v1.0.0 while shipping 0.1.0 binaries.
+      # The bundle version comes from Cargo.toml, not from the git tag.
+      # Without this the release can be named v1.2.0 while shipping 1.1.0
+      # binaries.
       - name: Sync version to tag
+        id: version
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -37,43 +43,60 @@ jobs:
             [0-9]*.[0-9]*.[0-9]*) ;;
             *) echo "::error::Tag '$GITHUB_REF_NAME' is not a vX.Y.Z version tag."; exit 1 ;;
           esac
-          node -e '
-            const fs = require("fs");
-            const v = process.argv[1];
-            const conf = "crates/deepclean-app/tauri.conf.json";
-            const c = JSON.parse(fs.readFileSync(conf, "utf8"));
-            if (c.version !== v) {
-              console.log(`::warning::tauri.conf.json says ${c.version} but the tag says ${v}; using ${v}. Bump the committed version before tagging.`);
-            }
-            c.version = v;
-            fs.writeFileSync(conf, JSON.stringify(c, null, 2) + "\n");
-            for (const f of ["crates/deepclean-core/Cargo.toml", "crates/deepclean-app/Cargo.toml"]) {
-              fs.writeFileSync(f, fs.readFileSync(f, "utf8").replace(/^version = ".*"$/m, `version = "${v}"`));
-            }
-            console.log("Building version " + v);
-          ' "$VERSION"
+          for f in crates/deepclean-core/Cargo.toml crates/deepclean-app/Cargo.toml crates/void-cli/Cargo.toml; do
+            current="$(sed -n 's/^version = "\(.*\)"$/\1/p' "$f" | head -1)"
+            if [ "$current" != "$VERSION" ]; then
+              echo "::warning::$f says $current but the tag says $VERSION; using $VERSION. Bump the committed version before tagging."
+            fi
+            perl -0pi -e "s/^version = \".*?\"\$/version = \"$VERSION\"/m" "$f"
+          done
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ". -> target"
+          key: ${{ matrix.target }}
 
       - name: Install system dependencies (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev
+        if: runner.os == 'Linux'
+        run: ./scripts/linux-deps.sh
 
-      - uses: tauri-apps/tauri-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install cargo-packager
+        run: cargo install cargo-packager --locked
+
+      - name: Build
+        # Not --locked: syncing the version to the tag changes the lockfile.
+        run: cargo build --release -p deepclean-app -p void-cli --target ${{ matrix.target }}
+
+      - name: Bundle
+        working-directory: crates/deepclean-app
+        run: cargo packager --release --target ${{ matrix.target }} --out-dir ../../dist
+
+      # Stable asset names: install.sh looks for `aarch64.dmg` / `x64.dmg`.
+      - name: Name assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="${{ steps.version.outputs.version }}"
+          A="${{ matrix.arch }}"
+          mkdir -p release
+          shopt -s nullglob
+          for f in dist/*.dmg; do cp "$f" "release/Void_${V}_${A}.dmg"; done
+          for f in dist/*.app; do (cd dist && tar czf "../release/Void_${V}_${A}.app.tar.gz" "$(basename "$f")"); done
+          for f in dist/*.deb; do cp "$f" "release/void_${V}_${A}.deb"; done
+          for f in dist/*.AppImage; do cp "$f" "release/Void_${V}_${A}.AppImage"; done
+          for f in dist/*.msi; do cp "$f" "release/Void_${V}_${A}.msi"; done
+          for f in dist/*-setup.exe dist/*setup*.exe; do cp "$f" "release/Void_${V}_${A}-setup.exe"; done
+          # The command-line tool, for agents and CI.
+          EXE=""; [ "${{ runner.os }}" = "Windows" ] && EXE=".exe"
+          cp "target/${{ matrix.target }}/release/void${EXE}" "release/void-${V}-${{ matrix.target }}${EXE}"
+          ls -l release
+
+      - uses: softprops/action-gh-release@v2
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: '${{ github.ref_name }}'
-          releaseBody: 'See the [CHANGELOG](https://github.com/eladbash/void/blob/main/CHANGELOG.md) for details.'
-          releaseDraft: false
-          prerelease: false
-          args: ${{ matrix.args }}
-          projectPath: crates/deepclean-app
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: 'See the [CHANGELOG](https://github.com/eladbash/void/blob/main/CHANGELOG.md) for details.'
+          files: release/*

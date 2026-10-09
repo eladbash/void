@@ -71,13 +71,18 @@ Downloads the latest `.dmg` for your architecture, installs to `/Applications`, 
 
 ### Linux & Windows
 
-Grab the installer for your platform from the [Releases page](https://github.com/eladbash/void/releases).
+Grab the installer for your platform from the [Releases page](https://github.com/eladbash/void/releases):
+a `.deb` or `.AppImage` for Linux, an `.msi` or setup `.exe` for Windows.
+
+The desktop app is native on all three: a GPU-rendered [GPUI](https://gpui.rs) window (Metal on macOS,
+DirectX on Windows, Vulkan on Linux), not a webview. On Linux the tray icon uses the
+StatusNotifierItem protocol, which GNOME shows with the AppIndicator extension and KDE shows natively.
 
 ### The `void` CLI
 
-The CLI (and the MCP server inside it) is a separate binary. Release builds don't ship it yet,
-so for now install it from source. You need [Rust](https://rustup.rs/) 1.95+; the CLI does not
-need the Tauri toolchain or any system libraries.
+The CLI (and the MCP server inside it) is a separate binary. Each release attaches it for every
+platform (`void-<version>-<target>`); put it on your `PATH` as `void`. Or build it from source with
+[Rust](https://rustup.rs/) 1.95+ — the CLI needs no system libraries.
 
 ```bash
 git clone https://github.com/eladbash/void.git
@@ -105,11 +110,14 @@ already installed). To remove: `void hook uninstall` (if you installed hooks), t
 
 ### Desktop app from source
 
-Requires [Rust](https://rustup.rs/) 1.95+ and the [Tauri CLI](https://tauri.app/).
+Requires [Rust](https://rustup.rs/) 1.95+. On Linux, install the windowing and font libraries
+first with `./scripts/linux-deps.sh` (Debian/Ubuntu).
 
 ```bash
-cargo tauri dev      # run in development
-cargo tauri build    # produce a release bundle
+cargo run -p deepclean-app                  # run in development
+cargo build --release -p deepclean-app      # release binary: target/release/void-app
+cargo install cargo-packager --locked       # once
+(cd crates/deepclean-app && cargo packager --release)   # .app/.dmg, .deb/.AppImage or .msi
 ```
 
 ## How it works
@@ -322,12 +330,14 @@ defaults rather than blocking launch.
 ## Development
 
 ```bash
-cargo test --workspace                                            # Rust unit + integration tests
-npm test   # frontend logic (node --test, no dependencies)
+cargo test --workspace                                   # everything, including the window's headless tests
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-Tests never touch your real home directory or Trash: they build a fake home in a temp dir.
+Tests never touch your real home directory or Trash: they build a fake home in a temp dir. The
+desktop app's UI logic lives in `crates/deepclean-app/src/model/` and is tested without a window;
+`src/ui/tests.rs` drives the real window on GPUI's headless test platform — shortcuts, selection,
+the clean confirmation and a full scan → clean → History round trip.
 
 To try everything by hand, safely, build a realistic fake home and point the CLI at it:
 
@@ -335,26 +345,27 @@ To try everything by hand, safely, build a realistic fake home and point the CLI
 cargo run -p void-cli -- dev seed /tmp/void-home     # worktrees in every state, fake ~/.claude,
                                                       # Ollama and Hugging Face stores, stale projects
 cargo run -p void-cli -- --home /tmp/void-home scan
-(cd crates/deepclean-app && VOID_HOME=/tmp/void-home cargo tauri dev)   # the real app, sandboxed
+VOID_HOME=/tmp/void-home cargo run -p deepclean-app                   # the real app, sandboxed
 ```
 
 `VOID_HOME` runs the desktop app against the fake home: scans, settings, history and the
 Trash all stay inside it, the window title says SANDBOX, and any action that could reach the
 real machine (Docker prunes, `ollama rm`, system caches) is dropped.
 
-For UI work without a Tauri rebuild, serve the repo root and open `dev/harness.html`
-(instructions at the top of the file).
+On macOS, `scripts/drive.py` launches the real app in a fresh sandbox, drives it with the keyboard
+and saves a screenshot of its window at each step; `scripts/compare.py` puts two such runs side by
+side. `scripts/linux-smoke.Dockerfile` builds and tests on Linux and screenshots the app under Xvfb.
 
 ## Project layout
 
 ```
 crates/
   deepclean-core/   scanning engine, safety checker, action executor, cleanup plans, guard, hooks
-  deepclean-app/    Tauri 2 desktop app, system tray, frontend
+  deepclean-app/    native desktop app (GPUI): window, tray, notifications, login item
   void-cli/         the `void` command line tool and MCP server
 docs/               project website (GitHub Pages)
-design/             design system and screen specifications
-dev/                frontend harness
+design/             design system, screen specifications and plans
+scripts/            macOS UI driver, screenshot comparison, Linux smoke test and deps
 ```
 
 ## Contributing
