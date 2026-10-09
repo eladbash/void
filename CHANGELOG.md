@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-09
+
 The desktop app is now a native GPUI app instead of a Tauri webview.
 
 ### Changed
@@ -166,7 +168,8 @@ Void cleans up after your AI agents — and your agents can call Void themselves
 - Tauri 2 desktop app with system tray integration
 - Configurable scan roots, ecosystems, and staleness thresholds
 
-[Unreleased]: https://github.com/eladbash/void/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/eladbash/void/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/eladbash/void/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/eladbash/void/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/eladbash/void/compare/v0.1.2...v1.0.0
 [0.1.2]: https://github.com/eladbash/void/compare/v0.1.1...v0.1.2
