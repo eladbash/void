@@ -70,11 +70,14 @@ impl Tray {
             }
         }));
 
-        let icon = TrayIconBuilder::new()
-            .with_icon(template_icon()?)
-            // macOS menu-bar icons must be template images: black plus alpha,
-            // so the system tints them for a light or dark menu bar.
-            .with_icon_as_template(true)
+        let builder = TrayIconBuilder::new();
+        // macOS menu-bar icons must be template images: black plus alpha,
+        // so the system tints them for a light or dark menu bar.
+        #[cfg(target_os = "macos")]
+        let builder = builder.with_icon_templated(template_icon()?);
+        #[cfg(not(target_os = "macos"))]
+        let builder = builder.with_icon(template_icon()?);
+        let icon = builder
             .with_menu(Box::new(menu))
             .with_tooltip("Void")
             .build()
@@ -102,10 +105,13 @@ impl Tray {
 /// Decode the bundled template PNG into RGBA for the tray.
 fn template_icon() -> Result<Icon, String> {
     let bytes: &[u8] = include_bytes!("../../icons/trayTemplate@2x.png");
-    let mut decoder = png::Decoder::new(bytes);
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
     decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
     let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
-    let mut buf = vec![0; reader.output_buffer_size()];
+    let size = reader
+        .output_buffer_size()
+        .ok_or("tray icon too large to decode")?;
+    let mut buf = vec![0; size];
     let info = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
     buf.truncate(info.buffer_size());
     let rgba = match info.color_type {
