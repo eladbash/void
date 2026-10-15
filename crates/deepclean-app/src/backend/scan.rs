@@ -1,5 +1,6 @@
 use deepclean_core::model::ScanEvent;
 use deepclean_core::scanner::{registry, ScanOrchestrator};
+use uuid::Uuid;
 
 use super::{Backend, UiEvent};
 
@@ -46,5 +47,53 @@ impl Backend {
             this.emit(UiEvent::TrayRefresh);
         });
         Ok(())
+    }
+
+    /// Re-analyze one item after a partial clean so its remaining actions
+    /// and sizes reflect what is left. Docker's prunes overlap (`system
+    /// prune` covers the others), so subtracting estimates is not enough.
+    ///
+    /// The item keeps its optimistic update if analysis fails, or if a full
+    /// scan replaced the results in the meantime.
+    pub fn refresh_item(&self, item_id: Uuid) {
+        let Some(old) = self
+            .state
+            .results()
+            .iter()
+            .find(|i| i.id == item_id)
+            .cloned()
+        else {
+            return;
+        };
+        let config = self.state.config().clone();
+        let Some(scanner) = registry::build(&config)
+            .into_iter()
+            .find(|s| s.ecosystem() == old.ecosystem)
+        else {
+            return;
+        };
+        let this = self.clone();
+        self.rt.spawn(async move {
+            let Ok(found) = scanner.analyze_many(&old.path).await else {
+                return;
+            };
+            let mut items: Vec<_> = found
+                .into_iter()
+                .map(deepclean_core::trash::add_trash_alternatives)
+                .filter(|i| i.ecosystem == old.ecosystem && i.kind == old.kind)
+                .collect();
+            if let Some(home) = deepclean_core::paths::home_override() {
+                items = deepclean_core::sandbox::confine(items, &home);
+            }
+            {
+                let mut results = this.state.results();
+                let Some(pos) = results.iter().position(|i| i.id == item_id) else {
+                    return;
+                };
+                results.splice(pos..=pos, items.iter().cloned());
+            }
+            this.emit(UiEvent::ItemRefreshed { item_id, items });
+            this.emit(UiEvent::TrayRefresh);
+        });
     }
 }

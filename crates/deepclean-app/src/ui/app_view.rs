@@ -324,6 +324,7 @@ impl AppView {
                 }
                 UiEvent::GuardStatus(view) => self.guard = Some(view),
                 UiEvent::GuardCleaned(path) => self.ui.remove_path(&path),
+                UiEvent::ItemRefreshed { item_id, items } => self.ui.replace_item(item_id, items),
                 UiEvent::HistoryChanged => {
                     self.history = Some(self.backend.history_view());
                     self.ui.disk = self.backend.disk_usage();

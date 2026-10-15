@@ -925,9 +925,9 @@ impl UiState {
             }
             ActionEvent::Completed {
                 item_id,
+                action_id,
                 bytes_freed,
                 estimated_bytes,
-                ..
             } => {
                 c.completed += 1;
                 c.bytes += if bytes_freed > 0 {
@@ -936,9 +936,14 @@ impl UiState {
                     estimated_bytes
                 };
                 c.states.insert(item_id, RowState::Done);
-                // Drop cleaned items so the list reflects reality without a rescan.
-                self.items.retain(|i| i.id != item_id);
+                // Drop what was cleaned so the list reflects reality without a
+                // rescan. A partial action (one Docker prune) leaves the item
+                // with its other actions; the backend refreshes it afterwards.
+                super::actions::retire_action(&mut self.items, item_id, action_id);
                 self.selected.remove(&item_id);
+                if self.overrides.get(&item_id) == Some(&action_id) {
+                    self.overrides.remove(&item_id);
+                }
             }
             ActionEvent::Failed { item_id, error, .. } => {
                 c.failed += 1;
@@ -1000,6 +1005,17 @@ impl UiState {
         self.item(id)
             .and_then(|i| self.action_for(i))
             .is_some_and(|a| a.risk != RiskLevel::Safe)
+    }
+
+    /// Swap an item for a fresh analysis of it (none when nothing is left).
+    /// Ids are new, so selection and action overrides on the old one go.
+    pub fn replace_item(&mut self, id: Uuid, fresh: Vec<CleanableItem>) {
+        let Some(pos) = self.items.iter().position(|i| i.id == id) else {
+            return;
+        };
+        self.items.splice(pos..=pos, fresh);
+        self.selected.remove(&id);
+        self.overrides.remove(&id);
     }
 
     /// Guard's automatic cleanup removed this path; drop it so Results match disk.
@@ -1406,6 +1422,75 @@ mod tests {
         });
         assert!(s.clean.is_none());
         assert_eq!(s.last_result.as_ref().unwrap().succeeded, 1);
+    }
+
+    #[test]
+    fn a_partial_action_keeps_the_item_with_its_other_actions() {
+        let prune = |t: &str, bytes| {
+            action(
+                ActionMethod::DockerPrune {
+                    prune_type: t.into(),
+                },
+                RiskLevel::Safe,
+                bytes,
+            )
+        };
+        let mut s = state();
+        let mut docker = cleanable("/var/run/docker.sock", 300);
+        docker.available_actions = vec![prune("image", 100), prune("volume", 200)];
+        // Alternatives over one path: running either removes the item.
+        let mut dir = cleanable("/u/target", 50);
+        dir.available_actions
+            .push(action(command("cargo", &["clean"]), RiskLevel::Safe, 50));
+        s.items = vec![docker.clone(), dir.clone()];
+        s.selected.extend([docker.id, dir.id]);
+        let (images, volumes) = (
+            docker.available_actions[0].id,
+            docker.available_actions[1].id,
+        );
+        s.overrides.insert(docker.id, images);
+        s.begin_clean(&s.build_plan().selections());
+        let done = |s: &mut UiState, item_id, action_id| {
+            s.apply_action_event(ActionEvent::Completed {
+                item_id,
+                action_id,
+                bytes_freed: 0,
+                estimated_bytes: 0,
+            })
+        };
+
+        done(&mut s, docker.id, images);
+        let left = s.item(docker.id).expect("docker stays listed");
+        assert_eq!(left.available_actions.len(), 1);
+        assert_eq!(left.available_actions[0].id, volumes);
+        assert_eq!(left.size_bytes, 200);
+        assert!(!s.selected.contains(&docker.id));
+        assert!(!s.overrides.contains_key(&docker.id));
+
+        done(&mut s, dir.id, dir.available_actions[1].id);
+        assert!(s.item(dir.id).is_none());
+
+        done(&mut s, docker.id, volumes);
+        assert!(s.item(docker.id).is_none(), "last action removes it");
+    }
+
+    #[test]
+    fn a_refreshed_item_replaces_the_old_one_in_place() {
+        let mut s = state();
+        let (a, b, c) = (
+            cleanable("/u/a", 1),
+            cleanable("/u/b", 2),
+            cleanable("/u/c", 3),
+        );
+        s.items = vec![a.clone(), b.clone(), c.clone()];
+        s.selected.insert(b.id);
+        let fresh = cleanable("/u/b", 5);
+        s.replace_item(b.id, vec![fresh.clone()]);
+        let ids: Vec<_> = s.items.iter().map(|i| i.id).collect();
+        assert_eq!(ids, vec![a.id, fresh.id, c.id]);
+        assert!(!s.selected.contains(&b.id));
+        s.replace_item(fresh.id, vec![]);
+        assert_eq!(s.items.len(), 2);
     }
 
     #[test]
