@@ -655,7 +655,10 @@ impl AppView {
                                 p.text_secondary
                             },
                         ))
-                        .tooltip_text("Choose which items the list shows")
+                        // Not over its own open menu.
+                        .when(ui.menu != Some(Menu::Filters), |d| {
+                            d.tooltip_text("Choose which items the list shows")
+                        })
                         .debug_selector(|| "filters-chip".into()),
                     cx,
                 ),
@@ -702,6 +705,7 @@ impl AppView {
                 self.menu_anchor(
                     Menu::Sort,
                     chip("sort", ui.menu == Some(Menu::Sort), &p)
+                        .debug_selector(|| "sort-chip".into())
                         .child(format!("Sort: {}", sort_label(ui.config.ui.sort)))
                         .child(icon("chevron-down", px(13.), p.text_secondary)),
                     cx,
@@ -759,7 +763,7 @@ impl AppView {
         match menu {
             Menu::Filters => {
                 let days = ui.config.staleness_threshold_days;
-                let mut panel = menu_panel(&p).id("filters-menu");
+                let mut panel = menu_panel(&p);
                 for (ix, row) in FilterRow::ALL.into_iter().enumerate() {
                     let (mark, label, hint) = match row {
                         FilterRow::StaleOnly => (
@@ -818,7 +822,7 @@ impl AppView {
             }
             Menu::Group => {
                 let current = ui.config.ui.grouping;
-                let mut panel = menu_panel(&p).id("group-menu");
+                let mut panel = menu_panel(&p);
                 for (ix, g) in GROUPINGS.into_iter().enumerate() {
                     panel = panel.child(
                         menu_row(
@@ -839,7 +843,7 @@ impl AppView {
             }
             Menu::Sort => {
                 let current = ui.config.ui.sort;
-                let mut panel = menu_panel(&p).id("sort-menu");
+                let mut panel = menu_panel(&p);
                 for (ix, k) in SORT_KEYS.into_iter().enumerate() {
                     panel = panel.child(
                         menu_row(
@@ -850,6 +854,7 @@ impl AppView {
                             ix == cursor,
                             &p,
                         )
+                        .debug_selector(move || format!("sort-row-{ix}"))
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.ui.choose_sort(k);
                             this.menu_choice_applied(cx);

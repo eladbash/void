@@ -599,9 +599,12 @@ pub fn mod_key() -> &'static str {
     }
 }
 
-/// The floating panel of a toolbar dropdown.
-pub fn menu_panel(p: &Palette) -> Div {
+/// The floating panel of a toolbar dropdown. It occludes, so the
+/// click-outside scrim beneath never sees a click meant for a row.
+pub fn menu_panel(p: &Palette) -> Stateful<Div> {
     div()
+        .id("menu-panel")
+        .occlude()
         .flex()
         .flex_col()
         .min_w(px(220.))

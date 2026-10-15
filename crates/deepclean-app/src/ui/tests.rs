@@ -378,6 +378,23 @@ fn the_filters_chip_opens_its_menu_and_an_outside_click_closes_it(cx: &mut TestA
         "opening toggles nothing"
     );
 
+    // Clicking another chip while one menu is open only closes the first.
+    let sort = cx.debug_bounds("sort-chip").expect("Sort chip");
+    cx.simulate_click(sort.center(), Modifiers::none());
+    draw(cx);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.menu), None);
+    cx.simulate_click(sort.center(), Modifiers::none());
+    draw(cx);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.menu), Some(Menu::Sort));
+    let name = cx.debug_bounds("sort-row-2").expect("Name row");
+    cx.simulate_click(name.center(), Modifiers::none());
+    draw(cx);
+    let (sort_key, menu) = view.read_with(cx, |v, _| (v.ui.config.ui.sort, v.ui.menu));
+    assert_eq!(sort_key, SortKey::Name, "a clicked row applies");
+    assert_eq!(menu, None);
+
+    cx.simulate_click(chip.center(), Modifiers::none());
+    draw(cx);
     // Far from the menu: closes it and reaches nothing underneath.
     let below = chip.center() + gpui_kit::point(gpui_kit::px(0.), gpui_kit::px(400.));
     cx.simulate_click(below, Modifiers::none());
