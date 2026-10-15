@@ -697,11 +697,18 @@ impl UiState {
         total_bytes_of(&actionable)
     }
 
-    pub fn safe_count(&self) -> usize {
-        self.items
-            .iter()
+    /// What "Select all safe" selects: safe items the filters show.
+    fn safe_visible(&self) -> Vec<Uuid> {
+        self.visible_items()
+            .into_iter()
             .filter(|i| is_actionable(i) && self.risk_of(i) == RiskLevel::Safe)
-            .count()
+            .map(|i| i.id)
+            .collect()
+    }
+
+    /// The count on the "Select all safe" button: exactly what it selects.
+    pub fn safe_count(&self) -> usize {
+        self.safe_visible().len()
     }
 
     pub fn toggle_select(&mut self, id: Uuid) {
@@ -768,12 +775,7 @@ impl UiState {
     }
 
     pub fn select_safe(&mut self) {
-        let ids: Vec<Uuid> = self
-            .visible_items()
-            .into_iter()
-            .filter(|i| is_actionable(i) && self.risk_of(i) == RiskLevel::Safe)
-            .map(|i| i.id)
-            .collect();
+        let ids = self.safe_visible();
         self.selected.extend(ids);
     }
 

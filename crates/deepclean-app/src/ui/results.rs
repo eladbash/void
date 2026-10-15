@@ -283,14 +283,32 @@ impl AppView {
                         }),
                 )
                 .child(
-                    btn("review", BtnKind::Primary, BtnSize::Md, false, &p)
-                        .child("Review & Clean")
-                        .child(kbd(&format!("{}↵", mod_key()), &p))
-                        .on_click(cx.listener(|this, _, window, cx| this.open_review(window, cx))),
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .child(
+                            btn("deselect-all", BtnKind::Ghost, BtnSize::Md, false, &p)
+                                .debug_selector(|| "deselect-all".into())
+                                .child("Deselect all")
+                                .tooltip_text(format!("Clear the selection ({}⇧A)", mod_key()))
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.ui.selected.clear();
+                                    this.changed(cx);
+                                })),
+                        )
+                        .child(
+                            btn("review", BtnKind::Primary, BtnSize::Md, false, &p)
+                                .child("Review & Clean")
+                                .child(kbd(&format!("{}↵", mod_key()), &p))
+                                .on_click(
+                                    cx.listener(|this, _, window, cx| this.open_review(window, cx)),
+                                ),
+                        ),
                 )
         } else {
             div().flex().justify_end().child(
-                btn("select-safe", BtnKind::Ghost, BtnSize::Sm, false, &p)
+                btn("select-safe", BtnKind::Ghost, BtnSize::Sm, safe == 0, &p)
                     .child(format!("Select all safe ({})", count(safe)))
                     .child(icon("arrow-right", px(14.), p.text_secondary))
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -637,7 +655,8 @@ impl AppView {
                                 p.text_secondary
                             },
                         ))
-                        .tooltip_text("Choose which items the list shows"),
+                        .tooltip_text("Choose which items the list shows")
+                        .debug_selector(|| "filters-chip".into()),
                     cx,
                 ),
             )
