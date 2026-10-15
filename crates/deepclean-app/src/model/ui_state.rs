@@ -388,6 +388,11 @@ impl UiState {
         self.items
             .iter()
             .filter(|item| {
+                // A preset (from Agents or the tray) names exactly what to
+                // show, whatever its age.
+                if self.stale_only() && self.preset.is_none() && !self.is_stale(item) {
+                    return false;
+                }
                 if self.large_only && item.size_bytes < LARGE_BYTES {
                     return false;
                 }
@@ -411,22 +416,40 @@ impl UiState {
             .collect()
     }
 
+    /// Persisted, unlike the other filters: it is the default view.
+    pub fn stale_only(&self) -> bool {
+        self.config.ui.stale_only
+    }
+
     pub fn filters_active(&self) -> bool {
-        self.large_only || self.preset.is_some()
+        self.stale_only() || self.large_only || self.preset.is_some()
     }
 
     pub fn active_filter_count(&self) -> usize {
-        usize::from(self.large_only) + usize::from(self.preset.is_some())
+        usize::from(self.stale_only())
+            + usize::from(self.large_only)
+            + usize::from(self.preset.is_some())
     }
 
+    /// Items the filters (and search) keep out of the list.
+    pub fn hidden_count(&self) -> usize {
+        self.items.len() - self.visible_items().len()
+    }
+
+    /// Clears every filter, the persisted Stale only included; the caller
+    /// saves the config.
     pub fn reset_filters(&mut self) {
+        self.config.ui.stale_only = false;
         self.large_only = false;
         self.preset = None;
         self.filter.clear();
     }
 
     pub fn apply_preset(&mut self, id: PresetId) {
-        self.reset_filters();
+        // Stale only stays as the user set it: a preset overrides it while
+        // shown, and the list returns to it once the preset is cleared.
+        self.large_only = false;
+        self.filter.clear();
         self.preset = Some(preset_for(id, &self.config));
         self.route = Route::Results;
         self.drawer = None;
@@ -1065,6 +1088,8 @@ mod tests {
             staleness_threshold_days: 30,
             ..Default::default()
         };
+        // Fixtures mostly carry no age; tests of the stale filter turn it on.
+        config.ui.stale_only = false;
         config.ai.worktree_idle_days = 3;
         config.ai.agent_data_retention_days = 30;
         let mut s = UiState::new(config);
@@ -1422,6 +1447,33 @@ mod tests {
         });
         assert!(s.clean.is_none());
         assert_eq!(s.last_result.as_ref().unwrap().succeeded, 1);
+    }
+
+    #[test]
+    fn stale_only_is_the_default_and_hides_fresh_and_ageless_items() {
+        assert!(AppConfig::default().ui.stale_only);
+        let mut s = state();
+        s.config.ui.stale_only = true;
+        let mut old = cleanable("/u/old", 1);
+        old.days_stale = Some(31);
+        let mut fresh = cleanable("/u/fresh", 1);
+        fresh.days_stale = Some(30);
+        let ageless = cleanable("/u/docker", 1);
+        s.items = vec![old.clone(), fresh, ageless];
+        let ids: Vec<_> = s.visible_items().iter().map(|i| i.id).collect();
+        assert_eq!(ids, vec![old.id]);
+        assert_eq!(s.hidden_count(), 2);
+        assert_eq!(s.active_filter_count(), 1);
+
+        // A preset shows its own matches whatever their age.
+        s.apply_preset(PresetId::IdleWorktrees);
+        assert!(s.stale_only(), "a preset leaves the saved choice alone");
+        s.preset = None;
+
+        s.reset_filters();
+        assert!(!s.stale_only());
+        assert_eq!(s.visible_items().len(), 3);
+        assert_eq!(s.hidden_count(), 0);
     }
 
     #[test]

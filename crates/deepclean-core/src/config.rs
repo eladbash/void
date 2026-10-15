@@ -40,6 +40,8 @@ pub struct UiPrefs {
     pub theme: Theme,
     pub density: Density,
     pub grouping: Grouping,
+    /// List only items untouched for longer than the staleness threshold.
+    pub stale_only: bool,
     /// Show the pre-clean review dialog. Turning this off skips the risk review.
     pub confirm_before_cleaning: bool,
     /// When an item offers both a Trash action and a permanent one, pick the Trash action.
@@ -54,6 +56,7 @@ impl Default for UiPrefs {
             theme: Theme::default(),
             density: Density::default(),
             grouping: Grouping::default(),
+            stale_only: true,
             confirm_before_cleaning: true,
             prefer_trash: true,
             launch_at_login: false,

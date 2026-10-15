@@ -272,10 +272,7 @@ impl AppView {
                                 chip_quiet("sel-hidden", &p)
                                     .child(format!("{} hidden", sel.hidden))
                                     .on_click(cx.listener(|this, _, window, cx| {
-                                        this.ui.reset_filters();
-                                        this.filter_input
-                                            .update(cx, |s, cx| s.set_value("", window, cx));
-                                        this.changed(cx);
+                                        this.clear_filters(window, cx)
                                     })),
                             )
                         }),
@@ -1269,12 +1266,7 @@ impl AppView {
             div().mt(px(16.)).child(
                 btn("clear-filters", BtnKind::Ghost, BtnSize::Sm, false, &p)
                     .child("Clear filters")
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.ui.reset_filters();
-                        this.filter_input
-                            .update(cx, |s, cx| s.set_value("", window, cx));
-                        this.changed(cx);
-                    })),
+                    .on_click(cx.listener(|this, _, window, cx| this.clear_filters(window, cx))),
             ),
         )
         .into_any_element()

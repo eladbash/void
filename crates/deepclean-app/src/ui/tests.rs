@@ -171,7 +171,14 @@ fn fixture(
         danger.available_actions[0].risk = RiskLevel::Danger;
         let ids = (wt.id, nm.id, danger.id);
         v.ui.has_scanned = true;
-        v.ui.items = vec![wt, nm, danger];
+        // Old enough to pass the default Stale only filter.
+        v.ui.items = vec![wt, nm, danger]
+            .into_iter()
+            .map(|mut i| {
+                i.days_stale = Some(90);
+                i
+            })
+            .collect();
         v.changed(cx);
         ids
     })

@@ -411,6 +411,19 @@ impl AppView {
         cx.notify();
     }
 
+    /// Show everything: every filter off, the search box emptied.
+    pub(crate) fn clear_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let stale_only = self.ui.stale_only();
+        self.ui.reset_filters();
+        self.filter_input
+            .update(cx, |s, cx| s.set_value("", window, cx));
+        if stale_only {
+            self.save_config(false, cx);
+        }
+        self.list.scroll_to(Default::default());
+        self.changed(cx);
+    }
+
     pub(crate) fn show_toast(
         &mut self,
         text: String,
