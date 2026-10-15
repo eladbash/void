@@ -6,15 +6,15 @@ use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use gpui_kit::{Entity, TestAppContext, VisualTestContext};
+use gpui_kit::{Entity, Modifiers, TestAppContext, VisualTestContext};
 
-use deepclean_core::config::{AppConfig, Density, Theme};
+use deepclean_core::config::{AppConfig, Density, Grouping, Theme};
 use deepclean_core::model::{ArtifactKind, Ecosystem, RiskLevel};
 
 use super::app_view::{AppView, FolderPicker};
 use crate::backend::Backend;
 use crate::model::fixtures::*;
-use crate::model::ui_state::{PresetId, Route, SettingsSection};
+use crate::model::ui_state::{Menu, PresetId, Route, SettingsSection, SortKey};
 use crate::state::AppState;
 
 /// One seeded fake home for the whole test binary: the home override is
@@ -171,7 +171,14 @@ fn fixture(
         danger.available_actions[0].risk = RiskLevel::Danger;
         let ids = (wt.id, nm.id, danger.id);
         v.ui.has_scanned = true;
-        v.ui.items = vec![wt, nm, danger];
+        // Old enough to pass the default Stale only filter.
+        v.ui.items = vec![wt, nm, danger]
+            .into_iter()
+            .map(|mut i| {
+                i.days_stale = Some(90);
+                i
+            })
+            .collect();
         v.changed(cx);
         ids
     })
@@ -217,6 +224,184 @@ fn keyboard_moves_selects_opens_and_escapes(cx: &mut TestAppContext) {
     assert!(!view.read_with(cx, |v, _| v.ui.show_confirm));
     cx.simulate_keystrokes("secondary-shift-e");
     assert!(view.read_with(cx, |v, _| !v.ui.collapsed.is_empty()));
+}
+
+#[gpui_kit::test]
+fn the_filters_menu_explains_and_toggles_each_filter(cx: &mut TestAppContext) {
+    let (view, cx, _h) = open(cx, None, None);
+    let (_, _, danger) = fixture(&view, cx);
+    view.update(cx, |v, cx| {
+        // A fresh item: hidden by the default Stale only.
+        let mut fresh = cleanable("/u/fresh", 5_000_000_000);
+        fresh.days_stale = Some(1);
+        v.ui.items.push(fresh);
+        v.changed(cx);
+    });
+    draw(cx);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.hidden_count()), 1);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.filter_summary()), "Stale");
+
+    view.update(cx, |v, cx| {
+        v.ui.toggle_menu(Menu::Filters);
+        cx.notify();
+    });
+    draw(cx);
+    // Down to Large only, toggle it; the menu stays open for more changes.
+    cx.simulate_keystrokes("down space");
+    draw(cx);
+    let (large, menu) = view.read_with(cx, |v, _| (v.ui.large_only, v.ui.menu));
+    assert!(large);
+    assert_eq!(menu, Some(Menu::Filters));
+    assert_eq!(
+        view.read_with(cx, |v, _| v.ui.filter_summary()),
+        "Stale · ≥1 GB"
+    );
+    assert!(
+        view.read_with(cx, |v, _| v.ui.item(danger).is_some()
+            && !v.ui.visible_items().iter().any(|i| i.id == danger)),
+        "the 100 B item is hidden by Large only"
+    );
+
+    cx.simulate_keystrokes("escape");
+    let (menu, large) = view.read_with(cx, |v, _| (v.ui.menu, v.ui.large_only));
+    assert_eq!(menu, None, "Esc closes the menu first");
+    assert!(large, "and changes nothing");
+
+    // Show everything: the last row, reached by wrapping upwards.
+    view.update(cx, |v, cx| {
+        v.ui.toggle_menu(Menu::Filters);
+        cx.notify();
+    });
+    cx.simulate_keystrokes("up enter");
+    draw(cx);
+    let (stale, large, menu, hidden) = view.read_with(cx, |v, _| {
+        (
+            v.ui.stale_only(),
+            v.ui.large_only,
+            v.ui.menu,
+            v.ui.hidden_count(),
+        )
+    });
+    assert!(!stale && !large && menu.is_none());
+    assert_eq!(hidden, 0);
+}
+
+#[gpui_kit::test]
+fn group_and_sort_pick_from_a_list_and_are_saved(cx: &mut TestAppContext) {
+    let (view, cx, h) = open(cx, None, None);
+    fixture(&view, cx);
+    let open_menu = |view: &Entity<AppView>, cx: &mut VisualTestContext, menu| {
+        view.update(cx, |v, cx| {
+            v.ui.toggle_menu(menu);
+            cx.notify();
+        });
+        draw(cx);
+    };
+
+    open_menu(&view, cx, Menu::Sort);
+    assert_eq!(
+        view.read_with(cx, |v, _| v.ui.menu_cursor),
+        0,
+        "cursor on Size"
+    );
+    // Two down from Size is Name; Enter picks it once and closes the menu.
+    cx.simulate_keystrokes("down down enter");
+    draw(cx);
+    let (sort, menu) = view.read_with(cx, |v, _| (v.ui.config.ui.sort, v.ui.menu));
+    assert_eq!(sort, SortKey::Name);
+    assert_eq!(menu, None);
+
+    open_menu(&view, cx, Menu::Group);
+    cx.simulate_keystrokes("down escape");
+    let (grouping, menu) = view.read_with(cx, |v, _| (v.ui.config.ui.grouping, v.ui.menu));
+    assert_eq!(grouping, Grouping::Ecosystem, "Esc changes nothing");
+    assert_eq!(menu, None);
+
+    open_menu(&view, cx, Menu::Group);
+    cx.simulate_keystrokes("up enter");
+    draw(cx);
+    assert_eq!(
+        view.read_with(cx, |v, _| v.ui.config.ui.grouping),
+        Grouping::Risk
+    );
+
+    cx.run_until_parked();
+    cx.executor().advance_clock(Duration::from_millis(500));
+    cx.run_until_parked();
+    let saved = AppConfig::load(&h.config_dir.join(AppConfig::FILE_NAME)).0;
+    assert_eq!(saved.ui.sort, SortKey::Name);
+    assert_eq!(saved.ui.grouping, Grouping::Risk);
+}
+
+#[gpui_kit::test]
+fn deselect_all_is_one_click_after_select_all_safe(cx: &mut TestAppContext) {
+    let (view, cx, _h) = open(cx, None, None);
+    fixture(&view, cx);
+    view.update(cx, |v, cx| {
+        // Safe but young: hidden by Stale only, so not counted or selected.
+        let mut fresh = cleanable("/u/fresh", 10);
+        fresh.days_stale = Some(1);
+        v.ui.items.push(fresh);
+        v.changed(cx);
+    });
+    draw(cx);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.safe_count()), 2);
+    cx.simulate_keystrokes("secondary-alt-a");
+    draw(cx);
+    assert_eq!(
+        view.read_with(cx, |v, _| v.ui.selected.len()),
+        2,
+        "the button's count is what it selects"
+    );
+
+    let at = cx.debug_bounds("deselect-all").expect("Deselect all shown");
+    cx.simulate_click(at.center(), Modifiers::none());
+    draw(cx);
+    assert!(view.read_with(cx, |v, _| v.ui.selected.is_empty()));
+    assert!(
+        cx.debug_bounds("deselect-all").is_none(),
+        "gone with the selection"
+    );
+}
+
+#[gpui_kit::test]
+fn the_filters_chip_opens_its_menu_and_an_outside_click_closes_it(cx: &mut TestAppContext) {
+    let (view, cx, _h) = open(cx, None, None);
+    fixture(&view, cx);
+    draw(cx);
+    let chip = cx.debug_bounds("filters-chip").expect("Filters chip");
+    cx.simulate_click(chip.center(), Modifiers::none());
+    draw(cx);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.menu), Some(Menu::Filters));
+    assert!(
+        view.read_with(cx, |v, _| v.ui.stale_only()),
+        "opening toggles nothing"
+    );
+
+    // Clicking another chip while one menu is open only closes the first.
+    let sort = cx.debug_bounds("sort-chip").expect("Sort chip");
+    cx.simulate_click(sort.center(), Modifiers::none());
+    draw(cx);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.menu), None);
+    cx.simulate_click(sort.center(), Modifiers::none());
+    draw(cx);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.menu), Some(Menu::Sort));
+    let name = cx.debug_bounds("sort-row-2").expect("Name row");
+    cx.simulate_click(name.center(), Modifiers::none());
+    draw(cx);
+    let (sort_key, menu) = view.read_with(cx, |v, _| (v.ui.config.ui.sort, v.ui.menu));
+    assert_eq!(sort_key, SortKey::Name, "a clicked row applies");
+    assert_eq!(menu, None);
+
+    cx.simulate_click(chip.center(), Modifiers::none());
+    draw(cx);
+    // Far from the menu: closes it and reaches nothing underneath.
+    let below = chip.center() + gpui_kit::point(gpui_kit::px(0.), gpui_kit::px(400.));
+    cx.simulate_click(below, Modifiers::none());
+    draw(cx);
+    let (menu, drawer) = view.read_with(cx, |v, _| (v.ui.menu, v.ui.drawer));
+    assert_eq!(menu, None);
+    assert_eq!(drawer, None, "the click did not open a row");
 }
 
 #[gpui_kit::test]

@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use chrono::{DateTime, Utc};
+pub use deepclean_core::config::SortKey;
 use deepclean_core::config::{AppConfig, Grouping};
 use deepclean_core::disk::DiskUsage;
 use deepclean_core::model::{
@@ -32,40 +33,54 @@ pub enum Route {
     Settings,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum SortKey {
-    #[default]
-    Size,
-    Stale,
-    Name,
-    Risk,
-}
+pub const SORT_KEYS: [SortKey; 4] = [SortKey::Size, SortKey::Stale, SortKey::Name, SortKey::Risk];
 
-impl SortKey {
-    pub fn next(self) -> Self {
-        match self {
-            Self::Size => Self::Stale,
-            Self::Stale => Self::Name,
-            Self::Name => Self::Risk,
-            Self::Risk => Self::Size,
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Size => "Size",
-            Self::Stale => "Last modified",
-            Self::Name => "Name",
-            Self::Risk => "Risk",
-        }
+pub fn sort_label(k: SortKey) -> &'static str {
+    match k {
+        SortKey::Size => "Size",
+        SortKey::Stale => "Last modified",
+        SortKey::Name => "Name",
+        SortKey::Risk => "Risk",
     }
 }
 
-pub fn next_grouping(g: Grouping) -> Grouping {
+/// The order each sort produces, shown under its name in the menu.
+pub fn sort_hint(k: SortKey) -> &'static str {
+    match k {
+        SortKey::Size => "Largest first",
+        SortKey::Stale => "Longest untouched first",
+        SortKey::Name => "A to Z by kind",
+        SortKey::Risk => "Riskiest first",
+    }
+}
+
+/// A toolbar dropdown. One is open at a time; Esc or a click outside closes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Menu {
+    Filters,
+    Group,
+    Sort,
+}
+
+/// Rows of the Filters menu, in display order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterRow {
+    StaleOnly,
+    LargeOnly,
+    ShowAll,
+}
+
+impl FilterRow {
+    pub const ALL: [FilterRow; 3] = [Self::StaleOnly, Self::LargeOnly, Self::ShowAll];
+}
+
+pub const GROUPINGS: [Grouping; 3] = [Grouping::Ecosystem, Grouping::Project, Grouping::Risk];
+
+pub fn grouping_hint(g: Grouping) -> &'static str {
     match g {
-        Grouping::Ecosystem => Grouping::Project,
-        Grouping::Project => Grouping::Risk,
-        Grouping::Risk => Grouping::Ecosystem,
+        Grouping::Ecosystem => "By tool: Node, Rust, Docker…",
+        Grouping::Project => "By the project folder each item belongs to",
+        Grouping::Risk => "Safe, Caution, Danger",
     }
 }
 
@@ -257,10 +272,12 @@ pub struct UiState {
     pub filter: String,
     pub large_only: bool,
     pub preset: Option<Preset>,
-    pub sort: SortKey,
     pub collapsed: HashSet<String>,
 
     pub focused: Option<Uuid>,
+    pub menu: Option<Menu>,
+    /// The highlighted row of the open menu, for the arrow keys.
+    pub menu_cursor: usize,
     pub drawer: Option<Uuid>,
     pub show_confirm: bool,
     pub show_issues: bool,
@@ -341,9 +358,10 @@ impl UiState {
             filter: String::new(),
             large_only: false,
             preset: None,
-            sort: SortKey::Size,
             collapsed: HashSet::new(),
             focused: None,
+            menu: None,
+            menu_cursor: 0,
             drawer: None,
             show_confirm: false,
             show_issues: false,
@@ -388,6 +406,11 @@ impl UiState {
         self.items
             .iter()
             .filter(|item| {
+                // A preset (from Agents or the tray) names exactly what to
+                // show, whatever its age.
+                if self.stale_only() && self.preset.is_none() && !self.is_stale(item) {
+                    return false;
+                }
                 if self.large_only && item.size_bytes < LARGE_BYTES {
                     return false;
                 }
@@ -411,22 +434,130 @@ impl UiState {
             .collect()
     }
 
+    /// Persisted, unlike the other filters: it is the default view.
+    pub fn stale_only(&self) -> bool {
+        self.config.ui.stale_only
+    }
+
     pub fn filters_active(&self) -> bool {
-        self.large_only || self.preset.is_some()
+        self.stale_only() || self.large_only || self.preset.is_some()
     }
 
     pub fn active_filter_count(&self) -> usize {
-        usize::from(self.large_only) + usize::from(self.preset.is_some())
+        usize::from(self.stale_only())
+            + usize::from(self.large_only)
+            + usize::from(self.preset.is_some())
     }
 
+    /// Items the filters (and search) keep out of the list.
+    pub fn hidden_count(&self) -> usize {
+        self.items.len() - self.visible_items().len()
+    }
+
+    /// Clears every filter, the persisted Stale only included; the caller
+    /// saves the config.
     pub fn reset_filters(&mut self) {
+        self.config.ui.stale_only = false;
         self.large_only = false;
         self.preset = None;
         self.filter.clear();
     }
 
+    /// The Filters chip's label: what is on, not how many.
+    pub fn filter_summary(&self) -> String {
+        let mut on = vec![];
+        if self.stale_only() {
+            on.push("Stale");
+        }
+        if self.large_only {
+            on.push("≥1 GB");
+        }
+        if on.is_empty() {
+            "Filters".into()
+        } else {
+            on.join(" · ")
+        }
+    }
+
+    // ── Menus ───────────────────────────────────────────────────────────
+
+    /// Open `menu`, or close it when it is already open. The cursor starts
+    /// on the current choice.
+    pub fn toggle_menu(&mut self, menu: Menu) {
+        if self.menu == Some(menu) {
+            self.menu = None;
+            return;
+        }
+        self.menu = Some(menu);
+        self.menu_cursor = match menu {
+            Menu::Filters => 0,
+            Menu::Group => GROUPINGS
+                .iter()
+                .position(|g| *g == self.config.ui.grouping)
+                .unwrap_or(0),
+            Menu::Sort => SORT_KEYS
+                .iter()
+                .position(|k| *k == self.config.ui.sort)
+                .unwrap_or(0),
+        };
+    }
+
+    pub fn menu_len(&self) -> usize {
+        match self.menu {
+            Some(Menu::Filters) => FilterRow::ALL.len(),
+            Some(Menu::Group) => GROUPINGS.len(),
+            Some(Menu::Sort) => SORT_KEYS.len(),
+            None => 0,
+        }
+    }
+
+    /// Pick a grouping from the Group menu, which closes it. Both choices
+    /// are saved, so the caller persists the config.
+    pub fn choose_grouping(&mut self, g: Grouping) {
+        if self.config.ui.grouping != g {
+            self.config.ui.grouping = g;
+            self.collapsed.clear();
+        }
+        self.menu = None;
+    }
+
+    pub fn choose_sort(&mut self, k: SortKey) {
+        self.config.ui.sort = k;
+        self.menu = None;
+    }
+
+    pub fn move_menu_cursor(&mut self, delta: i32) {
+        let n = self.menu_len() as i32;
+        if n > 0 {
+            self.menu_cursor = (self.menu_cursor as i32 + delta).rem_euclid(n) as usize;
+        }
+    }
+
+    /// Apply a Filters row. Returns true when the saved config changed.
+    pub fn apply_filter_row(&mut self, row: FilterRow) -> bool {
+        match row {
+            FilterRow::StaleOnly => {
+                self.config.ui.stale_only = !self.config.ui.stale_only;
+                true
+            }
+            FilterRow::LargeOnly => {
+                self.large_only = !self.large_only;
+                false
+            }
+            FilterRow::ShowAll => {
+                let saved = self.stale_only();
+                self.reset_filters();
+                self.menu = None;
+                saved
+            }
+        }
+    }
+
     pub fn apply_preset(&mut self, id: PresetId) {
-        self.reset_filters();
+        // Stale only stays as the user set it: a preset overrides it while
+        // shown, and the list returns to it once the preset is cleared.
+        self.large_only = false;
+        self.filter.clear();
         self.preset = Some(preset_for(id, &self.config));
         self.route = Route::Results;
         self.drawer = None;
@@ -517,7 +648,7 @@ impl UiState {
     }
 
     fn sort_items(&self, items: &mut [&CleanableItem]) {
-        match self.sort {
+        match self.config.ui.sort {
             SortKey::Stale => items
                 .sort_by_key(|i| std::cmp::Reverse(i.days_stale.map(|d| d as i64).unwrap_or(-1))),
             SortKey::Name => items.sort_by_key(|i| kind_label(i).to_lowercase()),
@@ -566,11 +697,18 @@ impl UiState {
         total_bytes_of(&actionable)
     }
 
-    pub fn safe_count(&self) -> usize {
-        self.items
-            .iter()
+    /// What "Select all safe" selects: safe items the filters show.
+    fn safe_visible(&self) -> Vec<Uuid> {
+        self.visible_items()
+            .into_iter()
             .filter(|i| is_actionable(i) && self.risk_of(i) == RiskLevel::Safe)
-            .count()
+            .map(|i| i.id)
+            .collect()
+    }
+
+    /// The count on the "Select all safe" button: exactly what it selects.
+    pub fn safe_count(&self) -> usize {
+        self.safe_visible().len()
     }
 
     pub fn toggle_select(&mut self, id: Uuid) {
@@ -637,12 +775,7 @@ impl UiState {
     }
 
     pub fn select_safe(&mut self) {
-        let ids: Vec<Uuid> = self
-            .visible_items()
-            .into_iter()
-            .filter(|i| is_actionable(i) && self.risk_of(i) == RiskLevel::Safe)
-            .map(|i| i.id)
-            .collect();
+        let ids = self.safe_visible();
         self.selected.extend(ids);
     }
 
@@ -694,7 +827,9 @@ impl UiState {
     /// Esc closes the innermost thing that is open. Returns what it did so
     /// the view can clear a focused text field when nothing else applied.
     pub fn escape(&mut self) -> bool {
-        if self.show_confirm {
+        if self.menu.is_some() {
+            self.menu = None;
+        } else if self.show_confirm {
             self.show_confirm = false;
             self.confirm_only = None;
         } else if self.show_issues {
@@ -925,9 +1060,9 @@ impl UiState {
             }
             ActionEvent::Completed {
                 item_id,
+                action_id,
                 bytes_freed,
                 estimated_bytes,
-                ..
             } => {
                 c.completed += 1;
                 c.bytes += if bytes_freed > 0 {
@@ -936,9 +1071,14 @@ impl UiState {
                     estimated_bytes
                 };
                 c.states.insert(item_id, RowState::Done);
-                // Drop cleaned items so the list reflects reality without a rescan.
-                self.items.retain(|i| i.id != item_id);
+                // Drop what was cleaned so the list reflects reality without a
+                // rescan. A partial action (one Docker prune) leaves the item
+                // with its other actions; the backend refreshes it afterwards.
+                super::actions::retire_action(&mut self.items, item_id, action_id);
                 self.selected.remove(&item_id);
+                if self.overrides.get(&item_id) == Some(&action_id) {
+                    self.overrides.remove(&item_id);
+                }
             }
             ActionEvent::Failed { item_id, error, .. } => {
                 c.failed += 1;
@@ -1002,6 +1142,17 @@ impl UiState {
             .is_some_and(|a| a.risk != RiskLevel::Safe)
     }
 
+    /// Swap an item for a fresh analysis of it (none when nothing is left).
+    /// Ids are new, so selection and action overrides on the old one go.
+    pub fn replace_item(&mut self, id: Uuid, fresh: Vec<CleanableItem>) {
+        let Some(pos) = self.items.iter().position(|i| i.id == id) else {
+            return;
+        };
+        self.items.splice(pos..=pos, fresh);
+        self.selected.remove(&id);
+        self.overrides.remove(&id);
+    }
+
     /// Guard's automatic cleanup removed this path; drop it so Results match disk.
     pub fn remove_path(&mut self, path: &Path) {
         let gone: Vec<Uuid> = self
@@ -1049,6 +1200,8 @@ mod tests {
             staleness_threshold_days: 30,
             ..Default::default()
         };
+        // Fixtures mostly carry no age; tests of the stale filter turn it on.
+        config.ui.stale_only = false;
         config.ai.worktree_idle_days = 3;
         config.ai.agent_data_retention_days = 30;
         let mut s = UiState::new(config);
@@ -1285,7 +1438,7 @@ mod tests {
         let big = cleanable("/u/big", 100);
         s.items = vec![small.clone(), big.clone()];
         assert_eq!(s.items_in_order(), [big.id, small.id]);
-        s.sort = SortKey::Name;
+        s.config.ui.sort = SortKey::Name;
         s.move_focus(1);
         assert_eq!(s.focused, Some(s.items_in_order()[0]));
         s.move_focus(1);
@@ -1406,6 +1559,119 @@ mod tests {
         });
         assert!(s.clean.is_none());
         assert_eq!(s.last_result.as_ref().unwrap().succeeded, 1);
+    }
+
+    #[test]
+    fn stale_only_is_the_default_and_hides_fresh_and_ageless_items() {
+        assert!(AppConfig::default().ui.stale_only);
+        let mut s = state();
+        s.config.ui.stale_only = true;
+        let mut old = cleanable("/u/old", 1);
+        old.days_stale = Some(31);
+        let mut fresh = cleanable("/u/fresh", 1);
+        fresh.days_stale = Some(30);
+        let ageless = cleanable("/u/docker", 1);
+        s.items = vec![old.clone(), fresh, ageless];
+        let ids: Vec<_> = s.visible_items().iter().map(|i| i.id).collect();
+        assert_eq!(ids, vec![old.id]);
+        assert_eq!(s.hidden_count(), 2);
+        assert_eq!(s.active_filter_count(), 1);
+
+        // A preset shows its own matches whatever their age.
+        s.apply_preset(PresetId::IdleWorktrees);
+        assert!(s.stale_only(), "a preset leaves the saved choice alone");
+        s.preset = None;
+
+        s.reset_filters();
+        assert!(!s.stale_only());
+        assert_eq!(s.visible_items().len(), 3);
+        assert_eq!(s.hidden_count(), 0);
+    }
+
+    #[test]
+    fn menus_open_one_at_a_time_and_escape_closes_them_first() {
+        let mut s = state();
+        let a = cleanable("/u/a", 1);
+        s.items = vec![a.clone()];
+        s.selected.insert(a.id);
+        s.toggle_menu(Menu::Filters);
+        assert_eq!(s.menu, Some(Menu::Filters));
+        s.move_menu_cursor(-1);
+        assert_eq!(s.menu_cursor, FilterRow::ALL.len() - 1, "wraps");
+        assert!(s.escape() && s.menu.is_none());
+        assert!(!s.selected.is_empty(), "the selection outlives the menu");
+        s.toggle_menu(Menu::Filters);
+        s.toggle_menu(Menu::Filters);
+        assert!(s.menu.is_none(), "the chip closes its own menu");
+    }
+
+    #[test]
+    fn a_partial_action_keeps_the_item_with_its_other_actions() {
+        let prune = |t: &str, bytes| {
+            action(
+                ActionMethod::DockerPrune {
+                    prune_type: t.into(),
+                },
+                RiskLevel::Safe,
+                bytes,
+            )
+        };
+        let mut s = state();
+        let mut docker = cleanable("/var/run/docker.sock", 300);
+        docker.available_actions = vec![prune("image", 100), prune("volume", 200)];
+        // Alternatives over one path: running either removes the item.
+        let mut dir = cleanable("/u/target", 50);
+        dir.available_actions
+            .push(action(command("cargo", &["clean"]), RiskLevel::Safe, 50));
+        s.items = vec![docker.clone(), dir.clone()];
+        s.selected.extend([docker.id, dir.id]);
+        let (images, volumes) = (
+            docker.available_actions[0].id,
+            docker.available_actions[1].id,
+        );
+        s.overrides.insert(docker.id, images);
+        s.begin_clean(&s.build_plan().selections());
+        let done = |s: &mut UiState, item_id, action_id| {
+            s.apply_action_event(ActionEvent::Completed {
+                item_id,
+                action_id,
+                bytes_freed: 0,
+                estimated_bytes: 0,
+            })
+        };
+
+        done(&mut s, docker.id, images);
+        let left = s.item(docker.id).expect("docker stays listed");
+        assert_eq!(left.available_actions.len(), 1);
+        assert_eq!(left.available_actions[0].id, volumes);
+        assert_eq!(left.size_bytes, 200);
+        assert!(!s.selected.contains(&docker.id));
+        assert!(!s.overrides.contains_key(&docker.id));
+
+        done(&mut s, dir.id, dir.available_actions[1].id);
+        assert!(s.item(dir.id).is_none());
+
+        done(&mut s, docker.id, volumes);
+        assert!(s.item(docker.id).is_none(), "last action removes it");
+    }
+
+    #[test]
+    fn a_refreshed_item_replaces_the_old_one_in_place() {
+        let mut s = state();
+        let (a, b, c) = (
+            cleanable("/u/a", 1),
+            cleanable("/u/b", 2),
+            cleanable("/u/c", 3),
+        );
+        s.items = vec![a.clone(), b.clone(), c.clone()];
+        s.selected.insert(b.id);
+        let fresh = cleanable("/u/b", 5);
+        s.replace_item(b.id, vec![fresh.clone()]);
+        let ids: Vec<_> = s.items.iter().map(|i| i.id).collect();
+        assert_eq!(ids, vec![a.id, fresh.id, c.id]);
+        assert!(!s.selected.contains(&b.id));
+        s.replace_item(fresh.id, vec![]);
+        assert_eq!(s.items.len(), 2);
     }
 
     #[test]

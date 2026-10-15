@@ -126,6 +126,40 @@ pub fn effective_risk(
         .unwrap_or(item.risk)
 }
 
+/// Whether running this action can leave the item with work still to do.
+///
+/// Most items offer alternative ways to remove one path, so once any of them
+/// runs the item is gone. A Docker prune clears one kind of resource and
+/// leaves the rest, so the item stays with its other actions.
+pub fn is_partial(action: &CleanAction) -> bool {
+    matches!(action.method, ActionMethod::DockerPrune { .. })
+}
+
+/// Account for a completed action: drop just that action when it was partial
+/// and others remain, otherwise drop the whole item. Returns true when the
+/// item is gone.
+pub fn retire_action(items: &mut Vec<CleanableItem>, item_id: Uuid, action_id: Uuid) -> bool {
+    let Some(pos) = items.iter().position(|i| i.id == item_id) else {
+        return true;
+    };
+    let item = &mut items[pos];
+    let done = item
+        .available_actions
+        .iter()
+        .position(|a| a.id == action_id);
+    if let Some(k) = done.filter(|&k| is_partial(&item.available_actions[k])) {
+        let action = item.available_actions.remove(k);
+        if !item.available_actions.is_empty() {
+            item.size_bytes = item
+                .size_bytes
+                .saturating_sub(action.estimated_savings_bytes);
+            return false;
+        }
+    }
+    items.remove(pos);
+    true
+}
+
 /// What an action physically does.
 ///
 /// For commands this is the literal command line. Void does not interpret

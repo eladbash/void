@@ -8,6 +8,7 @@ use deepclean_core::model::{ActionEvent, ActionMethod, CleanAction, CleanableIte
 use uuid::Uuid;
 
 use super::{Backend, UiEvent};
+use crate::model::actions::retire_action;
 
 /// What a finished batch did, for callers that wait on it (Guard mode).
 #[derive(Debug, Clone, Copy, Default)]
@@ -89,23 +90,32 @@ impl Backend {
         let start = std::time::Instant::now();
         let mut recorded: Vec<RunItem> = Vec::new();
         let mut outcome = BatchOutcome::default();
+        // Items a partial action left behind, re-analyzed once the batch ends.
+        let mut refresh: Vec<Uuid> = Vec::new();
 
         while let Some(event) = rx.recv().await {
             match &event {
                 ActionEvent::Completed {
                     item_id,
+                    action_id,
                     bytes_freed,
                     estimated_bytes,
-                    ..
                 } => {
                     let path = pending.get(item_id).map(|p| p.path.clone());
                     // Drop it from the authoritative list too, or a second
                     // clean could re-select something already gone. An
                     // unattended run cleaned items from its own scan, so
                     // they are matched on path as well as id.
-                    self.state.results().retain(|i| {
-                        i.id != *item_id && (interactive || Some(&i.path) != path.as_ref())
-                    });
+                    if interactive {
+                        let gone = retire_action(&mut self.state.results(), *item_id, *action_id);
+                        if !gone {
+                            refresh.push(*item_id);
+                        }
+                    } else {
+                        self.state
+                            .results()
+                            .retain(|i| i.id != *item_id && Some(&i.path) != path.as_ref());
+                    }
                     if !interactive {
                         if let Some(path) = path {
                             self.emit(UiEvent::GuardCleaned(path));
@@ -163,6 +173,9 @@ impl Backend {
             if interactive {
                 self.emit(UiEvent::Action(event));
             }
+        }
+        for item_id in refresh {
+            self.refresh_item(item_id);
         }
         outcome
     }

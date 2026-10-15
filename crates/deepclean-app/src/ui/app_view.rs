@@ -324,6 +324,7 @@ impl AppView {
                 }
                 UiEvent::GuardStatus(view) => self.guard = Some(view),
                 UiEvent::GuardCleaned(path) => self.ui.remove_path(&path),
+                UiEvent::ItemRefreshed { item_id, items } => self.ui.replace_item(item_id, items),
                 UiEvent::HistoryChanged => {
                     self.history = Some(self.backend.history_view());
                     self.ui.disk = self.backend.disk_usage();
@@ -408,6 +409,44 @@ impl AppView {
     pub(crate) fn changed(&mut self, cx: &mut Context<Self>) {
         self.rows_dirty = true;
         cx.notify();
+    }
+
+    /// Apply a row of the Filters menu, saving when it changed the config.
+    pub(crate) fn apply_filter_row(
+        &mut self,
+        row: crate::model::ui_state::FilterRow,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if row == crate::model::ui_state::FilterRow::ShowAll {
+            self.ui.menu = None;
+            return self.clear_filters(window, cx);
+        }
+        if self.ui.apply_filter_row(row) {
+            self.save_config(false, cx);
+        }
+        self.list.scroll_to(Default::default());
+        self.changed(cx);
+    }
+
+    /// A Group or Sort choice was made: save it and show the top of the list.
+    pub(crate) fn menu_choice_applied(&mut self, cx: &mut Context<Self>) {
+        self.list.scroll_to(Default::default());
+        self.save_config(false, cx);
+        self.changed(cx);
+    }
+
+    /// Show everything: every filter off, the search box emptied.
+    pub(crate) fn clear_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let stale_only = self.ui.stale_only();
+        self.ui.reset_filters();
+        self.filter_input
+            .update(cx, |s, cx| s.set_value("", window, cx));
+        if stale_only {
+            self.save_config(false, cx);
+        }
+        self.list.scroll_to(Default::default());
+        self.changed(cx);
     }
 
     pub(crate) fn show_toast(
@@ -798,7 +837,8 @@ impl AppView {
     fn on_dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // Overlays close first, innermost outwards; only then does Esc clear
         // a focused filter, as before.
-        let overlay = self.ui.show_confirm
+        let overlay = self.ui.menu.is_some()
+            || self.ui.show_confirm
             || self.ui.show_issues
             || self.ui.open_run.is_some()
             || self.ui.drawer.is_some();
@@ -864,13 +904,19 @@ impl AppView {
             }))
             .on_action(cx.listener(|this, _: &FocusNext, _, cx| this.move_focus(1, cx)))
             .on_action(cx.listener(|this, _: &FocusPrev, _, cx| this.move_focus(-1, cx)))
-            .on_action(cx.listener(|this, _: &ToggleFocused, _, cx| {
+            .on_action(cx.listener(|this, _: &ToggleFocused, window, cx| {
+                if this.ui.menu.is_some() {
+                    return this.activate_menu_cursor(window, cx);
+                }
                 if let (Route::Results, Some(id)) = (this.ui.route, this.ui.focused) {
                     this.ui.toggle_select(id);
                     this.changed(cx);
                 }
             }))
-            .on_action(cx.listener(|this, _: &OpenFocused, _, cx| {
+            .on_action(cx.listener(|this, _: &OpenFocused, window, cx| {
+                if this.ui.menu.is_some() {
+                    return this.activate_menu_cursor(window, cx);
+                }
                 if let (Route::Results, Some(id)) = (this.ui.route, this.ui.focused) {
                     this.ui.drawer = Some(id);
                     cx.notify();
@@ -886,7 +932,33 @@ impl AppView {
             }))
     }
 
+    /// Enter or space on the open menu's highlighted row.
+    fn activate_menu_cursor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        use crate::model::ui_state::{FilterRow, Menu, GROUPINGS, SORT_KEYS};
+        match self.ui.menu {
+            Some(Menu::Filters) => {
+                let row = FilterRow::ALL[self.ui.menu_cursor.min(FilterRow::ALL.len() - 1)];
+                self.apply_filter_row(row, window, cx);
+            }
+            Some(Menu::Group) => {
+                let g = GROUPINGS[self.ui.menu_cursor.min(GROUPINGS.len() - 1)];
+                self.ui.choose_grouping(g);
+                self.menu_choice_applied(cx);
+            }
+            Some(Menu::Sort) => {
+                let k = SORT_KEYS[self.ui.menu_cursor.min(SORT_KEYS.len() - 1)];
+                self.ui.choose_sort(k);
+                self.menu_choice_applied(cx);
+            }
+            None => {}
+        }
+    }
+
     fn move_focus(&mut self, delta: i32, cx: &mut Context<Self>) {
+        if self.ui.menu.is_some() {
+            self.ui.move_menu_cursor(delta);
+            return cx.notify();
+        }
         if self.ui.route != Route::Results || self.ui.show_confirm {
             return;
         }
@@ -1152,6 +1224,24 @@ impl Render for AppView {
                             }
                         }),
                 )
+                // An open dropdown takes the next click anywhere else: it
+                // closes the menu and goes no further, like a native menu.
+                .when(self.ui.menu.is_some(), |d| {
+                    d.child(
+                        div()
+                            .id("menu-scrim")
+                            .absolute()
+                            .inset_0()
+                            .occlude()
+                            .on_mouse_down(
+                                gpui_kit::MouseButton::Left,
+                                cx.listener(|this, _, _, cx| {
+                                    this.ui.menu = None;
+                                    cx.notify();
+                                }),
+                            ),
+                    )
+                })
                 .children(
                     (self.ui.route == Route::Results && self.ui.drawer.is_some())
                         .then(|| self.render_drawer(window, cx))

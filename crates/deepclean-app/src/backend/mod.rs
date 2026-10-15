@@ -16,7 +16,8 @@ use futures::channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 
 use deepclean_core::disk::DiskUsage;
 use deepclean_core::history::{CleanRun, History};
-use deepclean_core::model::{ActionEvent, ScanEvent};
+use deepclean_core::model::{ActionEvent, CleanableItem, ScanEvent};
+use uuid::Uuid;
 
 use crate::state::AppState;
 pub use guard::GuardView;
@@ -31,6 +32,12 @@ pub enum UiEvent {
     GuardStatus(GuardView),
     /// Guard's automatic cleanup removed this path.
     GuardCleaned(PathBuf),
+    /// An item was re-analyzed after a partial clean; `items` replace it
+    /// (empty when nothing is left).
+    ItemRefreshed {
+        item_id: Uuid,
+        items: Vec<CleanableItem>,
+    },
     HistoryChanged,
     Warning(String),
     Notify {

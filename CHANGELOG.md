@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-15
+
+Usability fixes to the Results list.
+
+### Added
+- A **Stale only** filter, on by default and remembered between launches: the list shows
+  only items untouched for longer than the staleness threshold (Settings → Scanning). Items
+  with no known age, such as Docker, are hidden by it too. Presets from Agents and the tray
+  ignore it
+- A **Deselect all** button next to Review & Clean whenever anything is selected
+
+### Changed
+- **Filters** opens a menu that explains each filter (Stale only, Large only, Show
+  everything) instead of silently toggling "large only". The chip names what is on
+  (`Stale · ≥1 GB`), and a `N hidden` chip shows what the filters hide and clears them in
+  one click
+- **Group** and **Sort** open a list of options with the current one checked, instead of
+  cycling on each click. The arrow keys, Enter and Esc work in the list
+- The sort order is saved like the grouping, instead of resetting to Size on every launch
+
+### Fixed
+- Cleaning one of several Docker prunes no longer removes the whole Docker row: only that
+  prune goes, and Docker is re-checked so the remaining prunes show accurate sizes
+- "Select all safe (N)" counts only the items it will actually select under the current
+  filters
+
 ## [1.2.0] - 2026-10-09
 
 The desktop app is now a native GPUI app instead of a Tauri webview.
@@ -168,7 +194,8 @@ Void cleans up after your AI agents — and your agents can call Void themselves
 - Tauri 2 desktop app with system tray integration
 - Configurable scan roots, ecosystems, and staleness thresholds
 
-[Unreleased]: https://github.com/eladbash/void/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/eladbash/void/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/eladbash/void/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/eladbash/void/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/eladbash/void/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/eladbash/void/compare/v0.1.2...v1.0.0
