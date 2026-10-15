@@ -18,7 +18,10 @@ use crate::model::format::{
     count, duration, format_bytes, percent, plural, relative_time, split_bytes, stale_short,
 };
 use crate::model::labels::{agent_name, eco_name, kind_label, project_label};
-use crate::model::ui_state::{grouping_label, next_grouping, RowState, ScannerStatus};
+use crate::model::ui_state::{
+    grouping_hint, grouping_label, sort_hint, sort_label, RowState, ScannerStatus, GROUPINGS,
+    SORT_KEYS,
+};
 use crate::model::ui_state::{FilterRow, Menu, Route, SettingsSection};
 
 impl AppView {
@@ -668,27 +671,22 @@ impl AppView {
             })
             .child(div().w(px(1.)).h(px(16.)).mx(px(8.)).bg(p.border_subtle))
             .child(
-                chip("group", false, &p)
-                    .child(format!("Group: {}", grouping_label(ui.config.ui.grouping)))
-                    .child(icon("chevron-down", px(13.), p.text_secondary))
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        let g = &mut this.ui.config.ui.grouping;
-                        *g = next_grouping(*g);
-                        this.ui.collapsed.clear();
-                        this.list.scroll_to(Default::default());
-                        this.save_config(false, cx);
-                        this.changed(cx);
-                    })),
+                self.menu_anchor(
+                    Menu::Group,
+                    chip("group", ui.menu == Some(Menu::Group), &p)
+                        .child(format!("Group: {}", grouping_label(ui.config.ui.grouping)))
+                        .child(icon("chevron-down", px(13.), p.text_secondary)),
+                    cx,
+                ),
             )
             .child(
-                chip("sort", false, &p)
-                    .child(ui.sort.label())
-                    .child(icon("chevron-down", px(13.), p.text_secondary))
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.ui.sort = this.ui.sort.next();
-                        this.list.scroll_to(Default::default());
-                        this.changed(cx);
-                    })),
+                self.menu_anchor(
+                    Menu::Sort,
+                    chip("sort", ui.menu == Some(Menu::Sort), &p)
+                        .child(format!("Sort: {}", sort_label(ui.config.ui.sort)))
+                        .child(icon("chevron-down", px(13.), p.text_secondary)),
+                    cx,
+                ),
             )
             .child(spacer())
             .child(
@@ -798,6 +796,48 @@ impl AppView {
                             })),
                     )
                     .into_any_element()
+            }
+            Menu::Group => {
+                let current = ui.config.ui.grouping;
+                let mut panel = menu_panel(&p).id("group-menu");
+                for (ix, g) in GROUPINGS.into_iter().enumerate() {
+                    panel = panel.child(
+                        menu_row(
+                            ("group-row", ix),
+                            Mark::Choice(g == current),
+                            grouping_label(g),
+                            Some(grouping_hint(g).into()),
+                            ix == cursor,
+                            &p,
+                        )
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.ui.choose_grouping(g);
+                            this.menu_choice_applied(cx);
+                        })),
+                    );
+                }
+                panel.into_any_element()
+            }
+            Menu::Sort => {
+                let current = ui.config.ui.sort;
+                let mut panel = menu_panel(&p).id("sort-menu");
+                for (ix, k) in SORT_KEYS.into_iter().enumerate() {
+                    panel = panel.child(
+                        menu_row(
+                            ("sort-row", ix),
+                            Mark::Choice(k == current),
+                            sort_label(k),
+                            Some(sort_hint(k).into()),
+                            ix == cursor,
+                            &p,
+                        )
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.ui.choose_sort(k);
+                            this.menu_choice_applied(cx);
+                        })),
+                    );
+                }
+                panel.into_any_element()
             }
         }
     }

@@ -8,13 +8,13 @@ use std::time::Duration;
 
 use gpui_kit::{Entity, TestAppContext, VisualTestContext};
 
-use deepclean_core::config::{AppConfig, Density, Theme};
+use deepclean_core::config::{AppConfig, Density, Grouping, Theme};
 use deepclean_core::model::{ArtifactKind, Ecosystem, RiskLevel};
 
 use super::app_view::{AppView, FolderPicker};
 use crate::backend::Backend;
 use crate::model::fixtures::*;
-use crate::model::ui_state::{Menu, PresetId, Route, SettingsSection};
+use crate::model::ui_state::{Menu, PresetId, Route, SettingsSection, SortKey};
 use crate::state::AppState;
 
 /// One seeded fake home for the whole test binary: the home override is
@@ -284,6 +284,53 @@ fn the_filters_menu_explains_and_toggles_each_filter(cx: &mut TestAppContext) {
     });
     assert!(!stale && !large && menu.is_none());
     assert_eq!(hidden, 0);
+}
+
+#[gpui_kit::test]
+fn group_and_sort_pick_from_a_list_and_are_saved(cx: &mut TestAppContext) {
+    let (view, cx, h) = open(cx, None, None);
+    fixture(&view, cx);
+    let open_menu = |view: &Entity<AppView>, cx: &mut VisualTestContext, menu| {
+        view.update(cx, |v, cx| {
+            v.ui.toggle_menu(menu);
+            cx.notify();
+        });
+        draw(cx);
+    };
+
+    open_menu(&view, cx, Menu::Sort);
+    assert_eq!(
+        view.read_with(cx, |v, _| v.ui.menu_cursor),
+        0,
+        "cursor on Size"
+    );
+    // Two down from Size is Name; Enter picks it once and closes the menu.
+    cx.simulate_keystrokes("down down enter");
+    draw(cx);
+    let (sort, menu) = view.read_with(cx, |v, _| (v.ui.config.ui.sort, v.ui.menu));
+    assert_eq!(sort, SortKey::Name);
+    assert_eq!(menu, None);
+
+    open_menu(&view, cx, Menu::Group);
+    cx.simulate_keystrokes("down escape");
+    let (grouping, menu) = view.read_with(cx, |v, _| (v.ui.config.ui.grouping, v.ui.menu));
+    assert_eq!(grouping, Grouping::Ecosystem, "Esc changes nothing");
+    assert_eq!(menu, None);
+
+    open_menu(&view, cx, Menu::Group);
+    cx.simulate_keystrokes("up enter");
+    draw(cx);
+    assert_eq!(
+        view.read_with(cx, |v, _| v.ui.config.ui.grouping),
+        Grouping::Risk
+    );
+
+    cx.run_until_parked();
+    cx.executor().advance_clock(Duration::from_millis(500));
+    cx.run_until_parked();
+    let saved = AppConfig::load(&h.config_dir.join(AppConfig::FILE_NAME)).0;
+    assert_eq!(saved.ui.sort, SortKey::Name);
+    assert_eq!(saved.ui.grouping, Grouping::Risk);
 }
 
 #[gpui_kit::test]

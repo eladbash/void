@@ -429,6 +429,13 @@ impl AppView {
         self.changed(cx);
     }
 
+    /// A Group or Sort choice was made: save it and show the top of the list.
+    pub(crate) fn menu_choice_applied(&mut self, cx: &mut Context<Self>) {
+        self.list.scroll_to(Default::default());
+        self.save_config(false, cx);
+        self.changed(cx);
+    }
+
     /// Show everything: every filter off, the search box emptied.
     pub(crate) fn clear_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let stale_only = self.ui.stale_only();
@@ -927,11 +934,21 @@ impl AppView {
 
     /// Enter or space on the open menu's highlighted row.
     fn activate_menu_cursor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        use crate::model::ui_state::{FilterRow, Menu};
+        use crate::model::ui_state::{FilterRow, Menu, GROUPINGS, SORT_KEYS};
         match self.ui.menu {
             Some(Menu::Filters) => {
                 let row = FilterRow::ALL[self.ui.menu_cursor.min(FilterRow::ALL.len() - 1)];
                 self.apply_filter_row(row, window, cx);
+            }
+            Some(Menu::Group) => {
+                let g = GROUPINGS[self.ui.menu_cursor.min(GROUPINGS.len() - 1)];
+                self.ui.choose_grouping(g);
+                self.menu_choice_applied(cx);
+            }
+            Some(Menu::Sort) => {
+                let k = SORT_KEYS[self.ui.menu_cursor.min(SORT_KEYS.len() - 1)];
+                self.ui.choose_sort(k);
+                self.menu_choice_applied(cx);
             }
             None => {}
         }

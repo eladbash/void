@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use chrono::{DateTime, Utc};
+pub use deepclean_core::config::SortKey;
 use deepclean_core::config::{AppConfig, Grouping};
 use deepclean_core::disk::DiskUsage;
 use deepclean_core::model::{
@@ -32,32 +33,24 @@ pub enum Route {
     Settings,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum SortKey {
-    #[default]
-    Size,
-    Stale,
-    Name,
-    Risk,
+pub const SORT_KEYS: [SortKey; 4] = [SortKey::Size, SortKey::Stale, SortKey::Name, SortKey::Risk];
+
+pub fn sort_label(k: SortKey) -> &'static str {
+    match k {
+        SortKey::Size => "Size",
+        SortKey::Stale => "Last modified",
+        SortKey::Name => "Name",
+        SortKey::Risk => "Risk",
+    }
 }
 
-impl SortKey {
-    pub fn next(self) -> Self {
-        match self {
-            Self::Size => Self::Stale,
-            Self::Stale => Self::Name,
-            Self::Name => Self::Risk,
-            Self::Risk => Self::Size,
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Size => "Size",
-            Self::Stale => "Last modified",
-            Self::Name => "Name",
-            Self::Risk => "Risk",
-        }
+/// The order each sort produces, shown under its name in the menu.
+pub fn sort_hint(k: SortKey) -> &'static str {
+    match k {
+        SortKey::Size => "Largest first",
+        SortKey::Stale => "Longest untouched first",
+        SortKey::Name => "A to Z by kind",
+        SortKey::Risk => "Riskiest first",
     }
 }
 
@@ -65,6 +58,8 @@ impl SortKey {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Menu {
     Filters,
+    Group,
+    Sort,
 }
 
 /// Rows of the Filters menu, in display order.
@@ -79,11 +74,13 @@ impl FilterRow {
     pub const ALL: [FilterRow; 3] = [Self::StaleOnly, Self::LargeOnly, Self::ShowAll];
 }
 
-pub fn next_grouping(g: Grouping) -> Grouping {
+pub const GROUPINGS: [Grouping; 3] = [Grouping::Ecosystem, Grouping::Project, Grouping::Risk];
+
+pub fn grouping_hint(g: Grouping) -> &'static str {
     match g {
-        Grouping::Ecosystem => Grouping::Project,
-        Grouping::Project => Grouping::Risk,
-        Grouping::Risk => Grouping::Ecosystem,
+        Grouping::Ecosystem => "By tool: Node, Rust, Docker…",
+        Grouping::Project => "By the project folder each item belongs to",
+        Grouping::Risk => "Safe, Caution, Danger",
     }
 }
 
@@ -275,7 +272,6 @@ pub struct UiState {
     pub filter: String,
     pub large_only: bool,
     pub preset: Option<Preset>,
-    pub sort: SortKey,
     pub collapsed: HashSet<String>,
 
     pub focused: Option<Uuid>,
@@ -362,7 +358,6 @@ impl UiState {
             filter: String::new(),
             large_only: false,
             preset: None,
-            sort: SortKey::Size,
             collapsed: HashSet::new(),
             focused: None,
             menu: None,
@@ -494,14 +489,41 @@ impl UiState {
             return;
         }
         self.menu = Some(menu);
-        self.menu_cursor = 0;
+        self.menu_cursor = match menu {
+            Menu::Filters => 0,
+            Menu::Group => GROUPINGS
+                .iter()
+                .position(|g| *g == self.config.ui.grouping)
+                .unwrap_or(0),
+            Menu::Sort => SORT_KEYS
+                .iter()
+                .position(|k| *k == self.config.ui.sort)
+                .unwrap_or(0),
+        };
     }
 
     pub fn menu_len(&self) -> usize {
         match self.menu {
             Some(Menu::Filters) => FilterRow::ALL.len(),
+            Some(Menu::Group) => GROUPINGS.len(),
+            Some(Menu::Sort) => SORT_KEYS.len(),
             None => 0,
         }
+    }
+
+    /// Pick a grouping from the Group menu, which closes it. Both choices
+    /// are saved, so the caller persists the config.
+    pub fn choose_grouping(&mut self, g: Grouping) {
+        if self.config.ui.grouping != g {
+            self.config.ui.grouping = g;
+            self.collapsed.clear();
+        }
+        self.menu = None;
+    }
+
+    pub fn choose_sort(&mut self, k: SortKey) {
+        self.config.ui.sort = k;
+        self.menu = None;
     }
 
     pub fn move_menu_cursor(&mut self, delta: i32) {
@@ -626,7 +648,7 @@ impl UiState {
     }
 
     fn sort_items(&self, items: &mut [&CleanableItem]) {
-        match self.sort {
+        match self.config.ui.sort {
             SortKey::Stale => items
                 .sort_by_key(|i| std::cmp::Reverse(i.days_stale.map(|d| d as i64).unwrap_or(-1))),
             SortKey::Name => items.sort_by_key(|i| kind_label(i).to_lowercase()),
@@ -1414,7 +1436,7 @@ mod tests {
         let big = cleanable("/u/big", 100);
         s.items = vec![small.clone(), big.clone()];
         assert_eq!(s.items_in_order(), [big.id, small.id]);
-        s.sort = SortKey::Name;
+        s.config.ui.sort = SortKey::Name;
         s.move_focus(1);
         assert_eq!(s.focused, Some(s.items_in_order()[0]));
         s.move_focus(1);
