@@ -61,6 +61,24 @@ impl SortKey {
     }
 }
 
+/// A toolbar dropdown. One is open at a time; Esc or a click outside closes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Menu {
+    Filters,
+}
+
+/// Rows of the Filters menu, in display order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterRow {
+    StaleOnly,
+    LargeOnly,
+    ShowAll,
+}
+
+impl FilterRow {
+    pub const ALL: [FilterRow; 3] = [Self::StaleOnly, Self::LargeOnly, Self::ShowAll];
+}
+
 pub fn next_grouping(g: Grouping) -> Grouping {
     match g {
         Grouping::Ecosystem => Grouping::Project,
@@ -261,6 +279,9 @@ pub struct UiState {
     pub collapsed: HashSet<String>,
 
     pub focused: Option<Uuid>,
+    pub menu: Option<Menu>,
+    /// The highlighted row of the open menu, for the arrow keys.
+    pub menu_cursor: usize,
     pub drawer: Option<Uuid>,
     pub show_confirm: bool,
     pub show_issues: bool,
@@ -344,6 +365,8 @@ impl UiState {
             sort: SortKey::Size,
             collapsed: HashSet::new(),
             focused: None,
+            menu: None,
+            menu_cursor: 0,
             drawer: None,
             show_confirm: false,
             show_issues: false,
@@ -443,6 +466,69 @@ impl UiState {
         self.large_only = false;
         self.preset = None;
         self.filter.clear();
+    }
+
+    /// The Filters chip's label: what is on, not how many.
+    pub fn filter_summary(&self) -> String {
+        let mut on = vec![];
+        if self.stale_only() {
+            on.push("Stale");
+        }
+        if self.large_only {
+            on.push("≥1 GB");
+        }
+        if on.is_empty() {
+            "Filters".into()
+        } else {
+            on.join(" · ")
+        }
+    }
+
+    // ── Menus ───────────────────────────────────────────────────────────
+
+    /// Open `menu`, or close it when it is already open. The cursor starts
+    /// on the current choice.
+    pub fn toggle_menu(&mut self, menu: Menu) {
+        if self.menu == Some(menu) {
+            self.menu = None;
+            return;
+        }
+        self.menu = Some(menu);
+        self.menu_cursor = 0;
+    }
+
+    pub fn menu_len(&self) -> usize {
+        match self.menu {
+            Some(Menu::Filters) => FilterRow::ALL.len(),
+            None => 0,
+        }
+    }
+
+    pub fn move_menu_cursor(&mut self, delta: i32) {
+        let n = self.menu_len() as i32;
+        if n > 0 {
+            self.menu_cursor = (self.menu_cursor as i32 + delta).rem_euclid(n) as usize;
+        }
+    }
+
+    /// Apply a Filters row. Returns true when the saved config changed.
+    pub fn apply_filter_row(&mut self, row: FilterRow) -> bool {
+        match row {
+            FilterRow::StaleOnly => {
+                self.config.ui.stale_only = !self.config.ui.stale_only;
+                true
+            }
+            FilterRow::LargeOnly => {
+                self.large_only = !self.large_only;
+                false
+            }
+            FilterRow::ShowAll => {
+                let saved = self.stale_only();
+                self.reset_filters();
+                self.menu = None;
+                saved
+            }
+        }
     }
 
     pub fn apply_preset(&mut self, id: PresetId) {
@@ -717,7 +803,9 @@ impl UiState {
     /// Esc closes the innermost thing that is open. Returns what it did so
     /// the view can clear a focused text field when nothing else applied.
     pub fn escape(&mut self) -> bool {
-        if self.show_confirm {
+        if self.menu.is_some() {
+            self.menu = None;
+        } else if self.show_confirm {
             self.show_confirm = false;
             self.confirm_only = None;
         } else if self.show_issues {
@@ -1474,6 +1562,23 @@ mod tests {
         assert!(!s.stale_only());
         assert_eq!(s.visible_items().len(), 3);
         assert_eq!(s.hidden_count(), 0);
+    }
+
+    #[test]
+    fn menus_open_one_at_a_time_and_escape_closes_them_first() {
+        let mut s = state();
+        let a = cleanable("/u/a", 1);
+        s.items = vec![a.clone()];
+        s.selected.insert(a.id);
+        s.toggle_menu(Menu::Filters);
+        assert_eq!(s.menu, Some(Menu::Filters));
+        s.move_menu_cursor(-1);
+        assert_eq!(s.menu_cursor, FilterRow::ALL.len() - 1, "wraps");
+        assert!(s.escape() && s.menu.is_none());
+        assert!(!s.selected.is_empty(), "the selection outlives the menu");
+        s.toggle_menu(Menu::Filters);
+        s.toggle_menu(Menu::Filters);
+        assert!(s.menu.is_none(), "the chip closes its own menu");
     }
 
     #[test]

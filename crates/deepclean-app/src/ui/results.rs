@@ -2,7 +2,9 @@
 
 use gpui_kit::component::input::Input;
 use gpui_kit::component::Sizable;
-use gpui_kit::{div, list, prelude::*, px, AnyElement, Context, FontWeight, Window};
+use gpui_kit::{
+    anchored, deferred, div, list, prelude::*, px, AnyElement, Context, FontWeight, Window,
+};
 use uuid::Uuid;
 
 use deepclean_core::model::{CleanableItem, Ecosystem, RiskLevel};
@@ -16,8 +18,8 @@ use crate::model::format::{
     count, duration, format_bytes, percent, plural, relative_time, split_bytes, stale_short,
 };
 use crate::model::labels::{agent_name, eco_name, kind_label, project_label};
-use crate::model::ui_state::Route;
 use crate::model::ui_state::{grouping_label, next_grouping, RowState, ScannerStatus};
+use crate::model::ui_state::{FilterRow, Menu, Route, SettingsSection};
 
 impl AppView {
     pub(crate) fn render_results(
@@ -589,6 +591,7 @@ impl AppView {
         let p = self.p;
         let ui = &self.ui;
         let n = ui.active_filter_count();
+        let hidden = ui.hidden_count();
         div()
             .h(px(TOOLBAR_H))
             .flex_none()
@@ -609,25 +612,44 @@ impl AppView {
                 ),
             )
             .child(
-                chip("filters", n > 0, &p)
-                    .child(icon(
-                        "filter",
-                        px(13.),
-                        if n > 0 {
-                            p.accent_text
-                        } else {
-                            p.text_secondary
-                        },
-                    ))
-                    .child("Filters")
-                    .when(n > 0, |d| d.child(countpill(n.to_string(), &p)))
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        // Cycles the one filter that matters most without a
-                        // popover: large items.
-                        this.ui.large_only = !this.ui.large_only;
-                        this.changed(cx);
-                    })),
+                self.menu_anchor(
+                    Menu::Filters,
+                    chip("filters", n > 0, &p)
+                        .child(icon(
+                            "filter",
+                            px(13.),
+                            if n > 0 {
+                                p.accent_text
+                            } else {
+                                p.text_secondary
+                            },
+                        ))
+                        .child(ui.filter_summary())
+                        .child(icon(
+                            "chevron-down",
+                            px(13.),
+                            if n > 0 {
+                                p.accent_text
+                            } else {
+                                p.text_secondary
+                            },
+                        ))
+                        .tooltip_text("Choose which items the list shows"),
+                    cx,
+                ),
             )
+            .when(hidden > 0 && ui.has_scanned, |d| {
+                d.child(
+                    chip_quiet("show-hidden", &p)
+                        .h(px(24.))
+                        .px(px(8.))
+                        .child(format!("{} hidden", count(hidden)))
+                        .tooltip_text("Hidden by filters or search. Click to show everything.")
+                        .on_click(
+                            cx.listener(|this, _, window, cx| this.clear_filters(window, cx)),
+                        ),
+                )
+            })
             .when_some(ui.preset.as_ref(), |d, preset| {
                 let label = match preset.min_days {
                     Some(days) => format!("{} · {}+ days", preset.label, count(days as usize)),
@@ -682,6 +704,102 @@ impl AppView {
                         this.changed(cx);
                     })),
             )
+    }
+
+    /// `trigger` opens `menu` in a panel just below it.
+    fn menu_anchor(
+        &self,
+        menu: Menu,
+        trigger: gpui_kit::Stateful<gpui_kit::Div>,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let open = self.ui.menu == Some(menu);
+        div()
+            .relative()
+            .flex_none()
+            .child(trigger.on_click(cx.listener(move |this, _, _, cx| {
+                this.ui.toggle_menu(menu);
+                cx.notify();
+            })))
+            .when(open, |d| {
+                d.child(
+                    div().absolute().top(px(28.)).left_0().child(
+                        deferred(
+                            anchored()
+                                .snap_to_window_with_margin(px(8.))
+                                .child(self.render_menu(menu, cx)),
+                        )
+                        .with_priority(1),
+                    ),
+                )
+            })
+    }
+
+    fn render_menu(&self, menu: Menu, cx: &mut Context<Self>) -> AnyElement {
+        let p = self.p;
+        let ui = &self.ui;
+        let cursor = ui.menu_cursor;
+        match menu {
+            Menu::Filters => {
+                let days = ui.config.staleness_threshold_days;
+                let mut panel = menu_panel(&p).id("filters-menu");
+                for (ix, row) in FilterRow::ALL.into_iter().enumerate() {
+                    let (mark, label, hint) = match row {
+                        FilterRow::StaleOnly => (
+                            Mark::Toggle(ui.stale_only()),
+                            "Stale only",
+                            format!(
+                                "Untouched for more than {days} days. Items with no known age, like Docker, are hidden too."
+                            ),
+                        ),
+                        FilterRow::LargeOnly => (
+                            Mark::Toggle(ui.large_only),
+                            "Large only",
+                            "1 GB or more".to_string(),
+                        ),
+                        FilterRow::ShowAll => (
+                            Mark::None,
+                            "Show everything",
+                            "Turn off every filter and clear the search".to_string(),
+                        ),
+                    };
+                    if row == FilterRow::ShowAll {
+                        panel = panel.child(menu_divider(&p));
+                    }
+                    panel = panel.child(
+                        menu_row(
+                            ("filter-row", ix),
+                            mark,
+                            label,
+                            Some(hint.into()),
+                            ix == cursor,
+                            &p,
+                        )
+                        .on_click(cx.listener(
+                            move |this, _, window, cx| this.apply_filter_row(row, window, cx),
+                        )),
+                    );
+                }
+                panel
+                    .child(
+                        div()
+                            .id("filters-settings")
+                            .px(px(8.))
+                            .pt(px(2.))
+                            .pb(px(4.))
+                            .t_caption()
+                            .text_color(p.accent_text)
+                            .cursor_pointer()
+                            .child("Change the stale threshold in Settings")
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.ui.menu = None;
+                                this.ui.settings_section = SettingsSection::Scanning;
+                                this.navigate(Route::Settings, cx);
+                            })),
+                    )
+                    .into_any_element()
+            }
+        }
     }
 
     fn table_head(&self) -> impl IntoElement {

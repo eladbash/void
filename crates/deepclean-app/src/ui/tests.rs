@@ -14,7 +14,7 @@ use deepclean_core::model::{ArtifactKind, Ecosystem, RiskLevel};
 use super::app_view::{AppView, FolderPicker};
 use crate::backend::Backend;
 use crate::model::fixtures::*;
-use crate::model::ui_state::{PresetId, Route, SettingsSection};
+use crate::model::ui_state::{Menu, PresetId, Route, SettingsSection};
 use crate::state::AppState;
 
 /// One seeded fake home for the whole test binary: the home override is
@@ -224,6 +224,66 @@ fn keyboard_moves_selects_opens_and_escapes(cx: &mut TestAppContext) {
     assert!(!view.read_with(cx, |v, _| v.ui.show_confirm));
     cx.simulate_keystrokes("secondary-shift-e");
     assert!(view.read_with(cx, |v, _| !v.ui.collapsed.is_empty()));
+}
+
+#[gpui_kit::test]
+fn the_filters_menu_explains_and_toggles_each_filter(cx: &mut TestAppContext) {
+    let (view, cx, _h) = open(cx, None, None);
+    let (_, _, danger) = fixture(&view, cx);
+    view.update(cx, |v, cx| {
+        // A fresh item: hidden by the default Stale only.
+        let mut fresh = cleanable("/u/fresh", 5_000_000_000);
+        fresh.days_stale = Some(1);
+        v.ui.items.push(fresh);
+        v.changed(cx);
+    });
+    draw(cx);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.hidden_count()), 1);
+    assert_eq!(view.read_with(cx, |v, _| v.ui.filter_summary()), "Stale");
+
+    view.update(cx, |v, cx| {
+        v.ui.toggle_menu(Menu::Filters);
+        cx.notify();
+    });
+    draw(cx);
+    // Down to Large only, toggle it; the menu stays open for more changes.
+    cx.simulate_keystrokes("down space");
+    draw(cx);
+    let (large, menu) = view.read_with(cx, |v, _| (v.ui.large_only, v.ui.menu));
+    assert!(large);
+    assert_eq!(menu, Some(Menu::Filters));
+    assert_eq!(
+        view.read_with(cx, |v, _| v.ui.filter_summary()),
+        "Stale · ≥1 GB"
+    );
+    assert!(
+        view.read_with(cx, |v, _| v.ui.item(danger).is_some()
+            && !v.ui.visible_items().iter().any(|i| i.id == danger)),
+        "the 100 B item is hidden by Large only"
+    );
+
+    cx.simulate_keystrokes("escape");
+    let (menu, large) = view.read_with(cx, |v, _| (v.ui.menu, v.ui.large_only));
+    assert_eq!(menu, None, "Esc closes the menu first");
+    assert!(large, "and changes nothing");
+
+    // Show everything: the last row, reached by wrapping upwards.
+    view.update(cx, |v, cx| {
+        v.ui.toggle_menu(Menu::Filters);
+        cx.notify();
+    });
+    cx.simulate_keystrokes("up enter");
+    draw(cx);
+    let (stale, large, menu, hidden) = view.read_with(cx, |v, _| {
+        (
+            v.ui.stale_only(),
+            v.ui.large_only,
+            v.ui.menu,
+            v.ui.hidden_count(),
+        )
+    });
+    assert!(!stale && !large && menu.is_none());
+    assert_eq!(hidden, 0);
 }
 
 #[gpui_kit::test]

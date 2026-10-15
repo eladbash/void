@@ -598,3 +598,84 @@ pub fn mod_key() -> &'static str {
         "Ctrl+"
     }
 }
+
+/// The floating panel of a toolbar dropdown.
+pub fn menu_panel(p: &Palette) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .min_w(px(220.))
+        .max_w(px(320.))
+        .p(px(4.))
+        .rounded(px(RADIUS_SM + 2.))
+        .bg(p.surface_overlay)
+        .border_1()
+        .border_color(p.border_default)
+        .shadow_md()
+}
+
+/// How a menu row shows its state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mark {
+    /// One of several (Group, Sort): a checkmark on the current choice.
+    Choice(bool),
+    /// An independent switch (a filter): a checkbox.
+    Toggle(bool),
+    /// A command with no state ("Show everything").
+    None,
+}
+
+/// One row of a dropdown: mark, label, and an optional one-line explanation.
+/// `hot` is the keyboard cursor.
+pub fn menu_row(
+    id: impl Into<ElementId>,
+    mark: Mark,
+    label: impl Into<SharedString>,
+    hint: Option<SharedString>,
+    hot: bool,
+    p: &Palette,
+) -> Stateful<Div> {
+    let hover = p.state_hover;
+    let check = match mark {
+        Mark::Toggle(on) => checkbox(Some(on), false, p).mt(px(1.)),
+        Mark::Choice(on) => div()
+            .flex_none()
+            .size(px(14.))
+            .mt(px(1.))
+            .when(on, |d| d.child(icon("check", px(14.), p.accent_text))),
+        Mark::None => div().flex_none().size(px(14.)),
+    };
+    div()
+        .id(id.into())
+        .flex()
+        .items_start()
+        .gap(px(8.))
+        .px(px(8.))
+        .py(px(6.))
+        .rounded(px(RADIUS_XS + 1.))
+        .cursor_pointer()
+        .when(hot, |d| d.bg(hover))
+        .hover(move |s| s.bg(hover))
+        .child(check)
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(1.))
+                .min_w_0()
+                .child(
+                    div()
+                        .t_body_sm()
+                        .text_color(p.text_primary)
+                        .child(label.into()),
+                )
+                .when_some(hint, |d, hint| {
+                    d.child(div().t_caption().text_color(p.text_tertiary).child(hint))
+                }),
+        )
+}
+
+/// A thin rule between groups of menu rows.
+pub fn menu_divider(p: &Palette) -> Div {
+    div().h(px(1.)).mx(px(4.)).my(px(4.)).bg(p.border_subtle)
+}
