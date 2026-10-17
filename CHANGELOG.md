@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-17
+
+In-app updates, the `void` command bundled with the app, and results that are there at launch.
+
 ### Added
 - **Check for updates** in Settings → About, and an automatic check at most once a day (on by
   default, with a toggle to turn it off). It asks GitHub Releases for the newest stable version and

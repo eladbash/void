@@ -433,7 +433,8 @@ def fake_release(home, tamper=False):
     """A signed fake Void 9.0.0 release in the sandbox, and the environment
     that points the app's update check, key and install target at it."""
     rel = os.path.join(home, "fake-release")
-    args = [VOID_CLI, "dev", "release", rel, "--version", "9.0.0"] + (["--tamper"] if tamper else [])
+    args = [VOID_CLI, "dev", "release", rel, "--version", "9.0.0", "--installed", "1.2.1"]
+    args += ["--tamper"] if tamper else []
     subprocess.run(args, check=True, stdout=subprocess.DEVNULL)
     return {
         "VOID_UPDATE_FEED": os.path.join(rel, "releases.json"),
