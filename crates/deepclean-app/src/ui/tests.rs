@@ -868,9 +868,12 @@ fn a_relaunch_opens_to_the_last_scan_and_refreshes_it_keeping_the_selection(
     assert!(refreshing, "and is refreshed in the background");
     draw(vcx);
 
-    // Selecting while it refreshes survives the merge, by path.
-    let (id, first) = first.unwrap();
+    // Selecting while it refreshes survives the merge, by path. Pick the
+    // item by path at selection time: on a fast machine the refresh may
+    // already have swapped in new ids.
+    let (_, first) = first.unwrap();
     view.update(vcx, |v, cx| {
+        let id = v.ui.items.iter().find(|i| i.path == first).unwrap().id;
         v.ui.selected.insert(id);
         v.ui.filter = "a".into();
         cx.notify();
