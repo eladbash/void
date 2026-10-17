@@ -60,6 +60,8 @@ pub struct UiPrefs {
     pub prefer_trash: bool,
     pub launch_at_login: bool,
     pub show_menu_bar_icon: bool,
+    /// Open to the last scan, and refresh it in the background at launch.
+    pub rescan_on_launch: bool,
 }
 
 impl Default for UiPrefs {
@@ -74,6 +76,7 @@ impl Default for UiPrefs {
             prefer_trash: true,
             launch_at_login: false,
             show_menu_bar_icon: true,
+            rescan_on_launch: true,
         }
     }
 }

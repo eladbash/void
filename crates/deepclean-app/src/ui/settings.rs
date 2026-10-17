@@ -944,6 +944,17 @@ impl AppView {
                 },
             ))
             .child(self.switch_row(
+                "toggle-rescan",
+                "Refresh results at launch",
+                "Void opens to your last scan and rescans in the background.",
+                ui.rescan_on_launch,
+                cx,
+                |this, cx| {
+                    this.ui.config.ui.rescan_on_launch = !this.ui.config.ui.rescan_on_launch;
+                    this.save_config(false, cx);
+                },
+            ))
+            .child(self.switch_row(
                 "toggle-menu-bar",
                 "Show menu bar icon",
                 "Free space and quick actions, one click away.",

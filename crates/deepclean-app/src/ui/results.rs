@@ -35,7 +35,17 @@ impl AppView {
         let visible = ui.visible_items().len();
         let show_empty = !ui.has_scanned || visible == 0;
 
-        let sub = if ui.scanning {
+        let sub = if ui.refreshing {
+            // Last launch's results, being refreshed in the background.
+            let when = ui
+                .last_scan_at
+                .map(|t| relative_time(t, chrono::Utc::now()))
+                .unwrap_or_else(|| "earlier".into());
+            format!(
+                "{} items · scanned {when} · refreshing…",
+                count(ui.items.len())
+            )
+        } else if ui.scanning {
             format!(
                 "Scanning · {} paths · {} found",
                 count(ui.paths_scanned as usize),
@@ -63,7 +73,7 @@ impl AppView {
         if ui.has_scanned && !ui.denied_paths.is_empty() && !ui.scanning {
             col = col.child(self.banner(cx));
         }
-        if ui.scanning && !ui.scanner_status.is_empty() {
+        if ui.scanning && !ui.refreshing && !ui.scanner_status.is_empty() {
             col = col.child(self.ticker());
         }
         // Kept while a filter matches nothing: the filter field lives here,

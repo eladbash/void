@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Ed25519 release key whose public half ships in the app
 
 ### Changed
+- Void opens to your last scan instead of an empty screen ("36 items · scanned 2h ago"), and
+  refreshes it in the background. Rows, selection and filters stay put while it does, and anything
+  that disappeared drops out when it finishes. Turn the refresh off in Settings → General. The
+  cache is only for display: every clean re-checks its safety gates when it runs, and a cache from
+  another version or for other folders is ignored
 - The desktop app ships the `void` CLI inside it (`Void.app/Contents/MacOS`, the Windows install
   folder, `/usr/bin` in the `.deb` and AppImage), so **Install hooks** and **MCP** on the Agents
   screen work without Rust. A new **Install void command** puts it on your `PATH`: a link that

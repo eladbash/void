@@ -4,6 +4,7 @@
 //! owns and report progress as [`UiEvent`]s on a channel the window drains.
 //! A send to a closed channel (the window is gone) is simply dropped.
 
+pub mod cache;
 pub mod clean;
 pub mod guard;
 pub mod integrations;

@@ -80,11 +80,20 @@ fn open<'a>(
     config: Option<&str>,
     answer: Option<PathBuf>,
 ) -> (Entity<AppView>, &'a mut VisualTestContext, Harness) {
-    let home = home().clone();
     let config_dir = tempfile::tempdir().unwrap().keep();
     if let Some(text) = config {
         std::fs::write(config_dir.join(AppConfig::FILE_NAME), text).unwrap();
     }
+    open_in(cx, config_dir, answer)
+}
+
+/// Open the window on an existing config folder, as a relaunch would.
+fn open_in(
+    cx: &mut TestAppContext,
+    config_dir: PathBuf,
+    answer: Option<PathBuf>,
+) -> (Entity<AppView>, &mut VisualTestContext, Harness) {
+    let home = home().clone();
     cx.update(|cx| {
         gpui_kit::init(cx);
         super::bind_keys(cx);
@@ -818,4 +827,72 @@ fn update_now_refuses_a_tampered_download_and_installs_a_verified_one(cx: &mut T
     }
     std::env::remove_var("VOID_UPDATE_KEY");
     std::env::remove_var("VOID_UPDATE_TARGET");
+}
+
+#[gpui_kit::test]
+fn a_relaunch_opens_to_the_last_scan_and_refreshes_it_keeping_the_selection(
+    cx: &mut TestAppContext,
+) {
+    // Scans and the cache write run on real tokio threads.
+    cx.executor().allow_parking();
+    let (view, vcx, h) = open(cx, None, None);
+    vcx.simulate_keystrokes("secondary-r");
+    settle(vcx, &view, |v| v.ui.has_scanned && !v.ui.scanning);
+    let found = view.read_with(vcx, |v, _| v.ui.items.len());
+    assert!(found > 0);
+    // The cache is written off the UI thread.
+    let cache = h.config_dir.join(crate::backend::cache::FILE_NAME);
+    for _ in 0..200 {
+        if cache.exists() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(cache.exists(), "scan cache was not written");
+
+    // "Relaunch": a new window on the same settings folder.
+    let (view, vcx, _h) = open_in(cx, h.config_dir.clone(), None);
+    // The fake home is shared, and another test cleans its node_modules
+    // folders; select something nothing else deletes.
+    let (items, refreshing, first) = view.read_with(vcx, |v, _| {
+        (
+            v.ui.items.len(),
+            v.ui.refreshing,
+            v.ui.items
+                .iter()
+                .find(|i| i.kind != ArtifactKind::NodeModules)
+                .map(|i| (i.id, i.path.clone())),
+        )
+    });
+    assert_eq!(items, found, "the last scan shows at once");
+    assert!(refreshing, "and is refreshed in the background");
+    draw(vcx);
+
+    // Selecting while it refreshes survives the merge, by path.
+    let (id, first) = first.unwrap();
+    view.update(vcx, |v, cx| {
+        v.ui.selected.insert(id);
+        v.ui.filter = "a".into();
+        cx.notify();
+    });
+    settle(vcx, &view, |v| !v.ui.scanning);
+    view.read_with(vcx, |v, _| {
+        assert!(!v.ui.refreshing);
+        assert_eq!(v.ui.filter, "a");
+        assert_eq!(v.ui.selected.len(), 1);
+        let id = *v.ui.selected.iter().next().unwrap();
+        assert_eq!(v.ui.item(id).map(|i| i.path.clone()), Some(first.clone()));
+    });
+}
+
+#[gpui_kit::test]
+fn a_corrupt_scan_cache_is_ignored(cx: &mut TestAppContext) {
+    let dir = tempfile::tempdir().unwrap().keep();
+    std::fs::write(dir.join(crate::backend::cache::FILE_NAME), "{ not json").unwrap();
+    let (view, vcx, _h) = open_in(cx, dir, None);
+    draw(vcx);
+    view.read_with(vcx, |v, _| {
+        assert!(!v.ui.has_scanned);
+        assert!(!v.ui.scanning);
+    });
 }

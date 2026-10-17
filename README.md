@@ -363,6 +363,10 @@ Beyond scan roots, ecosystems and thresholds, settings cover the AI features (wo
 days, agent data retention, stale project age, extra worktree roots, duplicate model detection)
 and Guard mode (interval, warning levels, auto-clean policies).
 
+The last scan is kept beside them in `scan-cache.json`, so Void opens to it and refreshes it in the
+background. It only decides what's shown at launch: every clean re-checks its safety gates when
+it runs, and a cache from another version or for other scan folders is ignored.
+
 Both files are safe to edit or delete by hand — a missing or unparseable file falls back to
 defaults rather than blocking launch.
 

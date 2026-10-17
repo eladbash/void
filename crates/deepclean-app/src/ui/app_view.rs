@@ -224,6 +224,14 @@ impl AppView {
 
         let mut ui = UiState::new(config);
         ui.disk = backend.disk_usage();
+        // Open to the last scan; a background rescan refreshes it below.
+        let cached = backend.load_scan_cache();
+        if let Some(cache) = &cached {
+            ui.items = cache.items.clone();
+            ui.has_scanned = true;
+            ui.last_scan_at = Some(cache.scanned_at);
+            ui.scan_duration_ms = cache.scan_duration_ms;
+        }
         let mut this = Self {
             ui,
             config_path: backend.state().config_path().display().to_string(),
@@ -279,6 +287,9 @@ impl AppView {
             this.show_toast(first, None, cx);
         }
         this.refresh_tray();
+        if cached.is_some() && this.ui.config.ui.rescan_on_launch {
+            this.start_refresh(cx);
+        }
         this.maybe_check_for_updates(cx);
         window.focus(&this.focus, cx);
         this
@@ -302,6 +313,8 @@ impl AppView {
         serde_json::json!({
             "route": format!("{:?}", self.ui.route),
             "scanning": self.ui.scanning,
+            "refreshing": self.ui.refreshing,
+            "last_scan_at": self.ui.last_scan_at.map(|t| t.to_rfc3339()),
             "has_scanned": self.ui.has_scanned,
             "items": self.ui.items.len(),
             "visible_items": self.ui.visible_items().len(),
@@ -391,11 +404,18 @@ impl AppView {
                     if done {
                         self.history = Some(self.backend.history_view());
                         self.ui.disk = self.backend.disk_usage();
+                        self.save_scan_cache();
                     }
                 }
                 UiEvent::GuardStatus(view) => self.guard = Some(view),
-                UiEvent::GuardCleaned(path) => self.ui.remove_path(&path),
-                UiEvent::ItemRefreshed { item_id, items } => self.ui.replace_item(item_id, items),
+                UiEvent::GuardCleaned(path) => {
+                    self.ui.remove_path(&path);
+                    self.save_scan_cache();
+                }
+                UiEvent::ItemRefreshed { item_id, items } => {
+                    self.ui.replace_item(item_id, items);
+                    self.save_scan_cache();
+                }
                 UiEvent::HistoryChanged => {
                     self.history = Some(self.backend.history_view());
                     self.ui.disk = self.backend.disk_usage();
@@ -435,6 +455,15 @@ impl AppView {
     fn after_scan(&mut self) {
         self.ui.disk = self.backend.disk_usage();
         self.agent_usage = Some(self.backend.agent_usage());
+        self.save_scan_cache();
+    }
+
+    /// Keep the next launch's view in step with this one.
+    pub(crate) fn save_scan_cache(&self) {
+        if let Some(at) = self.ui.last_scan_at {
+            self.backend
+                .save_scan_cache(self.ui.items.clone(), at, self.ui.scan_duration_ms);
+        }
     }
 
     fn throttled_notify(&mut self, cx: &mut Context<Self>) {
@@ -673,6 +702,20 @@ impl AppView {
             Err(err) => self.cli_error = Some(err),
         }
         cx.notify();
+    }
+
+    /// Rescan in the background, keeping the rows, selection and filters.
+    pub(crate) fn start_refresh(&mut self, cx: &mut Context<Self>) {
+        if self.ui.scanning || self.ui.clean.is_some() {
+            return;
+        }
+        self.ui.begin_refresh();
+        if let Err(err) = self.backend.refresh_scan() {
+            self.ui.scanning = false;
+            self.ui.refreshing = false;
+            self.ui.record_issue(err);
+        }
+        self.changed(cx);
     }
 
     pub(crate) fn start_scan(&mut self, cx: &mut Context<Self>) {
