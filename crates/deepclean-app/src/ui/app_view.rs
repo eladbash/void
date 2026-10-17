@@ -26,6 +26,7 @@ use super::theme::{Palette, RAIL_W};
 use super::*;
 use crate::backend::integrations::{self, HookView, McpSnippet};
 use crate::backend::{Backend, GuardView, HistoryView, UiEvent};
+use crate::drive::Effect;
 use crate::model::format::format_bytes;
 use crate::model::labels::kind_label;
 use crate::model::ui_state::{Excluded, PresetId, Route, SettingsSection, UiState};
@@ -67,6 +68,12 @@ pub type FolderPicker =
 
 pub fn native_folder_picker() -> FolderPicker {
     Rc::new(|cx: &mut App| {
+        if crate::drive::active() {
+            crate::drive::capture(Effect::FolderPicker);
+            let (tx, out) = futures::channel::oneshot::channel();
+            let _ = tx.send(None);
+            return out;
+        }
         let rx = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
@@ -257,6 +264,37 @@ impl AppView {
         this
     }
 
+    // ── Driver (scripts/drive.py) ───────────────────────────────────────
+
+    /// Work is still running that will change the screen.
+    #[cfg(feature = "drive")]
+    pub(crate) fn drive_busy(&self) -> bool {
+        self.ui.scanning
+            || self.guard_checking
+            || self.ui.clean.as_ref().is_some_and(|c| c.done() < c.total)
+    }
+
+    /// What is on screen, for scripts to assert on instead of pixels.
+    #[cfg(feature = "drive")]
+    pub(crate) fn drive_state(&self) -> serde_json::Value {
+        serde_json::json!({
+            "route": format!("{:?}", self.ui.route),
+            "scanning": self.ui.scanning,
+            "has_scanned": self.ui.has_scanned,
+            "items": self.ui.items.len(),
+            "visible_items": self.ui.visible_items().len(),
+            "selected": self.ui.selected.len(),
+            "filter": self.ui.filter,
+            "drawer": self.ui.drawer.is_some(),
+            "confirm": self.ui.show_confirm,
+            "menu": self.ui.menu.as_ref().map(|m| format!("{m:?}")),
+            "cleaning": self.ui.clean.is_some(),
+            "last_result": self.ui.last_result.is_some(),
+            "toast": self.toast.as_ref().map(|t| t.text.clone()),
+            "busy": self.drive_busy(),
+        })
+    }
+
     // ── Event pumps ─────────────────────────────────────────────────────
 
     fn pump_backend(mut events: UnboundedReceiver<UiEvent>, cx: &mut Context<Self>) -> Task<()> {
@@ -331,6 +369,9 @@ impl AppView {
                     self.guard = Some(self.backend.guard_view());
                 }
                 UiEvent::Warning(msg) => self.show_toast(msg, None, cx),
+                UiEvent::Notify { title, body } if crate::drive::active() => {
+                    crate::drive::capture(Effect::Notify { title, body })
+                }
                 UiEvent::Notify { title, body } => {
                     // Notification delivery can block on D-Bus or the
                     // notification centre; keep it off the UI thread.
@@ -661,12 +702,17 @@ impl AppView {
     }
 
     pub(crate) fn copy(&mut self, text: String, toast: &str, cx: &mut Context<Self>) {
-        cx.write_to_clipboard(ClipboardItem::new_string(text));
+        if crate::drive::active() {
+            crate::drive::capture(Effect::Clipboard(text));
+        } else {
+            cx.write_to_clipboard(ClipboardItem::new_string(text));
+        }
         self.show_toast(toast.into(), None, cx);
     }
 
     pub(crate) fn reveal(&mut self, id: Uuid, cx: &mut Context<Self>) {
         match crate::backend::clean::reveal_target(self.backend.state(), id) {
+            Ok(path) if crate::drive::active() => crate::drive::capture(Effect::Reveal(path)),
             Ok(path) => cx.reveal_path(&path),
             Err(err) => self.show_toast(err, None, cx),
         }

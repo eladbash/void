@@ -6,6 +6,12 @@
 For every PNG present in both directories, writes <out-dir>/<name> with the
 "before" image on the left and "after" on the right, at half size. macOS only
 (uses AppKit, which ships with the system Python's pyobjc).
+
+The runs come from scripts/drive.py, once per build being compared:
+
+    cargo build -p void-cli -p deepclean-app --features deepclean-app/drive
+    scripts/drive.py target/debug/void-app /tmp/after screens
+    scripts/compare.py /tmp/before /tmp/after /tmp/compare
 """
 
 import glob

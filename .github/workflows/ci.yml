@@ -36,6 +36,8 @@ jobs:
       - name: Install system dependencies
         run: ./scripts/linux-deps.sh
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      # The UI driver behind scripts/drive.py is behind a feature; lint it too.
+      - run: cargo clippy -p deepclean-app --all-targets --features drive -- -D warnings
 
   # Tests on every desktop platform. The app's window tests run on
   # GPUI's headless test platform, so no GPU or display is needed.

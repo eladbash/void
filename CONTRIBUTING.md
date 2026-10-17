@@ -55,8 +55,11 @@ VOID_HOME=/tmp/void-home cargo run -p deepclean-app                   # the real
 Trash all stay inside it, the window title says SANDBOX, and any action that could reach the
 real machine (Docker prunes, `ollama rm`, system caches) is dropped.
 
-For UI work on macOS, `python3 scripts/drive.py target/debug/void-app <out-dir>` runs the app in
-a fresh sandbox and saves a window screenshot per step (light and dark, both densities);
+For UI work on macOS, build with the driver
+(`cargo build -p void-cli -p deepclean-app --features deepclean-app/drive`), then
+`python3 scripts/drive.py target/debug/void-app <out-dir>` runs the app in a fresh sandbox and
+saves a window screenshot per step (light and dark, both densities). The window stays behind
+yours and never takes focus or input from you, so you can keep working while it runs.
 `scripts/compare.py <before> <after> <out>` pairs two runs side by side for review.
 
 ### Project Structure

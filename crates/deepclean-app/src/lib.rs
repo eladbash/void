@@ -1,4 +1,5 @@
 mod backend;
+mod drive;
 pub mod model;
 mod platform;
 mod state;
@@ -123,6 +124,10 @@ pub fn run() {
                     ..Default::default()
                 }),
                 app_id: Some("com.void.app".into()),
+                // A driven run stays out of the user's way: no focus, and on
+                // macOS it is ordered behind everything once open (see `drive`).
+                focus: !drive::active(),
+                show: !(drive::active() && cfg!(target_os = "macos")),
                 ..Default::default()
             };
             backend.spawn_guard_loop();
@@ -130,11 +135,16 @@ pub fn run() {
             let opened = gpui_kit::open_window(options, cx, move |window, cx| {
                 cx.new(|cx| AppView::new(backend, events, tray, native_folder_picker(), window, cx))
             });
-            if let Err(err) = opened {
-                // The entry point has no caller to hand an error to.
-                eprintln!("Void could not open its window: {err}");
-                std::process::exit(1);
-            }
+            let (_window, _view) = match opened {
+                Ok(opened) => opened,
+                Err(err) => {
+                    // The entry point has no caller to hand an error to.
+                    eprintln!("Void could not open its window: {err}");
+                    std::process::exit(1);
+                }
+            };
+            #[cfg(feature = "drive")]
+            drive::start(_window, _view, cx);
             // Closing the window quits, as the Tauri build did.
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {
@@ -142,6 +152,8 @@ pub fn run() {
                 }
             })
             .detach();
-            cx.activate(true);
+            if !drive::active() {
+                cx.activate(true);
+            }
         });
 }

@@ -5,117 +5,195 @@ screenshots of its window (never the rest of the screen).
     scripts/drive.py <app-binary> <out-dir> [scenario ...]
 
 Each run seeds a fresh sandbox home with `void dev seed`, writes the theme and
-density into its settings, launches the app with VOID_HOME pointing at it,
-sends keystrokes and clicks through System Events / cliclick, and saves
+density into its settings, launches the app with VOID_HOME pointing at it and
+VOID_DRIVE pointing at a socket inside it, and saves
 `<out-dir>/<scenario>-<theme>-<density>-<step>.png`.
 
-Needs: macOS, python3 with pyobjc (Quartz), cliclick, the `void` CLI built
-(target/debug/void), and Accessibility permission for the terminal.
+Input goes over that socket into the app's own event dispatch (see
+crates/deepclean-app/src/drive.rs), not through the OS: the window stays behind
+your other windows, never takes focus, and your keyboard, mouse and clipboard
+are left alone. You can keep working while it runs, and several runs (or other
+agents driving other apps) can run at once. Every step checks that the
+frontmost app and the mouse position did not change, and the run fails if they
+did.
+
+The binary must be built with the driver:
+
+    cargo build -p void-cli -p deepclean-app --features deepclean-app/drive
+
+Needs: macOS and python3 with pyobjc (Quartz, AppKit), which the system Python
+ships with. No Accessibility permission and no cliclick.
 """
 
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
 import time
 
 import Quartz
+from AppKit import NSWorkspace
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VOID_CLI = os.path.join(ROOT, "target", "debug", "void")
+STRICT = os.environ.get("DRIVE_STRICT") == "1"
 
 
-def windows_of(pid):
-    wins = Quartz.CGWindowListCopyWindowInfo(
-        Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
-        Quartz.kCGNullWindowID,
-    )
-    return [w for w in wins if w.get("kCGWindowOwnerPID") == pid and w.get("kCGWindowLayer") == 0]
+class DriveError(Exception):
+    pass
+
+
+def frontmost():
+    app = NSWorkspace.sharedWorkspace().frontmostApplication()
+    return app.processIdentifier() if app else None
+
+
+def mouse():
+    loc = Quartz.CGEventGetLocation(Quartz.CGEventCreate(None))
+    return (round(loc.x), round(loc.y))
 
 
 class App:
+    """One driven Void process. Points are window-relative, title bar included,
+    like the screenshots."""
+
     def __init__(self, binary, home, width=900, height=700):
         self.binary = binary
         self.home = home
         self.size = (width, height)
         self.proc = None
+        self.conn = None
+        self.titlebar = 0
+        self.window_id = None
+        self.steps = 0
+        self.intrusions = []
+
+    # ── Process and socket ──────────────────────────────────────────────
 
     def launch(self):
-        env = dict(os.environ, VOID_HOME=self.home)
-        self.proc = subprocess.Popen([self.binary], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(60):
-            time.sleep(0.5)
-            if windows_of(self.proc.pid):
+        sock = os.path.join(self.home, "drive.sock")
+        env = dict(os.environ, VOID_HOME=self.home, VOID_DRIVE=sock)
+        if not hasattr(self, "baseline"):
+            self.baseline = (frontmost(), mouse())
+        self.log = open(os.path.join(self.home, "app.log"), "w")
+        self.proc = subprocess.Popen([self.binary], env=env, stdout=self.log, stderr=self.log)
+        deadline = time.time() + 30
+        while True:
+            if self.proc.poll() is not None:
+                raise DriveError(f"app exited ({self.proc.returncode}); see {self.log.name}")
+            try:
+                s = socket.socket(socket.AF_UNIX)
+                s.connect(sock)
                 break
-        else:
-            raise SystemExit("app window never appeared")
-        time.sleep(1.5)
-        self.front()
+            except OSError:
+                if time.time() > deadline:
+                    raise DriveError("driver socket never came up: was the app built with --features drive?")
+                time.sleep(0.1)
+        self.conn = s.makefile("rw")
         self.resize(*self.size)
 
-    def front(self):
-        osa(f'tell application "System Events" to set frontmost of (first process whose unix id is {self.proc.pid}) to true')
-        time.sleep(0.3)
+    def call(self, cmd, **args):
+        self.conn.write(json.dumps(dict(args, cmd=cmd)) + "\n")
+        self.conn.flush()
+        line = self.conn.readline()
+        if not line:
+            raise DriveError(f"{cmd}: app closed the driver socket")
+        resp = json.loads(line)
+        self.check_hands_off(cmd)
+        if not resp.get("ok"):
+            raise DriveError(f"{cmd}: {resp.get('error')}")
+        return resp.get("result")
 
-    def resize(self, w, h):
-        osa(
-            f'tell application "System Events" to tell (first process whose unix id is {self.proc.pid}) '
-            f"to set size of window 1 to {{{w}, {h}}}"
-        )
-        osa(
-            f'tell application "System Events" to tell (first process whose unix id is {self.proc.pid}) '
-            f"to set position of window 1 to {{80, 80}}"
-        )
-        time.sleep(0.6)
+    def check_hands_off(self, cmd):
+        """The point of the driver: nothing outside the window changed.
 
-    def bounds(self):
-        w = max(windows_of(self.proc.pid), key=lambda w: w["kCGWindowBounds"]["Width"])
-        b = w["kCGWindowBounds"]
-        return w["kCGWindowNumber"], int(b["X"]), int(b["Y"]), int(b["Width"]), int(b["Height"])
-
-    def shot(self, path, settle=0.6):
-        time.sleep(settle)
-        wid = self.bounds()[0]
-        subprocess.run(["screencapture", "-x", "-o", "-l", str(wid), path], check=True)
-        print("  captured", os.path.basename(path))
-
-    def key(self, key, *mods, settle=0.4):
-        """key: a character, or a name like 'return', 'escape', 'down', 'up', 'space', 'tab'."""
-        self.front()
-        codes = {"return": 36, "escape": 53, "down": 125, "up": 126, "left": 123, "right": 124, "space": 49, "tab": 48}
-        using = ""
-        if mods:
-            using = " using {" + ", ".join(f"{m} down" for m in mods) + "}"
-        if key in codes:
-            osa(f'tell application "System Events" to key code {codes[key]}{using}')
-        else:
-            osa(f'tell application "System Events" to keystroke "{key}"{using}')
-        time.sleep(settle)
-
-    def type(self, text, settle=0.4):
-        self.front()
-        osa(f'tell application "System Events" to keystroke "{text}"')
-        time.sleep(settle)
-
-    def click(self, x, y, settle=0.5):
-        """Click at window-relative point (x, y) in points."""
-        _, wx, wy, _, _ = self.bounds()
-        subprocess.run(["cliclick", f"c:{int(wx + x)},{int(wy + y)}"], check=True)
-        time.sleep(settle)
+        Void must never become the frontmost app. With DRIVE_STRICT=1 (for a
+        run nobody touches the machine during) the frontmost app and the mouse
+        position must also stay exactly as they were at launch."""
+        self.steps += 1
+        front, pointer = frontmost(), mouse()
+        if front == self.proc.pid:
+            self.intrusions.append(f"{cmd}: Void became the frontmost app")
+        if STRICT and (front, pointer) != self.baseline:
+            self.intrusions.append(f"{cmd}: frontmost/mouse changed {self.baseline} → {(front, pointer)}")
 
     def quit(self):
-        if self.proc:
-            self.proc.terminate()
-            try:
-                self.proc.wait(5)
-            except subprocess.TimeoutExpired:
-                self.proc.kill()
+        if not self.proc:
+            return
+        try:
+            self.call("quit")
+        except (DriveError, OSError, ValueError):
+            pass
+        try:
+            self.proc.wait(5)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+        self.proc = None
 
+    # ── Window ──────────────────────────────────────────────────────────
 
-def osa(script):
-    subprocess.run(["osascript", "-e", script], check=True, stdout=subprocess.DEVNULL)
+    def info(self):
+        info = self.call("window_info")
+        self.window_id = info["window_id"]
+        b = self.bounds()
+        self.titlebar = round(b["Height"] - info["content_height"])
+        return info
+
+    def bounds(self):
+        # Right after launch the window server can lag AppKit by a moment.
+        deadline = time.time() + 5
+        while True:
+            wins = Quartz.CGWindowListCopyWindowInfo(Quartz.kCGWindowListOptionIncludingWindow, self.window_id)
+            if wins:
+                return wins[0]["kCGWindowBounds"]
+            if time.time() > deadline:
+                raise DriveError("window is gone")
+            time.sleep(0.1)
+
+    def resize(self, w, h):
+        """Window size in points, title bar included (as the screenshots are)."""
+        self.info()
+        self.call("resize", width=w, height=h - self.titlebar)
+        self.info()
+
+    def shot(self, path, settle=0.0):
+        if settle:
+            self.call("sleep", seconds=settle)
+        else:
+            self.call("frame")
+        subprocess.run(["screencapture", "-x", "-o", "-l", str(self.window_id), path], check=True)
+        print("  captured", os.path.basename(path))
+
+    # ── Input ───────────────────────────────────────────────────────────
+
+    def key(self, chord):
+        """A GPUI keystroke: "cmd-r", "alt-cmd-a", "down", "enter", "escape",
+        "space". Several chords separated by spaces run in turn."""
+        return self.call("key", keys=chord)
+
+    def type(self, text):
+        self.call("type", text=text)
+
+    def click(self, x, y):
+        """Click at window-relative point (x, y), title bar included."""
+        self.call("click", x=x, y=y - self.titlebar)
+
+    def wait_idle(self, timeout=30):
+        self.call("wait_idle", timeout=timeout)
+
+    def sleep(self, seconds):
+        self.call("sleep", seconds=seconds)
+
+    def state(self):
+        return self.call("state")
+
+    def outbox(self):
+        """Clipboard writes, notifications, Finder reveals and folder pickers
+        the app handed to the driver instead of the OS."""
+        return self.call("outbox")
 
 
 def seed(theme, density, extra=None):
@@ -136,17 +214,11 @@ def seed(theme, density, extra=None):
     return home
 
 
-
-def pixels(path):
-    """RGBA pixel reader for a screenshot, at the capture's pixel scale."""
-    from AppKit import NSBitmapImageRep
-    rep = NSBitmapImageRep.imageRepWithContentsOfFile_(path)
-    return rep
-
-
 def find_color(path, rgb, tol=24, step=3):
     """Centre (in window points) of the pixels close to `rgb`, or None."""
-    rep = pixels(path)
+    from AppKit import NSBitmapImageRep
+
+    rep = NSBitmapImageRep.imageRepWithContentsOfFile_(path)
     w, h = rep.pixelsWide(), rep.pixelsHigh()
     xs, ys = [], []
     for y in range(0, h, step):
@@ -164,59 +236,52 @@ def find_color(path, rgb, tol=24, step=3):
     return (xs[len(xs) // 2] / scale, ys[len(ys) // 2] / scale)
 
 
-def clipboard():
-    return subprocess.run(["pbpaste"], capture_output=True, text=True).stdout
-
-
-# Window-relative click targets (points) in the GPUI build at 900x700, with the
-# macOS title bar (28pt) included. Measured from its screenshots.
+# Window-relative click targets (points) at 900x700, title bar included.
+# Measured from the screenshots.
 SETTINGS_TABS = {
     "Scanning": 112, "Ecosystems": 198, "AI": 263, "Guard": 311,
     "Safety": 372, "Performance": 453, "General": 537, "About": 601,
 }
 TAB_Y = 105
+CHIPS_Y = 167
+FILTERS_X, HIDDEN_X, GROUP_X, SORT_X = 265, 351, 489, 615
 DANGER = {"light": (0xBF, 0x21, 0x45), "dark": (0xEF, 0x54, 0x6C)}
 
 
 # ── Scenarios ────────────────────────────────────────────────────────────────
-# Keyboard first: the shortcuts are part of the spec and identical in both
-# builds, so the same scenario drives the Tauri baseline and the GPUI app.
+# Keyboard first: the shortcuts are part of the spec.
 
 
 def screens(app, out):
     app.shot(out("01-results-empty"))
-    app.key("r", "command")
-    app.shot(out("02-results-scanning"), settle=0.2)
-    time.sleep(6)
+    app.key("cmd-r")
+    app.shot(out("02-results-scanning"))
+    app.wait_idle()
     app.shot(out("03-results"))
-    app.key("down")
-    app.key("down")
-    app.key("return")
+    app.key("down down enter")
     app.shot(out("04-drawer"))
     app.key("escape")
-    app.key("a", "command", "option")
+    app.key("alt-cmd-a")
     app.shot(out("05-selected-safe"))
-    app.key("return", "command")
+    app.key("cmd-enter")
     app.shot(out("06-confirm"))
     app.key("escape")
-    app.key("a", "command")
-    app.key("return", "command")
+    app.key("cmd-a")
+    app.key("cmd-enter")
     app.shot(out("07-confirm-danger"))
     app.key("escape")
-    app.key("a", "command", "shift")
-    app.key("2", "command")
-    time.sleep(1.5)
+    app.key("shift-cmd-a")
+    app.key("cmd-2")
+    app.wait_idle()
     app.shot(out("08-agents"))
-    app.key("3", "command")
+    app.key("cmd-3")
     app.shot(out("09-history-empty"))
-    app.key("4", "command")
+    app.key("cmd-4")
     app.shot(out("10-settings"))
-    app.key("1", "command")
-    app.key("d", "command")
+    app.key("cmd-1")
+    app.key("cmd-d")
     app.shot(out("11-results-toggled-density"))
-    app.key("d", "command")
-
-
+    app.key("cmd-d")
 
 
 def matrix(app, out, theme="dark"):
@@ -229,104 +294,124 @@ def matrix(app, out, theme="dark"):
         print(("  PASS " if ok else "  FAIL ") + name + (f" — {detail}" if detail and not ok else ""))
 
     app.shot(out("m01-empty"))
-    app.key("r", "command")
-    time.sleep(6)
+    app.key("cmd-r")
+    app.wait_idle()
+    st = app.state()
+    check("scan finds the seeded items", st["items"] > 0, st)
     app.shot(out("m02-results"))
 
-    # Group and sort chips cycle.
-    for i, label in enumerate(["project", "risk", "ecosystem"]):
-        app.click(457, 167)
+    # Group and Sort open a list; arrows and Enter pick the next option.
+    for label in ["next-1", "next-2", "back"]:
+        app.click(GROUP_X, CHIPS_Y)
+        check(f"Group opens its list ({label})", app.state()["menu"] is not None)
+        app.shot(out(f"m03-group-menu-{label}"))
+        app.key("down enter")
         app.shot(out(f"m03-group-{label}"))
-    for i, label in enumerate(["stale", "name", "risk", "size"]):
-        app.click(570, 167)
+    for label in ["next-1", "next-2", "next-3", "back"]:
+        app.click(SORT_X, CHIPS_Y)
+        check(f"Sort opens its list ({label})", app.state()["menu"] is not None)
+        app.key("down enter")
         app.shot(out(f"m04-sort-{label}"))
 
-    # Filters chip: large items only (the sandbox has none) → "No items match".
-    app.click(319, 167)
-    app.shot(out("m05-large-only"))
-    app.click(319, 167)
+    # Filters explains itself; "N hidden" clears the filters in one click.
+    app.click(FILTERS_X, CHIPS_Y)
+    check("Filters opens its menu", app.state()["menu"] is not None)
+    app.shot(out("m05-filters-menu"))
+    app.key("escape")
+    before = app.state()["visible_items"]
+    app.click(HIDDEN_X, CHIPS_Y)
+    after = app.state()["visible_items"]
+    check("the hidden chip shows everything", after > before, f"{before} → {after}")
+    app.shot(out("m05-filters-cleared"))
 
     # Filter by typing, then Escape clears it.
-    app.key("f", "command")
+    app.key("cmd-f")
     app.type("node")
+    st = app.state()
+    check("typing filters the list", st["filter"] == "node" and st["visible_items"] < after, st)
     app.shot(out("m06-filter-node"))
     app.key("escape")
+    check("Escape clears the filter", app.state()["filter"] == "")
     app.shot(out("m07-filter-cleared"))
 
     # Collapse/expand all.
-    app.key("e", "command", "shift")
+    app.key("shift-cmd-e")
     app.shot(out("m08-collapsed"))
-    app.key("e", "command", "shift")
+    app.key("shift-cmd-e")
 
     # Keyboard: focus, toggle, drawer, copy path.
-    app.key("down")
-    app.key("space")
+    app.key("down space")
+    check("Space selects the focused row", app.state()["selected"] == 1)
     app.shot(out("m09-one-selected"))
-    app.key("return")
+    app.key("enter")
+    check("Enter opens the drawer", app.state()["drawer"])
     app.shot(out("m10-drawer"))
-    before = clipboard()
-    app.click(545, 260)  # Copy
-    after = clipboard()
-    check("drawer Copy puts the path on the clipboard", after != before and after.startswith("/"), after[:80])
+    app.click(DRAWER_COPY[0], DRAWER_COPY[1])
+    copied = app.outbox()["clipboard"] or ""
+    check("drawer Copy captures the path (not the system clipboard)", copied.startswith("/"), copied[:80])
     app.shot(out("m11-copied-toast"))
-    app.key("down", "option")
+    app.key("alt-down")
     app.shot(out("m12-drawer-next"))
-    app.key("escape")
-    app.key("escape")
+    app.key("escape escape")
 
     # Select all safe, review, clean.
-    app.key("a", "command", "option")
+    app.key("alt-cmd-a")
     app.shot(out("m13-safe-selected"))
-    app.key("return", "command")
+    app.key("cmd-enter")
+    check("Review opens the confirmation", app.state()["confirm"])
     app.shot(out("m14-confirm"))
     target = find_color(out("m14-confirm"), DANGER[theme])
     check("confirm dialog shows the Clean button", target is not None)
     if target:
         app.click(*target)
-        time.sleep(4)
+        app.wait_idle()
+    check("the clean reports a result", app.state()["last_result"])
     app.shot(out("m15-result-card"))
 
     # History, run detail.
-    app.key("3", "command")
+    app.key("cmd-3")
     app.shot(out("m16-history"))
     app.click(300, 338)
     app.shot(out("m17-run-detail"))
     app.key("escape")
 
     # Agents: guard check.
-    app.key("2", "command")
-    time.sleep(1)
+    app.key("cmd-2")
+    app.wait_idle()
     app.shot(out("m18-agents"))
     app.click(140, 272)
-    time.sleep(2)
+    app.wait_idle()
     app.shot(out("m19-agents-checked"))
 
     # Every settings section.
-    app.key("4", "command")
+    app.key("cmd-4")
     for name, x in SETTINGS_TABS.items():
         app.click(x, TAB_Y)
         app.shot(out(f"m20-settings-{name.lower()}"))
 
     # Minimum window size.
     app.resize(720, 560)
-    for keys, name in [("1", "results"), ("2", "agents"), ("4", "settings")]:
-        app.key(keys, "command")
+    for keys, name in [("cmd-1", "results"), ("cmd-2", "agents"), ("cmd-4", "settings")]:
+        app.key(keys)
         app.shot(out(f"m21-min-{name}"))
     app.resize(900, 700)
-    app.key("1", "command")
-    app.key("d", "command")
+    app.key("cmd-1")
+    app.key("cmd-d")
     app.shot(out("m22-compact"))
     return results
 
 
+DRAWER_COPY = (550, 260)
+
+
 def persistence(app, out):
     """Settings survive a relaunch; a corrupt settings file is reported once."""
-    app.key("d", "command")  # to compact
-    time.sleep(1.5)  # past the save debounce
+    app.key("cmd-d")  # to compact
+    app.sleep(1.5)  # past the save debounce
     app.quit()
     app.launch()
-    app.key("r", "command")
-    time.sleep(6)
+    app.key("cmd-r")
+    app.wait_idle()
     app.shot(out("p01-relaunched-compact"))
     app.quit()
     cfg = os.path.join(app.home, ".void-sandbox-config", "config.json")
@@ -350,6 +435,7 @@ def main():
     names = sys.argv[3:] or ["screens"]
     combos = os.environ.get("COMBOS", "light:comfortable,dark:comfortable,light:compact,dark:compact")
     os.makedirs(out_dir, exist_ok=True)
+    failed = False
     for combo in combos.split(","):
         theme, density = combo.split(":")
         for name in names:
@@ -361,12 +447,23 @@ def main():
                 fn = SCENARIOS[name]
                 path = lambda step: os.path.join(out_dir, f"{name}-{theme}-{density}-{step}.png")
                 if name == "matrix":
-                    fn(app, path, theme)
+                    results = fn(app, path, theme)
+                    failed |= not all(ok for _, ok in results)
                 else:
                     fn(app, path)
+            except DriveError as err:
+                print(f"  FAIL {err}")
+                failed = True
             finally:
                 app.quit()
+                if app.intrusions:
+                    failed = True
+                    for i in app.intrusions:
+                        print(f"  FAIL hands off: {i}")
+                else:
+                    print(f"  PASS hands off: focus and mouse untouched over {app.steps} steps")
                 shutil.rmtree(home, ignore_errors=True)
+    sys.exit(1 if failed else 0)
 
 
 if __name__ == "__main__":

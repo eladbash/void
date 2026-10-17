@@ -352,9 +352,25 @@ VOID_HOME=/tmp/void-home cargo run -p deepclean-app                   # the real
 Trash all stay inside it, the window title says SANDBOX, and any action that could reach the
 real machine (Docker prunes, `ollama rm`, system caches) is dropped.
 
-On macOS, `scripts/drive.py` launches the real app in a fresh sandbox, drives it with the keyboard
-and saves a screenshot of its window at each step; `scripts/compare.py` puts two such runs side by
-side. `scripts/linux-smoke.Dockerfile` builds and tests on Linux and screenshots the app under Xvfb.
+On macOS, `scripts/drive.py` launches the real app in a fresh sandbox, drives it like a user and
+saves a screenshot of its window at each step; `scripts/compare.py` puts two such runs side by
+side. It needs the app built with the `drive` feature, a debug-only driver that takes keys and
+clicks over a socket and feeds them straight into GPUI, so nothing goes through the OS:
+
+```bash
+cargo build -p void-cli -p deepclean-app --features deepclean-app/drive
+python3 scripts/drive.py target/debug/void-app /tmp/shots screens matrix persistence
+scripts/compare.py /tmp/shots-before /tmp/shots /tmp/compare
+```
+
+The driven window opens behind your other windows and never takes focus. Your keyboard, mouse and
+clipboard are left alone (clipboard writes, notifications and Finder reveals are captured for the
+script to check instead), so you can keep working while it runs, and several runs can go at once.
+Each step checks that Void never became the frontmost app; `DRIVE_STRICT=1` also fails the run if
+the frontmost app or the mouse moved at all, for runs nobody touches the machine during. The
+driver only starts with both `VOID_HOME` and `VOID_DRIVE` set, and release builds don't contain it.
+
+`scripts/linux-smoke.Dockerfile` builds and tests on Linux and screenshots the app under Xvfb.
 
 ## Project layout
 

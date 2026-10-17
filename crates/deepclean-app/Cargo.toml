@@ -21,6 +21,15 @@ tray-icon = { version = "0.26", default-features = false, features = ["ksni"] }
 notify-rust = "4"
 auto-launch = "0.6"
 png = "0.18"
+raw-window-handle = { version = "0.6", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", optional = true }
+
+[features]
+# The in-process UI driver for scripts/drive.py (see src/drive.rs). Debug and
+# test use only: release builds and bundles never enable it.
+drive = ["dep:raw-window-handle", "dep:objc2"]
 
 [dev-dependencies]
 tempfile = "3"

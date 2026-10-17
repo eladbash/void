@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- `scripts/drive.py` no longer types, clicks or switches apps through macOS. A debug-only
+  `drive` feature lets it send keys and clicks straight into the app over a socket, with the
+  window kept behind yours, so UI runs no longer take over the keyboard, mouse or clipboard
+  and several can run at once
+
 ## [1.2.1] - 2026-10-15
 
 Usability fixes to the Results list.
