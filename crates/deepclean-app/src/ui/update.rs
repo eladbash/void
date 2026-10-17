@@ -2,15 +2,17 @@
 //! Settings → About, and remembering what the last check found.
 
 use chrono::Utc;
-use gpui_kit::{div, prelude::*, px, Context, Div};
+use gpui_kit::{div, prelude::*, px, Context, Div, Stateful};
 
 use deepclean_core::update::{Check, Feed};
 
 use super::app_view::AppView;
 use super::components::*;
+use super::theme::PAD_X;
 use crate::backend::update::CURRENT_VERSION;
 use crate::drive::Effect;
-use crate::model::update::{check_due, UpdateStatus};
+use crate::model::ui_state::{Route, SettingsSection};
+use crate::model::update::{check_due, notice, Notice, UpdateStatus};
 
 impl AppView {
     /// Run the automatic check if it is on, a day has passed, and this run
@@ -64,6 +66,7 @@ impl AppView {
             Err(_) => self.update = UpdateStatus::Idle,
         }
         self.persist_update_prefs();
+        self.refresh_tray();
         cx.notify();
     }
 
@@ -134,5 +137,94 @@ impl AppView {
                 })
                 .child("Check for updates"),
             )
+    }
+}
+
+impl AppView {
+    /// The release to announce, unless the user dismissed it this session.
+    pub(crate) fn update_notice(&self) -> Option<Notice> {
+        if self.notice_dismissed {
+            return None;
+        }
+        self.pending_update()
+    }
+
+    /// The pending update regardless of this session's dismissal: what the
+    /// tray offers.
+    pub(crate) fn pending_update(&self) -> Option<Notice> {
+        notice(&self.update, &self.ui.config.updates, CURRENT_VERSION)
+    }
+
+    /// Hide the banner until the next launch.
+    pub(crate) fn dismiss_update_notice(&mut self, cx: &mut Context<Self>) {
+        self.notice_dismissed = true;
+        cx.notify();
+    }
+
+    /// Hide this release's banner and tray item until a newer one is out.
+    pub(crate) fn skip_update(&mut self, cx: &mut Context<Self>) {
+        let Some(n) = self.pending_update() else {
+            return;
+        };
+        self.ui.config.updates.skipped_version = Some(n.version.to_string());
+        self.persist_update_prefs();
+        self.refresh_tray();
+        cx.notify();
+    }
+
+    /// Settings → About, where the update is shown in full.
+    pub(crate) fn show_update(&mut self, cx: &mut Context<Self>) {
+        self.navigate(Route::Settings, cx);
+        self.settings_section(SettingsSection::About, cx);
+    }
+
+    /// The banner above every screen while an update is pending.
+    pub(crate) fn render_update_banner(&mut self, cx: &mut Context<Self>) -> Option<Stateful<Div>> {
+        let n = self.update_notice()?;
+        let p = self.p;
+        Some(
+            div()
+                .id("update-banner")
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(px(8.))
+                .px(px(PAD_X))
+                .py(px(7.))
+                .bg(p.accent_subtle)
+                .border_b_1()
+                .border_color(p.accent_border)
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .t_body_sm()
+                        .text_color(p.text_primary)
+                        .child(format!("Void {} is available", n.version)),
+                )
+                .when_some(n.notes_url, |d, url| {
+                    d.child(
+                        btn("banner-notes", BtnKind::Ghost, BtnSize::Sm, false, &p)
+                            .on_click(
+                                cx.listener(move |this, _, _, cx| this.open_url(url.clone(), cx)),
+                            )
+                            .child("What's new"),
+                    )
+                })
+                .child(
+                    btn("banner-skip", BtnKind::Ghost, BtnSize::Sm, false, &p)
+                        .on_click(cx.listener(|this, _, _, cx| this.skip_update(cx)))
+                        .child("Skip this version"),
+                )
+                .child(
+                    btn("banner-show", BtnKind::Primary, BtnSize::Sm, false, &p)
+                        .on_click(cx.listener(|this, _, _, cx| this.show_update(cx)))
+                        .child("Update…"),
+                )
+                .child(
+                    iconbtn("banner-close", "close", 22., &p)
+                        .on_click(cx.listener(|this, _, _, cx| this.dismiss_update_notice(cx))),
+                ),
+        )
     }
 }

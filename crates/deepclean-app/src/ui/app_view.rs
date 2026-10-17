@@ -135,6 +135,8 @@ pub struct AppView {
     pending_slider_sync: bool,
     pub(crate) update: crate::model::update::UpdateStatus,
     pub(crate) update_task: Option<Task<()>>,
+    /// The update banner was closed this session.
+    pub(crate) notice_dismissed: bool,
     _subscriptions: Vec<Subscription>,
     _tasks: Vec<Task<()>>,
 }
@@ -255,6 +257,7 @@ impl AppView {
             pending_slider_sync: false,
             update: Default::default(),
             update_task: None,
+            notice_dismissed: false,
             _subscriptions: subscriptions,
             _tasks: tasks,
         };
@@ -300,6 +303,8 @@ impl AppView {
             "busy": self.drive_busy(),
             "update": format!("{:?}", self.update),
             "update_summary": self.update.summary(crate::backend::update::CURRENT_VERSION),
+            "update_banner": self.update_notice().map(|n| n.version.to_string()),
+            "tray_update": self.tray_update_label(),
         })
     }
 
@@ -430,6 +435,10 @@ impl AppView {
                 self.start_scan(cx);
             }
             TrayCommand::OpenDashboard => window.activate_window(),
+            TrayCommand::Update => {
+                window.activate_window();
+                self.show_update(cx);
+            }
             TrayCommand::TrimIdleWorktrees => {
                 window.activate_window();
                 self.apply_preset(PresetId::IdleWorktrees, window, cx);
@@ -449,7 +458,13 @@ impl AppView {
                 .and_then(|g| g.status.as_ref())
                 .map(|s| s.free_bytes);
             tray.refresh(free, self.ui.idle_worktrees());
+            tray.set_update(self.tray_update_label().as_deref());
         }
+    }
+
+    /// The tray's "Update to vX.Y.Z…" item, while an update is pending.
+    pub(crate) fn tray_update_label(&self) -> Option<String> {
+        self.pending_update().map(|n| n.tray_label())
     }
 
     // ── State helpers ───────────────────────────────────────────────────
@@ -1263,6 +1278,7 @@ impl Render for AppView {
                         .flex()
                         .flex_col()
                         .relative()
+                        .children(self.render_update_banner(cx))
                         .child({
                             match self.ui.route {
                                 Route::Results => {

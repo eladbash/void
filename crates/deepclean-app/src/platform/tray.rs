@@ -15,6 +15,8 @@ pub enum TrayCommand {
     ScanNow,
     OpenDashboard,
     TrimIdleWorktrees,
+    /// "Update to vX.Y.Z…": show the update in the window.
+    Update,
     Quit,
 }
 
@@ -24,6 +26,12 @@ pub enum TrayCommand {
 pub struct Tray {
     icon: TrayIcon,
     status: MenuItem,
+    menu: Menu,
+    /// "Update to vX.Y.Z…" and its separator, in the menu only while an
+    /// update is pending.
+    update: MenuItem,
+    update_separator: PredefinedMenuItem,
+    update_shown: std::cell::Cell<bool>,
 }
 
 impl Tray {
@@ -54,6 +62,7 @@ impl Tray {
                 "scan_now" => TrayCommand::ScanNow,
                 "open_dashboard" => TrayCommand::OpenDashboard,
                 "trim_worktrees" => TrayCommand::TrimIdleWorktrees,
+                "update" => TrayCommand::Update,
                 "quit" => TrayCommand::Quit,
                 _ => return,
             };
@@ -78,16 +87,45 @@ impl Tray {
         #[cfg(not(target_os = "macos"))]
         let builder = builder.with_icon(template_icon()?);
         let icon = builder
-            .with_menu(Box::new(menu))
+            .with_menu(Box::new(menu.clone()))
             .with_tooltip("Void")
             .build()
             .map_err(|e| e.to_string())?;
         let _ = icon.set_visible(visible);
-        Ok((Self { icon, status }, rx))
+        Ok((
+            Self {
+                icon,
+                status,
+                menu,
+                update: MenuItem::with_id("update", "", true, None),
+                update_separator: PredefinedMenuItem::separator(),
+                update_shown: std::cell::Cell::new(false),
+            },
+            rx,
+        ))
     }
 
     pub fn set_visible(&self, visible: bool) {
         let _ = self.icon.set_visible(visible);
+    }
+
+    /// Show "Update to vX.Y.Z…" at the top of the menu, or take it out.
+    pub fn set_update(&self, label: Option<&str>) {
+        match label {
+            Some(label) => {
+                self.update.set_text(label);
+                if !self.update_shown.replace(true) {
+                    let _ = self.menu.insert(&self.update, 0);
+                    let _ = self.menu.insert(&self.update_separator, 1);
+                }
+            }
+            None => {
+                if self.update_shown.replace(false) {
+                    let _ = self.menu.remove(&self.update);
+                    let _ = self.menu.remove(&self.update_separator);
+                }
+            }
+        }
     }
 
     /// Update the status line and tooltip.

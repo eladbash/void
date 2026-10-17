@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Check for updates** in Settings → About, and an automatic check at most once a day (on by
   default, with a toggle to turn it off). It asks GitHub Releases for the newest stable version and
   is Void's only network request. Failures at launch stay quiet
+- When a newer version is out, a banner above every screen says so, with **What's new**,
+  **Skip this version** (hidden until a newer release) and a close button, and the menu bar menu
+  offers **Update to vX.Y.Z…**
 - Every release carries `SHA256SUMS` and a signed `manifest.json` listing each file's size and
   SHA-256, so downloads and in-app updates can be verified. The manifest is signed with an
   Ed25519 release key whose public half ships in the app

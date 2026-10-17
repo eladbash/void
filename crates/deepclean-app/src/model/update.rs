@@ -55,6 +55,39 @@ pub fn pending_version(prefs: &UpdatePrefs, current: &str) -> Option<Version> {
     (latest > current && skipped.as_ref() != Some(&latest)).then_some(latest)
 }
 
+/// A newer release worth telling the user about: in the window's banner and
+/// the tray menu.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Notice {
+    pub version: Version,
+    pub notes_url: Option<String>,
+}
+
+impl Notice {
+    /// The tray menu item.
+    pub fn tray_label(&self) -> String {
+        format!("Update to v{}…", self.version)
+    }
+}
+
+/// What to announce: this session's check, or failing that what an earlier
+/// check found. Nothing for a skipped version or one that isn't newer.
+pub fn notice(status: &UpdateStatus, prefs: &UpdatePrefs, current: &str) -> Option<Notice> {
+    let found = match status {
+        UpdateStatus::Available(u) => Notice {
+            version: u.version.clone(),
+            notes_url: Some(u.notes_url.clone()),
+        },
+        _ => Notice {
+            version: pending_version(prefs, current)?,
+            notes_url: prefs.latest_notes_url.clone(),
+        },
+    };
+    let current = Version::parse(current).ok()?;
+    let skipped = prefs.skipped_version.as_deref() == Some(found.version.to_string().as_str());
+    (found.version > current && !skipped).then_some(found)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,5 +130,42 @@ mod tests {
         assert_eq!(pending_version(&p, "1.2.1"), None);
         p.latest_version = Some("1.4.0".into());
         assert_eq!(pending_version(&p, "1.2.1"), Some(Version::new(1, 4, 0)));
+    }
+
+    fn available(v: &str) -> UpdateStatus {
+        UpdateStatus::Available(Box::new(Update {
+            version: Version::parse(v).unwrap(),
+            notes_url: format!("https://example.com/v{v}"),
+            asset: None,
+            manifest: None,
+            signature: None,
+        }))
+    }
+
+    #[test]
+    fn announces_a_found_update_until_it_is_skipped() {
+        let mut prefs = UpdatePrefs::default();
+        let n = notice(&available("1.3.0"), &prefs, "1.2.1").unwrap();
+        assert_eq!(n.tray_label(), "Update to v1.3.0…");
+        assert_eq!(n.notes_url.as_deref(), Some("https://example.com/v1.3.0"));
+        prefs.skipped_version = Some("1.3.0".into());
+        assert_eq!(notice(&available("1.3.0"), &prefs, "1.2.1"), None);
+        // A newer release than the skipped one is announced again.
+        assert!(notice(&available("1.3.1"), &prefs, "1.2.1").is_some());
+    }
+
+    #[test]
+    fn remembers_an_earlier_check_between_launches() {
+        let prefs = UpdatePrefs {
+            latest_version: Some("1.3.0".into()),
+            latest_notes_url: Some("notes".into()),
+            ..Default::default()
+        };
+        let n = notice(&UpdateStatus::Idle, &prefs, "1.2.1").unwrap();
+        assert_eq!(n.version, Version::new(1, 3, 0));
+        assert_eq!(n.notes_url.as_deref(), Some("notes"));
+        // After updating, the same record announces nothing.
+        assert_eq!(notice(&UpdateStatus::Idle, &prefs, "1.3.0"), None);
+        assert_eq!(notice(&available("1.3.0"), &prefs, "1.3.0"), None);
     }
 }

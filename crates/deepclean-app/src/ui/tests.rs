@@ -686,3 +686,62 @@ fn update_checks_stay_quiet_at_launch_and_report_a_manual_failure(cx: &mut TestA
         .updates
         .check_automatically));
 }
+
+#[gpui_kit::test]
+fn the_update_banner_can_be_dismissed_or_skipped_and_drives_the_tray_item(cx: &mut TestAppContext) {
+    // An earlier check found 9.0.0; the notice survives a relaunch.
+    let config = r#"{"updates": {"check_automatically": false,
+        "latest_version": "9.0.0", "latest_notes_url": "https://example.com/notes"}}"#;
+    let (view, cx, h) = open(cx, Some(config), None);
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        let n = v.update_notice().expect("banner");
+        assert_eq!(n.version.to_string(), "9.0.0");
+        assert_eq!(n.notes_url.as_deref(), Some("https://example.com/notes"));
+        assert_eq!(v.tray_update_label().as_deref(), Some("Update to v9.0.0…"));
+    });
+
+    // "Update…" shows the update in Settings → About.
+    view.update(cx, |v, cx| v.show_update(cx));
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        assert_eq!(v.ui.route, Route::Settings);
+        assert_eq!(v.ui.settings_section, SettingsSection::About);
+    });
+
+    // Closing the banner hides it for this session; the tray still offers it.
+    view.update(cx, |v, cx| v.dismiss_update_notice(cx));
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        assert!(v.update_notice().is_none());
+        assert!(v.tray_update_label().is_some());
+    });
+
+    // Skipping hides banner and tray item, and is saved.
+    view.update(cx, |v, cx| v.skip_update(cx));
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        assert!(v.pending_update().is_none());
+        assert!(v.tray_update_label().is_none());
+    });
+    let saved = std::fs::read_to_string(h.config_dir.join(AppConfig::FILE_NAME)).unwrap();
+    assert!(saved.contains(r#""skipped_version": "9.0.0""#), "{saved}");
+}
+
+#[gpui_kit::test]
+fn a_skipped_version_stays_hidden_until_a_newer_one(cx: &mut TestAppContext) {
+    let config = r#"{"updates": {"check_automatically": false,
+        "latest_version": "9.0.0", "skipped_version": "9.0.0"}}"#;
+    let (view, cx, _h) = open(cx, Some(config), None);
+    draw(cx);
+    assert!(view.read_with(cx, |v, _| v.update_notice().is_none()));
+    view.update(cx, |v, cx| {
+        v.ui.config.updates.latest_version = Some("9.1.0".into());
+        cx.notify();
+    });
+    draw(cx);
+    assert_eq!(
+        view.read_with(cx, |v, _| v.update_notice().map(|n| n.version.to_string())),
+        Some("9.1.0".into())
+    );
+}
