@@ -54,7 +54,9 @@ publisher = "Elad Bash"
 homepage = "https://github.com/eladbash/void"
 description = "Void cleans up after your AI agents — and your agents can call Void themselves."
 long-description = "Void finds and cleans developer disk bloat across 15 ecosystems — agent worktrees, agent transcripts, local AI models and build artifacts. Everything runs locally."
-binaries = [{ path = "void-app", main = true }]
+# The `void` CLI ships beside the app (Contents/MacOS, the install folder,
+# /usr/bin), so Install hooks, MCP and "Install void command" work without Rust.
+binaries = [{ path = "void-app", main = true }, { path = "void", main = false }]
 icons = [
   "icons/32x32.png",
   "icons/128x128.png",

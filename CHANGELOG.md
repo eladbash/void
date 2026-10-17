@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Ed25519 release key whose public half ships in the app
 
 ### Changed
+- The desktop app ships the `void` CLI inside it (`Void.app/Contents/MacOS`, the Windows install
+  folder, `/usr/bin` in the `.deb` and AppImage), so **Install hooks** and **MCP** on the Agents
+  screen work without Rust. A new **Install void command** puts it on your `PATH`: a link that
+  follows the app through updates, or a copy for an AppImage. `install.sh` links it too. The
+  Claude Code MCP one-liner uses the full path until `void` is on the `PATH`
 - `scripts/drive.py` no longer types, clicks or switches apps through macOS. A debug-only
   `drive` feature lets it send keys and clicks straight into the app over a socket, with the
   window kept behind yours, so UI runs no longer take over the keyboard, mouse or clipboard

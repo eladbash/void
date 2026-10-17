@@ -122,6 +122,10 @@ pub struct AppView {
     pub(crate) hooks_error: Option<String>,
     pub(crate) mcp: Option<McpSnippet>,
     pub(crate) mcp_error: Option<String>,
+    /// Whether `void` works in a terminal (Agents → The void command).
+    pub(crate) cli: Option<integrations::CliView>,
+    pub(crate) cli_installed: Option<integrations::CliInstalled>,
+    pub(crate) cli_error: Option<String>,
     pub(crate) history: Option<HistoryView>,
     pub(crate) config_path: String,
     pub(crate) home: String,
@@ -247,6 +251,9 @@ impl AppView {
             hooks_error: None,
             mcp: None,
             mcp_error: None,
+            cli: None,
+            cli_installed: None,
+            cli_error: None,
             home,
             confirm_text: String::new(),
             cores: std::thread::available_parallelism()
@@ -312,6 +319,12 @@ impl AppView {
             "update_banner": self.update_notice().map(|n| n.version.to_string()),
             "tray_update": self.tray_update_label(),
             "install": format!("{:?}", self.install),
+            "cli_on_path": self.cli.as_ref().and_then(|c| c.on_path.as_ref()).map(|p| p.display().to_string()),
+            "cli_installed": self.cli_installed.as_ref().map(|c| c.path.display().to_string()),
+            "cli_hint": self.cli_installed.as_ref().and_then(|c| c.hint.clone()),
+            "cli_error": self.cli_error,
+            "hooks_command": self.hooks.as_ref().and_then(|h| h.status.command.clone()),
+            "mcp_command": self.mcp.as_ref().map(|m| m.command.clone()),
         })
     }
 
@@ -640,6 +653,26 @@ impl AppView {
                 self.mcp_error = Some(e);
             }
         }
+        self.cli = Some(integrations::cli_view());
+    }
+
+    /// "Install void command".
+    pub(crate) fn install_cli_command(&mut self, cx: &mut Context<Self>) {
+        match integrations::install_cli_command() {
+            Ok(done) => {
+                self.show_toast(
+                    format!("void command installed at {}", done.path.display()),
+                    None,
+                    cx,
+                );
+                self.cli_installed = Some(done);
+                self.cli_error = None;
+                // MCP's one-liner can now say just `void`.
+                self.refresh_agents();
+            }
+            Err(err) => self.cli_error = Some(err),
+        }
+        cx.notify();
     }
 
     pub(crate) fn start_scan(&mut self, cx: &mut Context<Self>) {

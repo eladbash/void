@@ -86,8 +86,16 @@ StatusNotifierItem protocol, which GNOME shows with the AppIndicator extension a
 
 ### The `void` CLI
 
-The CLI (and the MCP server inside it) is a separate binary. Each release attaches it for every
-platform (`void-<version>-<target>`); put it on your `PATH` as `void`. Or build it from source with
+The CLI (and the MCP server inside it) comes with the desktop app: it ships inside `Void.app`,
+next to `Void.exe` on Windows, and in `/usr/bin` with the `.deb`. Click **Install void command** on
+the Agents screen to put it on your `PATH`. On macOS that links it into `/usr/local/bin` (macOS asks
+for your password if the folder isn't writable) or `~/.local/bin`; an AppImage copies it to
+`~/.local/bin`; Windows adds the install folder to your `PATH`. The link follows the app through
+updates, and `install.sh` sets it up for you. **Install hooks** and **MCP** work right away, using
+the bundled copy.
+
+Without the app, each release also attaches the CLI on its own for every platform
+(`void-<version>-<target>`); put it on your `PATH` as `void`. Or build it from source with
 [Rust](https://rustup.rs/) 1.95+ — the CLI needs no system libraries.
 
 ```bash
@@ -98,8 +106,8 @@ void --version
 ```
 
 `~/.cargo/bin` must be on your `PATH` (rustup adds it; if `void` is not found, add
-`export PATH="$HOME/.cargo/bin:$PATH"` to your shell profile). The desktop app looks for `void`
-there too — its **Install hooks** and **MCP** buttons on the Agents screen need the CLI installed.
+`export PATH="$HOME/.cargo/bin:$PATH"` to your shell profile). The desktop app prefers its bundled
+copy and falls back to the `void` on your `PATH`.
 
 Then connect it to your agents:
 

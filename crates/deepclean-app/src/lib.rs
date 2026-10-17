@@ -69,6 +69,8 @@ pub fn run() {
     deepclean_core::path_env::restore_login_shell_path();
 
     let sandbox = sandbox_home();
+    // An AppImage's copied `void` follows the AppImage's version.
+    backend::integrations::refresh_appimage_cli_copy();
     let state = Arc::new(AppState::load_from(config_dir(sandbox.as_deref())));
     let (backend, events) = Backend::new(state.clone());
 
