@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - When a newer version is out, a banner above every screen says so, with **What's new**,
   **Skip this version** (hidden until a newer release) and a close button, and the menu bar menu
   offers **Update to vX.Y.Z…**
+- **Update now** installs a new version from inside the app. Void downloads it with progress and a
+  Cancel button, checks the release manifest's signature and the file's SHA-256, then installs and
+  restarts. On macOS the app bundle is swapped in place; on Windows the installer runs silently;
+  an AppImage replaces itself. A `.deb` is downloaded and verified, and Void shows the
+  `sudo apt install` command to run. A download that fails verification is deleted, and a failed
+  install leaves the current version in place
+- `void dev release <dir>` writes a fake signed release to try updates against in a sandbox
 - Every release carries `SHA256SUMS` and a signed `manifest.json` listing each file's size and
   SHA-256, so downloads and in-app updates can be verified. The manifest is signed with an
   Ed25519 release key whose public half ships in the app

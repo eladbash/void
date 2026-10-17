@@ -1,18 +1,23 @@
 //! Update checks: the automatic daily check, "Check for updates" in
 //! Settings → About, and remembering what the last check found.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 use chrono::Utc;
 use gpui_kit::{div, prelude::*, px, Context, Div, Stateful};
 
-use deepclean_core::update::{Check, Feed};
+use deepclean_core::update::install;
+use deepclean_core::update::{Check, Feed, Installed, Relaunch};
 
 use super::app_view::AppView;
 use super::components::*;
 use super::theme::PAD_X;
 use crate::backend::update::CURRENT_VERSION;
 use crate::drive::Effect;
+use crate::model::format::format_bytes;
 use crate::model::ui_state::{Route, SettingsSection};
-use crate::model::update::{check_due, notice, Notice, UpdateStatus};
+use crate::model::update::{check_due, notice, InstallState, Notice, UpdateStatus};
 
 impl AppView {
     /// Run the automatic check if it is on, a day has passed, and this run
@@ -226,5 +231,209 @@ impl AppView {
                         .on_click(cx.listener(|this, _, _, cx| this.dismiss_update_notice(cx))),
                 ),
         )
+    }
+}
+
+impl AppView {
+    /// "Update now": download, verify, install, relaunch.
+    pub(crate) fn start_update(&mut self, cx: &mut Context<Self>) {
+        let UpdateStatus::Available(update) = &self.update else {
+            return;
+        };
+        if self.install.busy() {
+            return;
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        self.install_cancel = Some(cancel.clone());
+        self.install = InstallState::Downloading { done: 0, total: 0 };
+        let install = self.backend.install_update((**update).clone(), cancel);
+        cx.spawn(async move |this, cx| {
+            let result = install.await;
+            let _ = this.update(cx, |this, cx| this.on_update_installed(result, cx));
+        })
+        .detach();
+        cx.notify();
+    }
+
+    pub(crate) fn cancel_update(&mut self, cx: &mut Context<Self>) {
+        if let Some(cancel) = &self.install_cancel {
+            cancel.store(true, Ordering::Relaxed);
+        }
+        cx.notify();
+    }
+
+    fn on_update_installed(&mut self, result: Result<Installed, String>, cx: &mut Context<Self>) {
+        self.install_cancel = None;
+        match result {
+            Ok(Installed::Replaced { relaunch }) => {
+                self.install = InstallState::Restarting;
+                let path = match &relaunch {
+                    Relaunch::App(p) | Relaunch::Exe(p) => p.display().to_string(),
+                };
+                if self.sandboxed {
+                    // A sandbox updated a stand-in app; restarting would
+                    // start something that isn't this build.
+                    if crate::drive::active() {
+                        crate::drive::capture(Effect::Relaunch(path.clone()));
+                    }
+                    self.install = InstallState::Installed { path };
+                } else if let Err(err) = install::relaunch_after_exit(&relaunch, std::process::id())
+                {
+                    // Installed, but we can't start it for the user.
+                    self.install = InstallState::Failed(format!(
+                        "Void {} is installed; open it again to finish ({err})",
+                        self.pending_update()
+                            .map(|n| n.version.to_string())
+                            .unwrap_or_default()
+                    ));
+                } else {
+                    cx.quit();
+                }
+            }
+            Ok(Installed::InstallerStarted) => {
+                if self.sandboxed {
+                    self.install = InstallState::Installed {
+                        path: "installer".into(),
+                    };
+                } else {
+                    self.install = InstallState::Restarting;
+                    cx.quit();
+                }
+            }
+            Ok(Installed::Manual { package, command }) => {
+                self.install = InstallState::Manual {
+                    package: package.display().to_string(),
+                    command,
+                };
+            }
+            Err(err) if err == "cancelled" => {
+                self.install = InstallState::Idle;
+                self.show_toast("Update cancelled".into(), None, cx);
+            }
+            Err(err) => self.install = InstallState::Failed(err),
+        }
+        cx.notify();
+    }
+
+    /// Settings → About: install controls while an update is available.
+    pub(crate) fn update_install_row(&mut self, cx: &mut Context<Self>) -> Option<Div> {
+        let UpdateStatus::Available(update) = &self.update else {
+            return None;
+        };
+        let p = self.p;
+        let has_download = update.asset.is_some();
+        let notes = update.notes_url.clone();
+        let row = div()
+            .flex()
+            .flex_col()
+            .gap(px(8.))
+            .px(px(10.))
+            .py(px(12.))
+            .border_b_1()
+            .border_color(p.border_subtle);
+        let controls = |label: String| {
+            div().flex().items_center().gap(px(10.)).child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .t_body_sm()
+                    .text_color(p.text_secondary)
+                    .child(label),
+            )
+        };
+        Some(match self.install.clone() {
+            InstallState::Idle | InstallState::Failed(_) => {
+                let failed = match &self.install {
+                    InstallState::Failed(e) => Some(e.clone()),
+                    _ => None,
+                };
+                let action = if has_download {
+                    btn("update-now", BtnKind::Primary, BtnSize::Sm, false, &p)
+                        .on_click(cx.listener(|this, _, _, cx| this.start_update(cx)))
+                        .child("Update now")
+                } else {
+                    btn(
+                        "update-download",
+                        BtnKind::Secondary,
+                        BtnSize::Sm,
+                        false,
+                        &p,
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| this.open_url(notes.clone(), cx)))
+                    .child("Download from GitHub")
+                };
+                let label = if has_download {
+                    "Downloads, verifies the release signature, installs and restarts Void."
+                } else {
+                    "There's no automatic update for your system; download it from the release page."
+                };
+                row.child(controls(label.into()).child(action))
+                    .when_some(failed, |d, e| {
+                        d.child(div().t_body_sm().text_color(p.danger_text).child(format!(
+                            "Update failed: {e}. Your current version is unchanged."
+                        )))
+                    })
+            }
+            InstallState::Downloading { done, total } => {
+                let share = if total > 0 {
+                    done as f32 / total as f32
+                } else {
+                    0.
+                };
+                let label = if total > 0 {
+                    format!(
+                        "Downloading… {} of {}",
+                        format_bytes(done),
+                        format_bytes(total)
+                    )
+                } else {
+                    format!("Downloading… {}", format_bytes(done))
+                };
+                row.child(
+                    controls(label).child(
+                        btn("update-cancel", BtnKind::Secondary, BtnSize::Sm, false, &p)
+                            .on_click(cx.listener(|this, _, _, cx| this.cancel_update(cx)))
+                            .child("Cancel"),
+                    ),
+                )
+                .child(bar(share, 4., p.accent_bg, &p))
+            }
+            InstallState::Installing => row.child(controls("Verified. Installing…".into())),
+            InstallState::Restarting => row.child(controls("Installed. Restarting Void…".into())),
+            InstallState::Installed { path } => row.child(controls(format!(
+                "Installed into {path}. This is a sandbox, so Void isn't restarted."
+            ))),
+            InstallState::Manual { package, command } => {
+                let copy = command.clone();
+                row.child(controls(
+                    "Downloaded and verified. Install it with your package manager:".into(),
+                ))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .t_mono_sm()
+                                .px(px(8.))
+                                .py(px(6.))
+                                .rounded(px(4.))
+                                .bg(p.surface_inset)
+                                .child(command),
+                        )
+                        .child(
+                            btn("update-copy", BtnKind::Secondary, BtnSize::Sm, false, &p)
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.copy(copy.clone(), "Command copied", cx)
+                                }))
+                                .child("Copy"),
+                        ),
+                )
+                .child(div().t_caption().text_color(p.text_tertiary).child(package))
+            }
+        })
     }
 }

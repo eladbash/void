@@ -325,8 +325,18 @@ user agent. Turn it off with **Check for updates automatically** in Settings →
 off, Void makes no request unless you click **Check for updates**. A failed check at launch (you're
 offline, or GitHub is rate-limiting) stays quiet and is tried again on the next launch.
 
-`VOID_UPDATE_FEED=<file>` points the check at a local releases JSON instead, for development.
-A sandboxed run (`VOID_HOME`) never touches the network: it checks a local feed or nothing.
+**Update now** downloads the new version and installs it without leaving the app. Before
+installing anything, Void checks the release manifest's Ed25519 signature against the key built
+into it, then the download's size and SHA-256 against the manifest. A download that fails either
+check is deleted. On macOS the new `Void.app` is unpacked next to the old one and swapped in by
+rename, and the old one is put back if the swap fails. Windows runs the installer silently, and an
+AppImage replaces itself. Void then restarts into the new version. For a `.deb`, Void downloads and
+verifies the package, then shows the `sudo apt install` command rather than asking for root itself.
+
+For development, `VOID_UPDATE_FEED=<file>` points the check at a local releases JSON. A sandboxed
+run (`VOID_HOME`) never touches the network: it checks a local feed or nothing. In a sandbox,
+`VOID_UPDATE_KEY` and `VOID_UPDATE_TARGET` swap in a test signing key and a stand-in app to
+update, and `void dev release <dir>` writes a matching fake release.
 
 ## Configuration
 

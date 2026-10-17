@@ -45,10 +45,15 @@ pub fn capture(effect: Effect) {
 #[cfg_attr(not(feature = "drive"), allow(dead_code))]
 pub enum Effect {
     Clipboard(String),
-    Notify { title: String, body: String },
+    Notify {
+        title: String,
+        body: String,
+    },
     Reveal(std::path::PathBuf),
     FolderPicker,
     OpenUrl(String),
+    /// Quitting to start the updated app at this path.
+    Relaunch(String),
 }
 
 #[cfg(feature = "drive")]
@@ -80,6 +85,7 @@ mod imp {
         revealed: Vec<String>,
         folder_pickers: usize,
         opened_urls: Vec<String>,
+        relaunches: Vec<String>,
     }
 
     fn outbox() -> &'static Mutex<Outbox> {
@@ -113,6 +119,7 @@ mod imp {
             Effect::Reveal(path) => out.revealed.push(path.display().to_string()),
             Effect::FolderPicker => out.folder_pickers += 1,
             Effect::OpenUrl(url) => out.opened_urls.push(url),
+            Effect::Relaunch(path) => out.relaunches.push(path),
         }
     }
 
@@ -330,6 +337,7 @@ mod imp {
                     "revealed": out.revealed,
                     "folder_pickers": out.folder_pickers,
                     "opened_urls": out.opened_urls,
+                    "relaunches": out.relaunches,
                 })
             }
             "quit" => {

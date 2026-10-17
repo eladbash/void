@@ -973,8 +973,10 @@ impl AppView {
     fn about_section(&mut self, cx: &mut Context<Self>) -> Div {
         let p = self.p;
         let auto = self.ui.config.updates.check_automatically;
+        let install = self.update_install_row(cx);
         let updates = pathlist(&p)
             .child(self.update_status_row(cx))
+            .children(install)
             .child(self.switch_row(
                 "toggle-auto-update",
                 "Check for updates automatically",

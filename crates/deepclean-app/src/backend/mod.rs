@@ -47,6 +47,13 @@ pub enum UiEvent {
     },
     /// Numbers behind the tray's status line changed.
     TrayRefresh,
+    /// Bytes of the update downloaded so far (`total` is 0 when unknown).
+    UpdateProgress {
+        done: u64,
+        total: u64,
+    },
+    /// The update is downloaded and verified, and being installed.
+    UpdateInstalling,
 }
 
 /// The worker runtime lives for the whole process. Background tasks hold

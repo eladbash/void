@@ -142,6 +142,20 @@ enum HookCommand {
 enum DevCommand {
     /// Build a realistic fake home in DIR to try Void against.
     Seed { dir: PathBuf },
+    /// Write a fake, signed Void release into DIR, to try in-app updates
+    /// against in a sandbox (prints the environment to point the app at it).
+    Release {
+        dir: PathBuf,
+        /// The version of the fake release.
+        #[arg(long, default_value = "9.0.0")]
+        version: String,
+        /// The version of the fake installed app it updates.
+        #[arg(long, default_value = env!("CARGO_PKG_VERSION"))]
+        installed: String,
+        /// Make the download fail its signed checksum.
+        #[arg(long)]
+        tamper: bool,
+    },
 }
 
 #[tokio::main]
@@ -163,6 +177,15 @@ async fn run(cli: Cli) -> Result<i32, String> {
         Command::Dev {
             command: DevCommand::Seed { dir },
         } => return commands::dev_seed(dir),
+        Command::Dev {
+            command:
+                DevCommand::Release {
+                    dir,
+                    version,
+                    installed,
+                    tamper,
+                },
+        } => return commands::dev_release(dir, version, installed, *tamper),
         Command::McpConfig => return commands::mcp_config(),
         _ => {}
     }

@@ -30,6 +30,7 @@ use crate::drive::Effect;
 use crate::model::format::format_bytes;
 use crate::model::labels::kind_label;
 use crate::model::ui_state::{Excluded, PresetId, Route, SettingsSection, UiState};
+use crate::model::update::InstallState;
 use crate::platform::tray::{Tray, TrayCommand};
 
 /// How often the list repaints while a scan streams items in. Items arrive
@@ -127,7 +128,7 @@ pub struct AppView {
     pub(crate) confirm_text: String,
     pub(crate) cores: usize,
     tray: Option<Rc<Tray>>,
-    sandboxed: bool,
+    pub(crate) sandboxed: bool,
     picker: FolderPicker,
     last_paint: Instant,
     repaint_task: Option<Task<()>>,
@@ -137,6 +138,8 @@ pub struct AppView {
     pub(crate) update_task: Option<Task<()>>,
     /// The update banner was closed this session.
     pub(crate) notice_dismissed: bool,
+    pub(crate) install: crate::model::update::InstallState,
+    pub(crate) install_cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     _subscriptions: Vec<Subscription>,
     _tasks: Vec<Task<()>>,
 }
@@ -258,6 +261,8 @@ impl AppView {
             update: Default::default(),
             update_task: None,
             notice_dismissed: false,
+            install: Default::default(),
+            install_cancel: None,
             _subscriptions: subscriptions,
             _tasks: tasks,
         };
@@ -280,6 +285,7 @@ impl AppView {
         self.ui.scanning
             || self.guard_checking
             || self.update_task.is_some()
+            || self.install.busy()
             || self.ui.clean.as_ref().is_some_and(|c| c.done() < c.total)
     }
 
@@ -305,6 +311,7 @@ impl AppView {
             "update_summary": self.update.summary(crate::backend::update::CURRENT_VERSION),
             "update_banner": self.update_notice().map(|n| n.version.to_string()),
             "tray_update": self.tray_update_label(),
+            "install": format!("{:?}", self.install),
         })
     }
 
@@ -391,6 +398,16 @@ impl AppView {
                     std::thread::spawn(move || crate::platform::notify::notify(&title, &body));
                 }
                 UiEvent::TrayRefresh => {}
+                UiEvent::UpdateProgress { done, total } => {
+                    if let InstallState::Downloading { .. } = self.install {
+                        self.install = InstallState::Downloading { done, total };
+                    }
+                }
+                UiEvent::UpdateInstalling => {
+                    if let InstallState::Downloading { .. } = self.install {
+                        self.install = InstallState::Installing;
+                    }
+                }
             }
         }
         self.refresh_tray();

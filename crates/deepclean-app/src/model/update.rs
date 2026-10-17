@@ -35,6 +35,39 @@ impl UpdateStatus {
     }
 }
 
+/// Where installing an update stands.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum InstallState {
+    #[default]
+    Idle,
+    Downloading {
+        done: u64,
+        total: u64,
+    },
+    Installing,
+    /// Installed; the app is quitting so the new version can start.
+    Restarting,
+    /// Installed into a sandbox's fake target; nothing is restarted.
+    Installed {
+        path: String,
+    },
+    /// A `.deb`: the user installs it with this command.
+    Manual {
+        package: String,
+        command: String,
+    },
+    Failed(String),
+}
+
+impl InstallState {
+    pub fn busy(&self) -> bool {
+        matches!(
+            self,
+            InstallState::Downloading { .. } | InstallState::Installing | InstallState::Restarting
+        )
+    }
+}
+
 /// Whether the automatic check should run now.
 pub fn check_due(prefs: &UpdatePrefs, now: DateTime<Utc>) -> bool {
     prefs.check_automatically

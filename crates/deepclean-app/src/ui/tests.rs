@@ -745,3 +745,77 @@ fn a_skipped_version_stays_hidden_until_a_newer_one(cx: &mut TestAppContext) {
         Some("9.1.0".into())
     );
 }
+
+/// The whole in-app update against fake signed releases: the only test that
+/// sets the update environment, since it is process-wide.
+#[cfg(unix)]
+#[gpui_kit::test]
+fn update_now_refuses_a_tampered_download_and_installs_a_verified_one(cx: &mut TestAppContext) {
+    use crate::model::update::{InstallState, UpdateStatus};
+    use deepclean_core::testkit::release::fake_release;
+    use deepclean_core::update::{Check, Feed, Package};
+
+    let (view, cx, h) = open(
+        cx,
+        Some(r#"{"updates": {"check_automatically": false}}"#),
+        None,
+    );
+    let base = tempfile::tempdir().unwrap();
+    let start = |view: &Entity<AppView>, cx: &mut VisualTestContext, tamper: bool| {
+        let dir = base.path().join(if tamper { "bad" } else { "good" });
+        let r = fake_release(&dir, "9.0.0", "1.2.1", tamper).unwrap();
+        std::env::set_var("VOID_UPDATE_KEY", &r.key);
+        std::env::set_var("VOID_UPDATE_TARGET", &r.installed);
+        let Check::Available(update) = Feed::File(r.feed.clone())
+            .check("1.2.1", Package::desktop())
+            .unwrap()
+        else {
+            panic!("the fake release should be newer");
+        };
+        view.update(cx, |v, cx| {
+            v.update = UpdateStatus::Available(Box::new(update));
+            v.install = InstallState::Idle;
+            v.start_update(cx);
+        });
+        settle(cx, view, |v| !v.install.busy());
+        draw(cx);
+        r
+    };
+
+    // A download that doesn't match its signed checksum is refused, deleted,
+    // and the installed app is left alone.
+    let bad = start(&view, cx, true);
+    let state = view.read_with(cx, |v, _| v.install.clone());
+    let InstallState::Failed(err) = state else {
+        panic!("expected a failure, got {state:?}");
+    };
+    assert!(err.contains("checksum"), "{err}");
+    let updates = h.config_dir.join("updates");
+    let leftovers: Vec<_> = std::fs::read_dir(&updates)
+        .map(|d| d.flatten().map(|e| e.file_name()).collect())
+        .unwrap_or_default();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+    assert_eq!(
+        deepclean_core::update::install::bundle_version(&bad.installed).as_deref(),
+        Some("1.2.1")
+    );
+
+    // A verified one is installed: the bundle swapped in on macOS, the
+    // package manager's command on Linux.
+    let good = start(&view, cx, false);
+    let state = view.read_with(cx, |v, _| v.install.clone());
+    if cfg!(target_os = "macos") {
+        assert!(matches!(state, InstallState::Installed { .. }), "{state:?}");
+        assert_eq!(
+            deepclean_core::update::install::bundle_version(&good.installed).as_deref(),
+            Some("9.0.0")
+        );
+    } else {
+        let InstallState::Manual { command, .. } = state else {
+            panic!("expected the apt command, got {state:?}");
+        };
+        assert!(command.starts_with("sudo apt install"), "{command}");
+    }
+    std::env::remove_var("VOID_UPDATE_KEY");
+    std::env::remove_var("VOID_UPDATE_TARGET");
+}
