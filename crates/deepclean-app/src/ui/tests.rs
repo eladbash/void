@@ -838,7 +838,7 @@ fn a_relaunch_opens_to_the_last_scan_and_refreshes_it_keeping_the_selection(
     let (view, vcx, h) = open(cx, None, None);
     vcx.simulate_keystrokes("secondary-r");
     settle(vcx, &view, |v| v.ui.has_scanned && !v.ui.scanning);
-    let found = view.read_with(vcx, |v, _| v.ui.items.len());
+    let (found, scanned_at) = view.read_with(vcx, |v, _| (v.ui.items.len(), v.ui.last_scan_at));
     assert!(found > 0);
     // The cache is written off the UI thread.
     let cache = h.config_dir.join(crate::backend::cache::FILE_NAME);
@@ -854,18 +854,19 @@ fn a_relaunch_opens_to_the_last_scan_and_refreshes_it_keeping_the_selection(
     let (view, vcx, _h) = open_in(cx, h.config_dir.clone(), None);
     // The fake home is shared, and another test cleans its node_modules
     // folders; select something nothing else deletes.
-    let (items, refreshing, first) = view.read_with(vcx, |v, _| {
+    // How far the background refresh got while the window opened depends on
+    // the machine, so check that it ran (below), not that it is mid-way.
+    let (items, has_scanned, first) = view.read_with(vcx, |v, _| {
         (
             v.ui.items.len(),
-            v.ui.refreshing,
+            v.ui.has_scanned,
             v.ui.items
                 .iter()
                 .find(|i| i.kind != ArtifactKind::NodeModules)
                 .map(|i| (i.id, i.path.clone())),
         )
     });
-    assert_eq!(items, found, "the last scan shows at once");
-    assert!(refreshing, "and is refreshed in the background");
+    assert!(has_scanned && items > 0, "the last scan shows at once");
     draw(vcx);
 
     // Selecting while it refreshes survives the merge, by path. Pick the
@@ -881,6 +882,7 @@ fn a_relaunch_opens_to_the_last_scan_and_refreshes_it_keeping_the_selection(
     settle(vcx, &view, |v| !v.ui.scanning);
     view.read_with(vcx, |v, _| {
         assert!(!v.ui.refreshing);
+        assert!(v.ui.last_scan_at > scanned_at, "a background refresh ran");
         assert_eq!(v.ui.filter, "a");
         assert_eq!(v.ui.selected.len(), 1);
         let id = *v.ui.selected.iter().next().unwrap();
