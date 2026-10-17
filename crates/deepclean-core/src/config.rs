@@ -60,6 +60,8 @@ pub struct UiPrefs {
     pub prefer_trash: bool,
     pub launch_at_login: bool,
     pub show_menu_bar_icon: bool,
+    /// Open to the last scan, and refresh it in the background at launch.
+    pub rescan_on_launch: bool,
 }
 
 impl Default for UiPrefs {
@@ -74,6 +76,7 @@ impl Default for UiPrefs {
             prefer_trash: true,
             launch_at_login: false,
             show_menu_bar_icon: true,
+            rescan_on_launch: true,
         }
     }
 }
@@ -238,6 +241,36 @@ impl Default for GuardConfig {
     }
 }
 
+/// Update checks (Settings → About). The check is Void's only network request.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct UpdatePrefs {
+    /// Ask GitHub for the latest release at most once a day. On by default;
+    /// off means no network request at all unless the user clicks "Check for
+    /// updates".
+    pub check_automatically: bool,
+    /// When the last check succeeded.
+    pub last_checked_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// The newest release that check found, and its release notes.
+    pub latest_version: Option<String>,
+    pub latest_notes_url: Option<String>,
+    /// A release the user chose to skip; its notice stays hidden until a
+    /// newer one comes out.
+    pub skipped_version: Option<String>,
+}
+
+impl Default for UpdatePrefs {
+    fn default() -> Self {
+        Self {
+            check_automatically: true,
+            last_checked_at: None,
+            latest_version: None,
+            latest_notes_url: None,
+            skipped_version: None,
+        }
+    }
+}
+
 /// Application configuration.
 ///
 /// `#[serde(default)]` is load-bearing: it lets a config written by an older
@@ -268,6 +301,8 @@ pub struct AppConfig {
     pub ai: AiPrefs,
     /// Background disk guard and cleanup policies.
     pub guard: GuardConfig,
+    /// Update checks.
+    pub updates: UpdatePrefs,
     /// Every ecosystem this config has been offered. Lets a config written
     /// before an ecosystem existed opt in to it once, on first load, instead
     /// of silently never scanning it.
@@ -293,6 +328,7 @@ impl Default for AppConfig {
             ui: UiPrefs::default(),
             ai: AiPrefs::default(),
             guard: GuardConfig::default(),
+            updates: UpdatePrefs::default(),
             known_ecosystems: Ecosystem::ALL.to_vec(),
         }
     }
@@ -599,5 +635,20 @@ mod tests {
         assert_eq!(config.walker_threads, 4);
         assert_eq!(config.staleness_threshold_days, 30);
         assert_eq!(config.cpu_threshold_percent, 70);
+    }
+
+    #[test]
+    fn update_checks_default_on_for_old_and_partial_configs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("config.json");
+        std::fs::write(&path, r#"{"staleness_threshold_days": 10}"#).unwrap();
+        let (config, err) = AppConfig::load(&path);
+        assert!(err.is_none());
+        assert!(config.updates.check_automatically);
+
+        std::fs::write(&path, r#"{"updates": {"skipped_version": "1.3.0"}}"#).unwrap();
+        let (config, _) = AppConfig::load(&path);
+        assert!(config.updates.check_automatically);
+        assert_eq!(config.updates.skipped_version.as_deref(), Some("1.3.0"));
     }
 }

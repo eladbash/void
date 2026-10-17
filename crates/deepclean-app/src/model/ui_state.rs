@@ -260,6 +260,10 @@ pub struct UiState {
     pub selected: HashSet<Uuid>,
 
     pub scanning: bool,
+    /// The running scan refreshes the rows on screen: they stay until it
+    /// finishes, and its items collect in `incoming` until then.
+    pub refreshing: bool,
+    pub incoming: Vec<CleanableItem>,
     pub has_scanned: bool,
     pub paths_scanned: u64,
     pub scan_duration_ms: u64,
@@ -348,6 +352,8 @@ impl UiState {
             overrides: HashMap::new(),
             selected: HashSet::new(),
             scanning: false,
+            refreshing: false,
+            incoming: vec![],
             has_scanned: false,
             paths_scanned: 0,
             scan_duration_ms: 0,
@@ -971,6 +977,69 @@ impl UiState {
         self.settings_dirty = false;
     }
 
+    /// Rescan without clearing: the rows stay (with their selection and
+    /// any open drawer) until [`finish_scan`](Self::finish_scan) merges the
+    /// new results in.
+    pub fn begin_refresh(&mut self) {
+        self.scanning = true;
+        self.refreshing = true;
+        self.incoming.clear();
+        self.issues.clear();
+        self.denied_paths.clear();
+        self.paths_scanned = 0;
+        self.scanner_status = self
+            .config
+            .enabled_ecosystems
+            .iter()
+            .map(|e| (*e, ScannerStatus::Pending))
+            .collect();
+    }
+
+    /// Replace the rows with a refresh's results, keeping what the user had
+    /// chosen. An item is the same item if it has the same ecosystem, kind
+    /// and path; ones missing from the refresh go, and so do new ones whose
+    /// path no longer exists (cleaned while the refresh ran).
+    pub fn merge_refresh(&mut self, exists: impl Fn(&std::path::Path) -> bool) {
+        type Key = (Ecosystem, ArtifactKind, PathBuf);
+        let key = |i: &CleanableItem| -> Key { (i.ecosystem, i.kind, i.path.clone()) };
+        let mut fresh = std::mem::take(&mut self.incoming);
+        fresh.retain(|i| exists(&i.path));
+        let new_by_key: HashMap<Key, &CleanableItem> = fresh.iter().map(|i| (key(i), i)).collect();
+        let mut id_map: HashMap<Uuid, Uuid> = HashMap::new();
+        let mut overrides = HashMap::new();
+        for old in &self.items {
+            let Some(new) = new_by_key.get(&key(old)) else {
+                continue;
+            };
+            id_map.insert(old.id, new.id);
+            // A chosen action carries over by what it is, not its id.
+            if let Some(chosen) = self
+                .overrides
+                .get(&old.id)
+                .and_then(|a| old.available_actions.iter().find(|x| x.id == *a))
+            {
+                if let Some(same) = new
+                    .available_actions
+                    .iter()
+                    .find(|x| x.label == chosen.label)
+                {
+                    overrides.insert(new.id, same.id);
+                }
+            }
+        }
+        self.selected = self
+            .selected
+            .iter()
+            .filter_map(|id| id_map.get(id).copied())
+            .collect();
+        self.overrides = overrides;
+        self.focused = self.focused.and_then(|id| id_map.get(&id).copied());
+        self.drawer = self.drawer.and_then(|id| id_map.get(&id).copied());
+        self.failures.retain(|id, _| id_map.contains_key(id));
+        self.items = fresh;
+        self.refreshing = false;
+    }
+
     pub fn record_issue(&mut self, message: String) {
         match self.issues.iter_mut().find(|(m, _)| *m == message) {
             Some((_, n)) => *n += 1,
@@ -999,6 +1068,7 @@ impl UiState {
                 items_found,
             } => self.set_status(ecosystem, ScannerStatus::Done(items_found)),
             ScanEvent::Progress { paths_scanned, .. } => self.paths_scanned = paths_scanned,
+            ScanEvent::ItemFound { item } if self.refreshing => self.incoming.push(item),
             ScanEvent::ItemFound { item } => self.items.push(item),
             ScanEvent::PermissionDenied { path } => {
                 self.denied_paths.insert(path.display().to_string());
@@ -1017,6 +1087,9 @@ impl UiState {
             return;
         }
         self.scanning = false;
+        if self.refreshing {
+            self.merge_refresh(crate::backend::cache::exists);
+        }
         self.last_scan_at = Some(Utc::now());
         let counts: Vec<(Ecosystem, usize)> = self
             .scanner_status
@@ -1774,5 +1847,67 @@ mod tests {
         let _ = s.selection_summary();
         assert!(!groups.is_empty());
         assert!(t.elapsed().as_millis() < 500, "took {:?}", t.elapsed());
+    }
+
+    #[test]
+    fn a_refresh_keeps_rows_until_it_ends_then_merges_keeping_choices() {
+        let mut s = state();
+        let mut kept_actions =
+            delete_and_trash("/Users/dev/kept/node_modules", RiskLevel::Safe, 100);
+        let kept = CleanableItem {
+            available_actions: kept_actions.clone(),
+            ..cleanable("/Users/dev/kept/node_modules", 100)
+        };
+        let gone = cleanable("/Users/dev/gone/node_modules", 50);
+        s.items = vec![kept.clone(), gone.clone()];
+        s.selected = [kept.id, gone.id].into_iter().collect();
+        s.overrides.insert(kept.id, kept_actions[1].id); // "Move to Trash"
+        s.drawer = Some(kept.id);
+        s.filter = "node".into();
+
+        s.begin_refresh();
+        // Rescanned: the same path under a new id and new action ids, plus a
+        // new item, and one whose path was cleaned meanwhile.
+        kept_actions = delete_and_trash("/Users/dev/kept/node_modules", RiskLevel::Safe, 120);
+        let again = CleanableItem {
+            id: Uuid::new_v4(),
+            size_bytes: 120,
+            available_actions: kept_actions.clone(),
+            ..kept.clone()
+        };
+        let fresh = cleanable("/Users/dev/new/node_modules", 10);
+        let cleaned = cleanable("/Users/dev/cleaned/node_modules", 10);
+        for item in [again.clone(), fresh.clone(), cleaned.clone()] {
+            s.apply_scan_event(ScanEvent::ItemFound { item });
+        }
+        // Until the refresh ends, the old rows are what's shown.
+        assert_eq!(s.items.len(), 2);
+        assert!(s.scanning && s.refreshing);
+
+        s.merge_refresh(|p| !p.starts_with("/Users/dev/cleaned"));
+        s.scanning = false;
+        let ids: Vec<_> = s.items.iter().map(|i| i.id).collect();
+        assert_eq!(ids, vec![again.id, fresh.id]);
+        assert_eq!(s.selected, [again.id].into_iter().collect());
+        assert_eq!(s.overrides.get(&again.id), Some(&kept_actions[1].id));
+        assert_eq!(s.drawer, Some(again.id));
+        assert_eq!(s.filter, "node");
+        assert!(!s.refreshing);
+    }
+
+    #[test]
+    fn finishing_a_refresh_merges_and_a_normal_scan_still_replaces() {
+        let mut s = state();
+        let old = cleanable("/nonexistent/void-test/a", 1);
+        s.items = vec![old.clone()];
+        s.begin_refresh();
+        // Nothing found; finishing drops the old row (its path is gone too).
+        s.finish_scan();
+        assert!(s.items.is_empty());
+        assert!(!s.scanning && !s.refreshing);
+
+        s.items = vec![old];
+        s.begin_scan();
+        assert!(s.items.is_empty(), "a full scan starts from an empty list");
     }
 }

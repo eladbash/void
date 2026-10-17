@@ -26,9 +26,11 @@ use super::theme::{Palette, RAIL_W};
 use super::*;
 use crate::backend::integrations::{self, HookView, McpSnippet};
 use crate::backend::{Backend, GuardView, HistoryView, UiEvent};
+use crate::drive::Effect;
 use crate::model::format::format_bytes;
 use crate::model::labels::kind_label;
 use crate::model::ui_state::{Excluded, PresetId, Route, SettingsSection, UiState};
+use crate::model::update::InstallState;
 use crate::platform::tray::{Tray, TrayCommand};
 
 /// How often the list repaints while a scan streams items in. Items arrive
@@ -67,6 +69,12 @@ pub type FolderPicker =
 
 pub fn native_folder_picker() -> FolderPicker {
     Rc::new(|cx: &mut App| {
+        if crate::drive::active() {
+            crate::drive::capture(Effect::FolderPicker);
+            let (tx, out) = futures::channel::oneshot::channel();
+            let _ = tx.send(None);
+            return out;
+        }
         let rx = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
@@ -114,18 +122,28 @@ pub struct AppView {
     pub(crate) hooks_error: Option<String>,
     pub(crate) mcp: Option<McpSnippet>,
     pub(crate) mcp_error: Option<String>,
+    /// Whether `void` works in a terminal (Agents → The void command).
+    pub(crate) cli: Option<integrations::CliView>,
+    pub(crate) cli_installed: Option<integrations::CliInstalled>,
+    pub(crate) cli_error: Option<String>,
     pub(crate) history: Option<HistoryView>,
     pub(crate) config_path: String,
     pub(crate) home: String,
     pub(crate) confirm_text: String,
     pub(crate) cores: usize,
     tray: Option<Rc<Tray>>,
-    sandboxed: bool,
+    pub(crate) sandboxed: bool,
     picker: FolderPicker,
     last_paint: Instant,
     repaint_task: Option<Task<()>>,
     /// A slider's value was clamped by the model; push it back on next paint.
     pending_slider_sync: bool,
+    pub(crate) update: crate::model::update::UpdateStatus,
+    pub(crate) update_task: Option<Task<()>>,
+    /// The update banner was closed this session.
+    pub(crate) notice_dismissed: bool,
+    pub(crate) install: crate::model::update::InstallState,
+    pub(crate) install_cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     _subscriptions: Vec<Subscription>,
     _tasks: Vec<Task<()>>,
 }
@@ -206,6 +224,14 @@ impl AppView {
 
         let mut ui = UiState::new(config);
         ui.disk = backend.disk_usage();
+        // Open to the last scan; a background rescan refreshes it below.
+        let cached = backend.load_scan_cache();
+        if let Some(cache) = &cached {
+            ui.items = cache.items.clone();
+            ui.has_scanned = true;
+            ui.last_scan_at = Some(cache.scanned_at);
+            ui.scan_duration_ms = cache.scan_duration_ms;
+        }
         let mut this = Self {
             ui,
             config_path: backend.state().config_path().display().to_string(),
@@ -233,6 +259,9 @@ impl AppView {
             hooks_error: None,
             mcp: None,
             mcp_error: None,
+            cli: None,
+            cli_installed: None,
+            cli_error: None,
             home,
             confirm_text: String::new(),
             cores: std::thread::available_parallelism()
@@ -244,6 +273,11 @@ impl AppView {
             last_paint: Instant::now(),
             repaint_task: None,
             pending_slider_sync: false,
+            update: Default::default(),
+            update_task: None,
+            notice_dismissed: false,
+            install: Default::default(),
+            install_cancel: None,
             _subscriptions: subscriptions,
             _tasks: tasks,
         };
@@ -253,8 +287,58 @@ impl AppView {
             this.show_toast(first, None, cx);
         }
         this.refresh_tray();
+        if cached.is_some() && this.ui.config.ui.rescan_on_launch {
+            this.start_refresh(cx);
+        }
+        this.maybe_check_for_updates(cx);
         window.focus(&this.focus, cx);
         this
+    }
+
+    // ── Driver (scripts/drive.py) ───────────────────────────────────────
+
+    /// Work is still running that will change the screen.
+    #[cfg(feature = "drive")]
+    pub(crate) fn drive_busy(&self) -> bool {
+        self.ui.scanning
+            || self.guard_checking
+            || self.update_task.is_some()
+            || self.install.busy()
+            || self.ui.clean.as_ref().is_some_and(|c| c.done() < c.total)
+    }
+
+    /// What is on screen, for scripts to assert on instead of pixels.
+    #[cfg(feature = "drive")]
+    pub(crate) fn drive_state(&self) -> serde_json::Value {
+        serde_json::json!({
+            "route": format!("{:?}", self.ui.route),
+            "scanning": self.ui.scanning,
+            "refreshing": self.ui.refreshing,
+            "last_scan_at": self.ui.last_scan_at.map(|t| t.to_rfc3339()),
+            "has_scanned": self.ui.has_scanned,
+            "items": self.ui.items.len(),
+            "visible_items": self.ui.visible_items().len(),
+            "selected": self.ui.selected.len(),
+            "filter": self.ui.filter,
+            "drawer": self.ui.drawer.is_some(),
+            "confirm": self.ui.show_confirm,
+            "menu": self.ui.menu.as_ref().map(|m| format!("{m:?}")),
+            "cleaning": self.ui.clean.is_some(),
+            "last_result": self.ui.last_result.is_some(),
+            "toast": self.toast.as_ref().map(|t| t.text.clone()),
+            "busy": self.drive_busy(),
+            "update": format!("{:?}", self.update),
+            "update_summary": self.update.summary(crate::backend::update::CURRENT_VERSION),
+            "update_banner": self.update_notice().map(|n| n.version.to_string()),
+            "tray_update": self.tray_update_label(),
+            "install": format!("{:?}", self.install),
+            "cli_on_path": self.cli.as_ref().and_then(|c| c.on_path.as_ref()).map(|p| p.display().to_string()),
+            "cli_installed": self.cli_installed.as_ref().map(|c| c.path.display().to_string()),
+            "cli_hint": self.cli_installed.as_ref().and_then(|c| c.hint.clone()),
+            "cli_error": self.cli_error,
+            "hooks_command": self.hooks.as_ref().and_then(|h| h.status.command.clone()),
+            "mcp_command": self.mcp.as_ref().map(|m| m.command.clone()),
+        })
     }
 
     // ── Event pumps ─────────────────────────────────────────────────────
@@ -320,23 +404,43 @@ impl AppView {
                     if done {
                         self.history = Some(self.backend.history_view());
                         self.ui.disk = self.backend.disk_usage();
+                        self.save_scan_cache();
                     }
                 }
                 UiEvent::GuardStatus(view) => self.guard = Some(view),
-                UiEvent::GuardCleaned(path) => self.ui.remove_path(&path),
-                UiEvent::ItemRefreshed { item_id, items } => self.ui.replace_item(item_id, items),
+                UiEvent::GuardCleaned(path) => {
+                    self.ui.remove_path(&path);
+                    self.save_scan_cache();
+                }
+                UiEvent::ItemRefreshed { item_id, items } => {
+                    self.ui.replace_item(item_id, items);
+                    self.save_scan_cache();
+                }
                 UiEvent::HistoryChanged => {
                     self.history = Some(self.backend.history_view());
                     self.ui.disk = self.backend.disk_usage();
                     self.guard = Some(self.backend.guard_view());
                 }
                 UiEvent::Warning(msg) => self.show_toast(msg, None, cx),
+                UiEvent::Notify { title, body } if crate::drive::active() => {
+                    crate::drive::capture(Effect::Notify { title, body })
+                }
                 UiEvent::Notify { title, body } => {
                     // Notification delivery can block on D-Bus or the
                     // notification centre; keep it off the UI thread.
                     std::thread::spawn(move || crate::platform::notify::notify(&title, &body));
                 }
                 UiEvent::TrayRefresh => {}
+                UiEvent::UpdateProgress { done, total } => {
+                    if let InstallState::Downloading { .. } = self.install {
+                        self.install = InstallState::Downloading { done, total };
+                    }
+                }
+                UiEvent::UpdateInstalling => {
+                    if let InstallState::Downloading { .. } = self.install {
+                        self.install = InstallState::Installing;
+                    }
+                }
             }
         }
         self.refresh_tray();
@@ -351,6 +455,15 @@ impl AppView {
     fn after_scan(&mut self) {
         self.ui.disk = self.backend.disk_usage();
         self.agent_usage = Some(self.backend.agent_usage());
+        self.save_scan_cache();
+    }
+
+    /// Keep the next launch's view in step with this one.
+    pub(crate) fn save_scan_cache(&self) {
+        if let Some(at) = self.ui.last_scan_at {
+            self.backend
+                .save_scan_cache(self.ui.items.clone(), at, self.ui.scan_duration_ms);
+        }
     }
 
     fn throttled_notify(&mut self, cx: &mut Context<Self>) {
@@ -381,6 +494,10 @@ impl AppView {
                 self.start_scan(cx);
             }
             TrayCommand::OpenDashboard => window.activate_window(),
+            TrayCommand::Update => {
+                window.activate_window();
+                self.show_update(cx);
+            }
             TrayCommand::TrimIdleWorktrees => {
                 window.activate_window();
                 self.apply_preset(PresetId::IdleWorktrees, window, cx);
@@ -400,7 +517,13 @@ impl AppView {
                 .and_then(|g| g.status.as_ref())
                 .map(|s| s.free_bytes);
             tray.refresh(free, self.ui.idle_worktrees());
+            tray.set_update(self.tray_update_label().as_deref());
         }
+    }
+
+    /// The tray's "Update to vX.Y.Z…" item, while an update is pending.
+    pub(crate) fn tray_update_label(&self) -> Option<String> {
+        self.pending_update().map(|n| n.tray_label())
     }
 
     // ── State helpers ───────────────────────────────────────────────────
@@ -559,6 +682,40 @@ impl AppView {
                 self.mcp_error = Some(e);
             }
         }
+        self.cli = Some(integrations::cli_view());
+    }
+
+    /// "Install void command".
+    pub(crate) fn install_cli_command(&mut self, cx: &mut Context<Self>) {
+        match integrations::install_cli_command() {
+            Ok(done) => {
+                self.show_toast(
+                    format!("void command installed at {}", done.path.display()),
+                    None,
+                    cx,
+                );
+                self.cli_installed = Some(done);
+                self.cli_error = None;
+                // MCP's one-liner can now say just `void`.
+                self.refresh_agents();
+            }
+            Err(err) => self.cli_error = Some(err),
+        }
+        cx.notify();
+    }
+
+    /// Rescan in the background, keeping the rows, selection and filters.
+    pub(crate) fn start_refresh(&mut self, cx: &mut Context<Self>) {
+        if self.ui.scanning || self.ui.clean.is_some() {
+            return;
+        }
+        self.ui.begin_refresh();
+        if let Err(err) = self.backend.refresh_scan() {
+            self.ui.scanning = false;
+            self.ui.refreshing = false;
+            self.ui.record_issue(err);
+        }
+        self.changed(cx);
     }
 
     pub(crate) fn start_scan(&mut self, cx: &mut Context<Self>) {
@@ -661,12 +818,17 @@ impl AppView {
     }
 
     pub(crate) fn copy(&mut self, text: String, toast: &str, cx: &mut Context<Self>) {
-        cx.write_to_clipboard(ClipboardItem::new_string(text));
+        if crate::drive::active() {
+            crate::drive::capture(Effect::Clipboard(text));
+        } else {
+            cx.write_to_clipboard(ClipboardItem::new_string(text));
+        }
         self.show_toast(toast.into(), None, cx);
     }
 
     pub(crate) fn reveal(&mut self, id: Uuid, cx: &mut Context<Self>) {
         match crate::backend::clean::reveal_target(self.backend.state(), id) {
+            Ok(path) if crate::drive::active() => crate::drive::capture(Effect::Reveal(path)),
             Ok(path) => cx.reveal_path(&path),
             Err(err) => self.show_toast(err, None, cx),
         }
@@ -1209,6 +1371,7 @@ impl Render for AppView {
                         .flex()
                         .flex_col()
                         .relative()
+                        .children(self.render_update_banner(cx))
                         .child({
                             match self.ui.route {
                                 Route::Results => {

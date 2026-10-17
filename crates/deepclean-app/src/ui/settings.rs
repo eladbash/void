@@ -117,7 +117,7 @@ impl AppView {
             SettingsSection::Safety => self.safety_section(cx),
             SettingsSection::Performance => self.performance_section(window, cx),
             SettingsSection::General => self.general_section(cx),
-            SettingsSection::About => self.about_section(),
+            SettingsSection::About => self.about_section(cx),
         };
 
         let sub = if self.ui.settings_dirty {
@@ -944,6 +944,17 @@ impl AppView {
                 },
             ))
             .child(self.switch_row(
+                "toggle-rescan",
+                "Refresh results at launch",
+                "Void opens to your last scan and rescans in the background.",
+                ui.rescan_on_launch,
+                cx,
+                |this, cx| {
+                    this.ui.config.ui.rescan_on_launch = !this.ui.config.ui.rescan_on_launch;
+                    this.save_config(false, cx);
+                },
+            ))
+            .child(self.switch_row(
                 "toggle-menu-bar",
                 "Show menu bar icon",
                 "Free space and quick actions, one click away.",
@@ -970,7 +981,35 @@ impl AppView {
             .child(list)
     }
 
-    fn about_section(&self) -> Div {
+    fn about_section(&mut self, cx: &mut Context<Self>) -> Div {
+        let p = self.p;
+        let auto = self.ui.config.updates.check_automatically;
+        let install = self.update_install_row(cx);
+        let updates = pathlist(&p)
+            .child(self.update_status_row(cx))
+            .children(install)
+            .child(self.switch_row(
+                "toggle-auto-update",
+                "Check for updates automatically",
+                "Once a day, ask GitHub for the latest release. Void's only network request.",
+                auto,
+                cx,
+                |this, cx| {
+                    this.ui.config.updates.check_automatically =
+                        !this.ui.config.updates.check_automatically;
+                    this.save_config(false, cx);
+                },
+            ));
+        div()
+            .child(
+                field()
+                    .child(overline("Updates", p.text_tertiary).mb(px(8.)))
+                    .child(updates),
+            )
+            .child(self.about_facts())
+    }
+
+    fn about_facts(&self) -> Div {
         let p = self.p;
         field()
             .child(overline("About", p.text_tertiary).mb(px(8.)))

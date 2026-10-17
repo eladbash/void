@@ -18,3 +18,4 @@ pub mod scanner;
 pub mod staleness;
 pub mod testkit;
 pub mod trash;
+pub mod update;

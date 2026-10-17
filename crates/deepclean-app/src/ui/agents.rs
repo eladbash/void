@@ -41,8 +41,7 @@ fn cli_hint(p: &Palette) -> Div {
         .text_color(p.caution_text)
         .child(div().mt(px(1.5)).child(icon("warning", px(13.), p.caution_text)))
         .child(div().flex_1().min_w_0().child(
-            "Needs the void command-line tool on your PATH. Install it with cargo install --path crates/void-cli \
-             or from the release download.",
+            "Needs the void command-line tool. Use Install void command above, or get it from the release download.",
         ))
 }
 
@@ -82,6 +81,7 @@ impl AppView {
                             .text_color(p.text_primary)
                             .child("Integrations"),
                     )
+                    .child(self.cli_card(cx))
                     .child(grid(self.hooks_card(cx), self.mcp_card(cx))),
             );
         div()
@@ -503,6 +503,95 @@ impl AppView {
             rows
         };
         div().child(head).child(body)
+    }
+
+    /// The `void` command: installed on the PATH, or one click away.
+    fn cli_card(&self, cx: &mut Context<Self>) -> Div {
+        let p = self.p;
+        let view = self.cli.clone();
+        let on_path = view.as_ref().and_then(|v| v.on_path.clone());
+        let bundled = view.as_ref().and_then(|v| v.bundled.clone());
+        let (badge_el, text) = match (&on_path, &bundled) {
+            (Some(path), _) => (
+                badge(Tone::Safe, "installed", Some("check"), &p),
+                format!("`void` runs {} in your terminal.", path.display()),
+            ),
+            (None, Some(_)) => (
+                badge(Tone::Neutral, "not on your PATH", None, &p),
+                "Void comes with its command-line tool. Install the void command to use it from a \
+                 terminal, scripts and agents."
+                    .to_string(),
+            ),
+            (None, None) => (
+                badge(Tone::Neutral, "not installed", None, &p),
+                "This build doesn't include the void command; download it from the releases page."
+                    .to_string(),
+            ),
+        };
+        let mut c = acard(&p)
+            .mb(px(12.))
+            .child(
+                acard_head(&p)
+                    .child(
+                        div()
+                            .t_body_strong()
+                            .text_color(p.text_primary)
+                            .child("The void command"),
+                    )
+                    .child(spacer())
+                    .child(badge_el),
+            )
+            .child(div().t_body_sm().text_color(p.text_secondary).child(text));
+        if let Some(done) = &self.cli_installed {
+            c = c.child(
+                div()
+                    .mt(px(6.))
+                    .child(cmdline(done.path.display().to_string(), &p)),
+            );
+            if let Some(hint) = &done.hint {
+                c = c.child(
+                    div()
+                        .mt(px(6.))
+                        .t_body_sm()
+                        .text_color(p.caution_text)
+                        .child(hint.clone()),
+                );
+            }
+        }
+        if let Some(err) = &self.cli_error {
+            c = c.child(error_plate(err.clone(), &p).mt(px(8.)));
+        }
+        c.when(bundled.is_some(), |c| {
+            c.child(
+                div()
+                    .pt(px(12.))
+                    .flex()
+                    .items_center()
+                    .gap(px(8.))
+                    .child(
+                        btn(
+                            "cli-install",
+                            if on_path.is_some() {
+                                BtnKind::Secondary
+                            } else {
+                                BtnKind::Primary
+                            },
+                            BtnSize::Sm,
+                            false,
+                            &p,
+                        )
+                        .child(if on_path.is_some() {
+                            "Reinstall void command"
+                        } else {
+                            "Install void command"
+                        })
+                        .on_click(cx.listener(|this, _, _, cx| this.install_cli_command(cx))),
+                    )
+                    .child(div().t_caption().text_color(p.text_tertiary).child(
+                        "Links it into a folder on your PATH, so updates to Void update it too.",
+                    )),
+            )
+        })
     }
 
     fn hooks_card(&self, cx: &mut Context<Self>) -> Div {

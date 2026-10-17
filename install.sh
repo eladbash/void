@@ -76,6 +76,35 @@ hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
 echo ""
 echo "Void ${VERSION} installed to ${INSTALL_DIR}/${APP_NAME}"
 
+# ── The void command ────────────────────────
+# The app bundles the `void` CLI. Link it onto the PATH, so terminals, scripts
+# and agents can run it; the link follows the app through updates. Older
+# releases have no bundled CLI, and someone else's `void` is left alone.
+CLI="${INSTALL_DIR}/${APP_NAME}/Contents/MacOS/void"
+if [ -x "$CLI" ]; then
+  LINKED=""
+  for DIR in /usr/local/bin "$HOME/.local/bin"; do
+    TARGET="$DIR/void"
+    if [ -e "$TARGET" ] && [ ! -L "$TARGET" ]; then
+      echo "Skipping $TARGET: a void that isn't Void's is already there."
+      continue
+    fi
+    if mkdir -p "$DIR" 2>/dev/null && ln -sfn "$CLI" "$TARGET" 2>/dev/null; then
+      LINKED="$TARGET"
+      break
+    fi
+  done
+  if [ -n "$LINKED" ]; then
+    echo "The void command is at ${LINKED}"
+    case ":$PATH:" in
+      *":$(dirname "$LINKED"):"*) ;;
+      *) echo "Add it to your PATH: export PATH=\"$(dirname "$LINKED"):\$PATH\"" ;;
+    esac
+  else
+    echo "Install the void command later from Void's Agents screen."
+  fi
+fi
+
 # ── Launch ──────────────────────────────────
 echo "Opening Void..."
 open "${INSTALL_DIR}/${APP_NAME}"

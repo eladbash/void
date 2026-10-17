@@ -11,6 +11,7 @@ mod ctx;
 mod hook;
 mod mcp;
 mod output;
+mod update;
 
 use std::path::PathBuf;
 
@@ -86,6 +87,16 @@ enum Command {
     Mcp,
     /// Print the MCP server config for your agent.
     McpConfig,
+    /// Print the version; with --check, also whether a newer one is out.
+    Version {
+        /// Ask GitHub Releases for the latest version.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Update this `void` to the latest release, after verifying its
+    /// signature and checksum. A cargo-installed `void` gets the cargo
+    /// command to run instead.
+    SelfUpdate,
     /// Development tools.
     Dev {
         #[command(subcommand)]
@@ -142,6 +153,20 @@ enum HookCommand {
 enum DevCommand {
     /// Build a realistic fake home in DIR to try Void against.
     Seed { dir: PathBuf },
+    /// Write a fake, signed Void release into DIR, to try in-app updates
+    /// against in a sandbox (prints the environment to point the app at it).
+    Release {
+        dir: PathBuf,
+        /// The version of the fake release.
+        #[arg(long, default_value = "9.0.0")]
+        version: String,
+        /// The version of the fake installed app it updates.
+        #[arg(long, default_value = env!("CARGO_PKG_VERSION"))]
+        installed: String,
+        /// Make the download fail its signed checksum.
+        #[arg(long)]
+        tamper: bool,
+    },
 }
 
 #[tokio::main]
@@ -163,7 +188,26 @@ async fn run(cli: Cli) -> Result<i32, String> {
         Command::Dev {
             command: DevCommand::Seed { dir },
         } => return commands::dev_seed(dir),
+        Command::Dev {
+            command:
+                DevCommand::Release {
+                    dir,
+                    version,
+                    installed,
+                    tamper,
+                },
+        } => return commands::dev_release(dir, version, installed, *tamper),
         Command::McpConfig => return commands::mcp_config(),
+        Command::Version { .. } | Command::SelfUpdate => {
+            // A sandbox (--home) never reaches the network.
+            if let Some(home) = &cli.home {
+                deepclean_core::paths::set_home_override(home);
+            }
+            return match cli.command {
+                Command::Version { check } => update::version(check, cli.json),
+                _ => update::self_update(cli.json),
+            };
+        }
         _ => {}
     }
 
@@ -219,6 +263,9 @@ async fn run(cli: Cli) -> Result<i32, String> {
             HookCommand::WorktreeRemove => Ok(hook::worktree_remove(&ctx).await),
         },
         Command::Mcp => mcp::serve(ctx).await,
-        Command::McpConfig | Command::Dev { .. } => Ok(0),
+        Command::McpConfig
+        | Command::Dev { .. }
+        | Command::Version { .. }
+        | Command::SelfUpdate => Ok(0),
     }
 }

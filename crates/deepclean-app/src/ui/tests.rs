@@ -80,11 +80,20 @@ fn open<'a>(
     config: Option<&str>,
     answer: Option<PathBuf>,
 ) -> (Entity<AppView>, &'a mut VisualTestContext, Harness) {
-    let home = home().clone();
     let config_dir = tempfile::tempdir().unwrap().keep();
     if let Some(text) = config {
         std::fs::write(config_dir.join(AppConfig::FILE_NAME), text).unwrap();
     }
+    open_in(cx, config_dir, answer)
+}
+
+/// Open the window on an existing config folder, as a relaunch would.
+fn open_in(
+    cx: &mut TestAppContext,
+    config_dir: PathBuf,
+    answer: Option<PathBuf>,
+) -> (Entity<AppView>, &mut VisualTestContext, Harness) {
+    let home = home().clone();
     cx.update(|cx| {
         gpui_kit::init(cx);
         super::bind_keys(cx);
@@ -650,4 +659,245 @@ fn cleaning_a_danger_item_from_the_drawer_goes_through_review(cx: &mut TestAppCo
     assert!(has_danger);
     cx.simulate_keystrokes("escape");
     assert!(view.read_with(cx, |v, _| v.ui.confirm_only.is_none()));
+}
+
+#[gpui_kit::test]
+fn update_checks_stay_quiet_at_launch_and_report_a_manual_failure(cx: &mut TestAppContext) {
+    use crate::model::update::UpdateStatus;
+    // The test home is a sandbox with no local feed, so nothing may reach the
+    // network: the launch check doesn't even start.
+    let (view, cx, _h) = open(cx, None, None);
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        assert_eq!(v.update, UpdateStatus::Idle);
+        assert!(v.ui.config.updates.last_checked_at.is_none());
+    });
+
+    // "Check for updates" says why it couldn't.
+    view.update(cx, |v, cx| {
+        v.settings_section(SettingsSection::About, cx);
+        v.check_for_updates(true, cx);
+    });
+    settle(cx, &view, |v| matches!(v.update, UpdateStatus::Failed(_)));
+    draw(cx);
+    let summary = view.read_with(cx, |v, _| v.update.summary("1.2.1"));
+    assert!(summary.contains("sandbox"), "{summary}");
+
+    // Turning the automatic check off is saved like any other setting.
+    view.update(cx, |v, cx| {
+        v.ui.config.updates.check_automatically = false;
+        v.commit_config(cx);
+    });
+    assert!(!view.read_with(cx, |v, _| v
+        .backend
+        .state()
+        .config()
+        .updates
+        .check_automatically));
+}
+
+#[gpui_kit::test]
+fn the_update_banner_can_be_dismissed_or_skipped_and_drives_the_tray_item(cx: &mut TestAppContext) {
+    // An earlier check found 9.0.0; the notice survives a relaunch.
+    let config = r#"{"updates": {"check_automatically": false,
+        "latest_version": "9.0.0", "latest_notes_url": "https://example.com/notes"}}"#;
+    let (view, cx, h) = open(cx, Some(config), None);
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        let n = v.update_notice().expect("banner");
+        assert_eq!(n.version.to_string(), "9.0.0");
+        assert_eq!(n.notes_url.as_deref(), Some("https://example.com/notes"));
+        assert_eq!(v.tray_update_label().as_deref(), Some("Update to v9.0.0…"));
+    });
+
+    // "Update…" shows the update in Settings → About.
+    view.update(cx, |v, cx| v.show_update(cx));
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        assert_eq!(v.ui.route, Route::Settings);
+        assert_eq!(v.ui.settings_section, SettingsSection::About);
+    });
+
+    // Closing the banner hides it for this session; the tray still offers it.
+    view.update(cx, |v, cx| v.dismiss_update_notice(cx));
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        assert!(v.update_notice().is_none());
+        assert!(v.tray_update_label().is_some());
+    });
+
+    // Skipping hides banner and tray item, and is saved.
+    view.update(cx, |v, cx| v.skip_update(cx));
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        assert!(v.pending_update().is_none());
+        assert!(v.tray_update_label().is_none());
+    });
+    let saved = std::fs::read_to_string(h.config_dir.join(AppConfig::FILE_NAME)).unwrap();
+    assert!(saved.contains(r#""skipped_version": "9.0.0""#), "{saved}");
+}
+
+#[gpui_kit::test]
+fn a_skipped_version_stays_hidden_until_a_newer_one(cx: &mut TestAppContext) {
+    let config = r#"{"updates": {"check_automatically": false,
+        "latest_version": "9.0.0", "skipped_version": "9.0.0"}}"#;
+    let (view, cx, _h) = open(cx, Some(config), None);
+    draw(cx);
+    assert!(view.read_with(cx, |v, _| v.update_notice().is_none()));
+    view.update(cx, |v, cx| {
+        v.ui.config.updates.latest_version = Some("9.1.0".into());
+        cx.notify();
+    });
+    draw(cx);
+    assert_eq!(
+        view.read_with(cx, |v, _| v.update_notice().map(|n| n.version.to_string())),
+        Some("9.1.0".into())
+    );
+}
+
+/// The whole in-app update against fake signed releases: the only test that
+/// sets the update environment, since it is process-wide.
+#[cfg(unix)]
+#[gpui_kit::test]
+fn update_now_refuses_a_tampered_download_and_installs_a_verified_one(cx: &mut TestAppContext) {
+    use crate::model::update::{InstallState, UpdateStatus};
+    use deepclean_core::testkit::release::fake_release;
+    use deepclean_core::update::{Check, Feed, Package};
+
+    let (view, cx, h) = open(
+        cx,
+        Some(r#"{"updates": {"check_automatically": false}}"#),
+        None,
+    );
+    let base = tempfile::tempdir().unwrap();
+    let start = |view: &Entity<AppView>, cx: &mut VisualTestContext, tamper: bool| {
+        let dir = base.path().join(if tamper { "bad" } else { "good" });
+        let r = fake_release(&dir, "9.0.0", "1.2.1", tamper).unwrap();
+        std::env::set_var("VOID_UPDATE_KEY", &r.key);
+        std::env::set_var("VOID_UPDATE_TARGET", &r.installed);
+        let Check::Available(update) = Feed::File(r.feed.clone())
+            .check("1.2.1", Package::desktop())
+            .unwrap()
+        else {
+            panic!("the fake release should be newer");
+        };
+        view.update(cx, |v, cx| {
+            v.update = UpdateStatus::Available(Box::new(update));
+            v.install = InstallState::Idle;
+            v.start_update(cx);
+        });
+        settle(cx, view, |v| !v.install.busy());
+        draw(cx);
+        r
+    };
+
+    // A download that doesn't match its signed checksum is refused, deleted,
+    // and the installed app is left alone.
+    let bad = start(&view, cx, true);
+    let state = view.read_with(cx, |v, _| v.install.clone());
+    let InstallState::Failed(err) = state else {
+        panic!("expected a failure, got {state:?}");
+    };
+    assert!(err.contains("checksum"), "{err}");
+    let updates = h.config_dir.join("updates");
+    let leftovers: Vec<_> = std::fs::read_dir(&updates)
+        .map(|d| d.flatten().map(|e| e.file_name()).collect())
+        .unwrap_or_default();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+    assert_eq!(
+        deepclean_core::update::install::bundle_version(&bad.installed).as_deref(),
+        Some("1.2.1")
+    );
+
+    // A verified one is installed: the bundle swapped in on macOS, the
+    // package manager's command on Linux.
+    let good = start(&view, cx, false);
+    let state = view.read_with(cx, |v, _| v.install.clone());
+    if cfg!(target_os = "macos") {
+        assert!(matches!(state, InstallState::Installed { .. }), "{state:?}");
+        assert_eq!(
+            deepclean_core::update::install::bundle_version(&good.installed).as_deref(),
+            Some("9.0.0")
+        );
+    } else {
+        let InstallState::Manual { command, .. } = state else {
+            panic!("expected the apt command, got {state:?}");
+        };
+        assert!(command.starts_with("sudo apt install"), "{command}");
+    }
+    std::env::remove_var("VOID_UPDATE_KEY");
+    std::env::remove_var("VOID_UPDATE_TARGET");
+}
+
+#[gpui_kit::test]
+fn a_relaunch_opens_to_the_last_scan_and_refreshes_it_keeping_the_selection(
+    cx: &mut TestAppContext,
+) {
+    // Scans and the cache write run on real tokio threads.
+    cx.executor().allow_parking();
+    let (view, vcx, h) = open(cx, None, None);
+    vcx.simulate_keystrokes("secondary-r");
+    settle(vcx, &view, |v| v.ui.has_scanned && !v.ui.scanning);
+    let (found, scanned_at) = view.read_with(vcx, |v, _| (v.ui.items.len(), v.ui.last_scan_at));
+    assert!(found > 0);
+    // The cache is written off the UI thread.
+    let cache = h.config_dir.join(crate::backend::cache::FILE_NAME);
+    for _ in 0..200 {
+        if cache.exists() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(cache.exists(), "scan cache was not written");
+
+    // "Relaunch": a new window on the same settings folder.
+    let (view, vcx, _h) = open_in(cx, h.config_dir.clone(), None);
+    // The fake home is shared, and another test cleans its node_modules
+    // folders; select something nothing else deletes.
+    // How far the background refresh got while the window opened depends on
+    // the machine, so check that it ran (below), not that it is mid-way.
+    let (items, has_scanned, first) = view.read_with(vcx, |v, _| {
+        (
+            v.ui.items.len(),
+            v.ui.has_scanned,
+            v.ui.items
+                .iter()
+                .find(|i| i.kind != ArtifactKind::NodeModules)
+                .map(|i| (i.id, i.path.clone())),
+        )
+    });
+    assert!(has_scanned && items > 0, "the last scan shows at once");
+    draw(vcx);
+
+    // Selecting while it refreshes survives the merge, by path. Pick the
+    // item by path at selection time: on a fast machine the refresh may
+    // already have swapped in new ids.
+    let (_, first) = first.unwrap();
+    view.update(vcx, |v, cx| {
+        let id = v.ui.items.iter().find(|i| i.path == first).unwrap().id;
+        v.ui.selected.insert(id);
+        v.ui.filter = "a".into();
+        cx.notify();
+    });
+    settle(vcx, &view, |v| !v.ui.scanning);
+    view.read_with(vcx, |v, _| {
+        assert!(!v.ui.refreshing);
+        assert!(v.ui.last_scan_at > scanned_at, "a background refresh ran");
+        assert_eq!(v.ui.filter, "a");
+        assert_eq!(v.ui.selected.len(), 1);
+        let id = *v.ui.selected.iter().next().unwrap();
+        assert_eq!(v.ui.item(id).map(|i| i.path.clone()), Some(first.clone()));
+    });
+}
+
+#[gpui_kit::test]
+fn a_corrupt_scan_cache_is_ignored(cx: &mut TestAppContext) {
+    let dir = tempfile::tempdir().unwrap().keep();
+    std::fs::write(dir.join(crate::backend::cache::FILE_NAME), "{ not json").unwrap();
+    let (view, vcx, _h) = open_in(cx, dir, None);
+    draw(vcx);
+    view.read_with(vcx, |v, _| {
+        assert!(!v.ui.has_scanned);
+        assert!(!v.ui.scanning);
+    });
 }

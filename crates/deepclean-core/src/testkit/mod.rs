@@ -16,6 +16,7 @@
 pub mod agents;
 pub mod models;
 pub mod projects;
+pub mod release;
 pub mod worktrees;
 
 use std::path::{Path, PathBuf};

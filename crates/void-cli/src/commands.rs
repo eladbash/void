@@ -299,6 +299,23 @@ pub fn guard_check(ctx: &Ctx) -> Result<i32, String> {
 /// Marker written into every seeded sandbox.
 const SANDBOX_MARKER: &str = ".void-sandbox";
 
+pub fn dev_release(
+    dir: &Path,
+    version: &str,
+    installed: &str,
+    tamper: bool,
+) -> Result<i32, String> {
+    let dir = absolute(dir);
+    let r = deepclean_core::testkit::release::fake_release(&dir, version, installed, tamper)
+        .map_err(|err| format!("could not write the release into {}: {err}", dir.display()))?;
+    println!("Fake Void {version} release in {}", dir.display());
+    println!("Run a sandboxed app against it with:");
+    println!("  VOID_UPDATE_FEED={}", r.feed.display());
+    println!("  VOID_UPDATE_KEY={}", r.key.display());
+    println!("  VOID_UPDATE_TARGET={}", r.installed.display());
+    Ok(0)
+}
+
 pub fn dev_seed(dir: &Path) -> Result<i32, String> {
     let dir = absolute(dir);
     std::fs::create_dir_all(&dir)

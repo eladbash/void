@@ -45,4 +45,4 @@ body:
     id: version
     attributes:
       label: Version
-      placeholder: e.g., 1.2.1
+      placeholder: e.g., 1.3.0

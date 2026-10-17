@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-17
+
+In-app updates, the `void` command bundled with the app, and results that are there at launch.
+
+### Added
+- **Check for updates** in Settings → About, and an automatic check at most once a day (on by
+  default, with a toggle to turn it off). It asks GitHub Releases for the newest stable version and
+  is Void's only network request. Failures at launch stay quiet
+- When a newer version is out, a banner above every screen says so, with **What's new**,
+  **Skip this version** (hidden until a newer release) and a close button, and the menu bar menu
+  offers **Update to vX.Y.Z…**
+- **Update now** installs a new version from inside the app. Void downloads it with progress and a
+  Cancel button, checks the release manifest's signature and the file's SHA-256, then installs and
+  restarts. On macOS the app bundle is swapped in place; on Windows the installer runs silently;
+  an AppImage replaces itself. A `.deb` is downloaded and verified, and Void shows the
+  `sudo apt install` command to run. A download that fails verification is deleted, and a failed
+  install leaves the current version in place
+- `void dev release <dir>` writes a fake signed release to try updates against in a sandbox
+- `void version --check` says whether a newer `void` is out (`--json` for scripts), and
+  `void self-update` installs it after verifying the release signature and checksum. A
+  cargo-installed `void` gets the `cargo install --force` command instead, and the copy inside the
+  Void app defers to the app's updater
+- Every release carries `SHA256SUMS` and a signed `manifest.json` listing each file's size and
+  SHA-256, so downloads and in-app updates can be verified. The manifest is signed with an
+  Ed25519 release key whose public half ships in the app
+
+### Changed
+- Void opens to your last scan instead of an empty screen ("36 items · scanned 2h ago"), and
+  refreshes it in the background. Rows, selection and filters stay put while it does, and anything
+  that disappeared drops out when it finishes. Turn the refresh off in Settings → General. The
+  cache is only for display: every clean re-checks its safety gates when it runs, and a cache from
+  another version or for other folders is ignored
+- The desktop app ships the `void` CLI inside it (`Void.app/Contents/MacOS`, the Windows install
+  folder, `/usr/bin` in the `.deb` and AppImage), so **Install hooks** and **MCP** on the Agents
+  screen work without Rust. A new **Install void command** puts it on your `PATH`: a link that
+  follows the app through updates, or a copy for an AppImage. `install.sh` links it too. The
+  Claude Code MCP one-liner uses the full path until `void` is on the `PATH`
+- `scripts/drive.py` no longer types, clicks or switches apps through macOS. A debug-only
+  `drive` feature lets it send keys and clicks straight into the app over a socket, with the
+  window kept behind yours, so UI runs no longer take over the keyboard, mouse or clipboard
+  and several can run at once
+
 ## [1.2.1] - 2026-10-15
 
 Usability fixes to the Results list.

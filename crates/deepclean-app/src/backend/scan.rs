@@ -10,15 +10,29 @@ impl Backend {
     /// Refused while one is running: two rapid triggers — the button and the
     /// tray, say — must not both start a scan.
     pub fn start_scan(&self) -> Result<(), String> {
+        self.scan(false)
+    }
+
+    /// Rescan while the current results stay in place: the new ones replace
+    /// them only when the scan ends, so a clean started meanwhile still finds
+    /// its items.
+    pub fn refresh_scan(&self) -> Result<(), String> {
+        self.scan(true)
+    }
+
+    fn scan(&self, keep: bool) -> Result<(), String> {
         if !self.state.begin_scan() {
             return Err("Scan already in progress".into());
         }
-        self.state.results().clear();
+        if !keep {
+            self.state.results().clear();
+        }
 
         let config = self.state.config().clone();
         let scanners = registry::build(&config);
         let this = self.clone();
         self.rt.spawn(async move {
+            let mut found = vec![];
             let mut rx = ScanOrchestrator::new(scanners, config).start_scan();
             while let Some(event) = rx.recv().await {
                 // A sandboxed app (VOID_HOME) must never show — or offer to
@@ -33,11 +47,16 @@ impl Backend {
                     (event, _) => event,
                 };
                 match &event {
+                    ScanEvent::ItemFound { item } if keep => found.push(item.clone()),
                     ScanEvent::ItemFound { item } => this.state.results().push(item.clone()),
                     ScanEvent::ScanComplete { summary } => *this.state.summary() = summary.clone(),
                     _ => {}
                 }
                 this.emit(UiEvent::Scan(event));
+            }
+            if keep {
+                found.retain(|i| super::cache::exists(&i.path));
+                *this.state.results() = found;
             }
             // Released here rather than on ScanComplete: if the orchestrator
             // dies or the channel closes without a final event, the latch

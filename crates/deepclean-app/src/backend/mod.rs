@@ -4,10 +4,12 @@
 //! owns and report progress as [`UiEvent`]s on a channel the window drains.
 //! A send to a closed channel (the window is gone) is simply dropped.
 
+pub mod cache;
 pub mod clean;
 pub mod guard;
 pub mod integrations;
 pub mod scan;
+pub mod update;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -46,6 +48,13 @@ pub enum UiEvent {
     },
     /// Numbers behind the tray's status line changed.
     TrayRefresh,
+    /// Bytes of the update downloaded so far (`total` is 0 when unknown).
+    UpdateProgress {
+        done: u64,
+        total: u64,
+    },
+    /// The update is downloaded and verified, and being installed.
+    UpdateInstalling,
 }
 
 /// The worker runtime lives for the whole process. Background tasks hold

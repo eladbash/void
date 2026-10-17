@@ -55,8 +55,11 @@ VOID_HOME=/tmp/void-home cargo run -p deepclean-app                   # the real
 Trash all stay inside it, the window title says SANDBOX, and any action that could reach the
 real machine (Docker prunes, `ollama rm`, system caches) is dropped.
 
-For UI work on macOS, `python3 scripts/drive.py target/debug/void-app <out-dir>` runs the app in
-a fresh sandbox and saves a window screenshot per step (light and dark, both densities);
+For UI work on macOS, build with the driver
+(`cargo build -p void-cli -p deepclean-app --features deepclean-app/drive`), then
+`python3 scripts/drive.py target/debug/void-app <out-dir>` runs the app in a fresh sandbox and
+saves a window screenshot per step (light and dark, both densities). The window stays behind
+yours and never takes focus or input from you, so you can keep working while it runs.
 `scripts/compare.py <before> <after> <out>` pairs two runs side by side for review.
 
 ### Project Structure
@@ -150,6 +153,16 @@ commit with `git commit --no-verify`.
 2. Make your changes with tests
 3. Ensure `cargo test --workspace` and `cargo clippy` pass
 4. Open a PR with a clear description of the changes
+
+## Releasing
+
+Push a `vX.Y.Z` tag. The Release workflow builds every bundle, then writes `manifest.json`
+(each asset's size and SHA-256) and `SHA256SUMS` and signs the manifest with
+`scripts/release-manifest.sh`. Signing needs the `VOID_RELEASE_SIGNING_KEY` repository secret:
+the Ed25519 private key (PEM) whose public half is
+`crates/deepclean-core/src/update/release-key.pem`. The app trusts updates signed by that key
+alone, so keep it out of the repository. If you replace it, commit the new public key in the
+same release, because older apps can't verify anything signed by a key they don't know.
 
 ## Code of Conduct
 

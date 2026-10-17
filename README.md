@@ -57,7 +57,9 @@ command line or over MCP.
   `ignore` crate
 - **Nothing runs unseen**: every item shows the exact command or deletion it will perform
 - **Keeps a record**: each clean is stored locally with the paths, commands and bytes recovered
-- **Local only**: no account, no telemetry. Void never uploads anything
+- **Local only**: no account, no telemetry. Void never uploads anything. Its one network request
+  is a once-a-day check of GitHub Releases for a newer version, which you can turn off in
+  Settings → About ([details](#updates))
 
 ## Install
 
@@ -74,14 +76,26 @@ Downloads the latest `.dmg` for your architecture, installs to `/Applications`, 
 Grab the installer for your platform from the [Releases page](https://github.com/eladbash/void/releases):
 a `.deb` or `.AppImage` for Linux, an `.msi` or setup `.exe` for Windows.
 
+Every release also lists each file's SHA-256 in `SHA256SUMS` (check a download with
+`shasum -a 256 -c SHA256SUMS --ignore-missing`), and in `manifest.json`, which is signed with
+Void's release key. The app checks that signature before it installs an update.
+
 The desktop app is native on all three: a GPU-rendered [GPUI](https://gpui.rs) window (Metal on macOS,
 DirectX on Windows, Vulkan on Linux), not a webview. On Linux the tray icon uses the
 StatusNotifierItem protocol, which GNOME shows with the AppIndicator extension and KDE shows natively.
 
 ### The `void` CLI
 
-The CLI (and the MCP server inside it) is a separate binary. Each release attaches it for every
-platform (`void-<version>-<target>`); put it on your `PATH` as `void`. Or build it from source with
+The CLI (and the MCP server inside it) comes with the desktop app: it ships inside `Void.app`,
+next to `Void.exe` on Windows, and in `/usr/bin` with the `.deb`. Click **Install void command** on
+the Agents screen to put it on your `PATH`. On macOS that links it into `/usr/local/bin` (macOS asks
+for your password if the folder isn't writable) or `~/.local/bin`; an AppImage copies it to
+`~/.local/bin`; Windows adds the install folder to your `PATH`. The link follows the app through
+updates, and `install.sh` sets it up for you. **Install hooks** and **MCP** work right away, using
+the bundled copy.
+
+Without the app, each release also attaches the CLI on its own for every platform
+(`void-<version>-<target>`); put it on your `PATH` as `void`. Or build it from source with
 [Rust](https://rustup.rs/) 1.95+ — the CLI needs no system libraries.
 
 ```bash
@@ -92,8 +106,8 @@ void --version
 ```
 
 `~/.cargo/bin` must be on your `PATH` (rustup adds it; if `void` is not found, add
-`export PATH="$HOME/.cargo/bin:$PATH"` to your shell profile). The desktop app looks for `void`
-there too — its **Install hooks** and **MCP** buttons on the Agents screen need the CLI installed.
+`export PATH="$HOME/.cargo/bin:$PATH"` to your shell profile). The desktop app prefers its bundled
+copy and falls back to the `void` on your `PATH`.
 
 Then connect it to your agents:
 
@@ -104,8 +118,9 @@ void mcp-config                     # JSON snippet for other MCP clients (Cursor
 void hook install                   # optional: low-disk warning + worktree trim hooks
 ```
 
-To update, pull and run the same `cargo install` command again (add `--force` if cargo says it is
-already installed). To remove: `void hook uninstall` (if you installed hooks), then
+To update, run `void self-update`. A release binary replaces itself after checking the release's
+signature and checksum; a cargo-installed `void` prints the `cargo install --force` command to run
+instead. To remove: `void hook uninstall` (if you installed hooks), then
 `cargo uninstall void-cli`.
 
 ### Desktop app from source
@@ -223,6 +238,8 @@ void usage                     # disk usage by agent
 void plan                      # dry-run cleanup plan, expires after one hour
 void apply <plan-id>           # carry out a plan you have reviewed
 void guard check               # one free-space check
+void version --check           # is a newer void out?
+void self-update               # install it, after verifying its signature and checksum
 ```
 
 A plan is always a dry run first. `void apply` executes exactly the plan it's given, and a
@@ -310,6 +327,28 @@ Deleting files is easy to get wrong, so Void is deliberately conservative:
 
 Found a safety gap? Please report it privately — see [SECURITY.md](SECURITY.md).
 
+## Updates
+
+Once a day, the desktop app asks GitHub's public Releases API
+(`api.github.com/repos/eladbash/void/releases`) whether a newer version exists. This is the only
+network request Void makes. It sends nothing but an ordinary HTTPS request with a `Void/<version>`
+user agent. Turn it off with **Check for updates automatically** in Settings → About; with it
+off, Void makes no request unless you click **Check for updates**. A failed check at launch (you're
+offline, or GitHub is rate-limiting) stays quiet and is tried again on the next launch.
+
+**Update now** downloads the new version and installs it without leaving the app. Before
+installing anything, Void checks the release manifest's Ed25519 signature against the key built
+into it, then the download's size and SHA-256 against the manifest. A download that fails either
+check is deleted. On macOS the new `Void.app` is unpacked next to the old one and swapped in by
+rename, and the old one is put back if the swap fails. Windows runs the installer silently, and an
+AppImage replaces itself. Void then restarts into the new version. For a `.deb`, Void downloads and
+verifies the package, then shows the `sudo apt install` command rather than asking for root itself.
+
+For development, `VOID_UPDATE_FEED=<file>` points the check at a local releases JSON. A sandboxed
+run (`VOID_HOME`) never touches the network: it checks a local feed or nothing. In a sandbox,
+`VOID_UPDATE_KEY` and `VOID_UPDATE_TARGET` swap in a test signing key and a stand-in app to
+update, and `void dev release <dir>` writes a matching fake release.
+
 ## Configuration
 
 Settings and clean history are plain JSON, written atomically next to the bundle identifier:
@@ -323,6 +362,10 @@ Settings and clean history are plain JSON, written atomically next to the bundle
 Beyond scan roots, ecosystems and thresholds, settings cover the AI features (worktree idle
 days, agent data retention, stale project age, extra worktree roots, duplicate model detection)
 and Guard mode (interval, warning levels, auto-clean policies).
+
+The last scan is kept beside them in `scan-cache.json`, so Void opens to it and refreshes it in the
+background. It only decides what's shown at launch: every clean re-checks its safety gates when
+it runs, and a cache from another version or for other scan folders is ignored.
 
 Both files are safe to edit or delete by hand — a missing or unparseable file falls back to
 defaults rather than blocking launch.
@@ -352,9 +395,29 @@ VOID_HOME=/tmp/void-home cargo run -p deepclean-app                   # the real
 Trash all stay inside it, the window title says SANDBOX, and any action that could reach the
 real machine (Docker prunes, `ollama rm`, system caches) is dropped.
 
-On macOS, `scripts/drive.py` launches the real app in a fresh sandbox, drives it with the keyboard
-and saves a screenshot of its window at each step; `scripts/compare.py` puts two such runs side by
-side. `scripts/linux-smoke.Dockerfile` builds and tests on Linux and screenshots the app under Xvfb.
+On macOS, `scripts/drive.py` launches the real app in a fresh sandbox, drives it like a user and
+saves a screenshot of its window at each step; `scripts/compare.py` puts two such runs side by
+side. It needs the app built with the `drive` feature, a debug-only driver that takes keys and
+clicks over a socket and feeds them straight into GPUI, so nothing goes through the OS:
+
+```bash
+cargo build -p void-cli -p deepclean-app --features deepclean-app/drive
+python3 scripts/drive.py target/debug/void-app /tmp/shots screens matrix persistence
+python3 scripts/drive.py target/debug/void-app /tmp/shots updates update-skip update-tampered cli relaunch
+scripts/compare.py /tmp/shots-before /tmp/shots /tmp/compare
+```
+
+The update scenarios run against a fake signed release (`void dev release`) and update a stand-in
+app inside the sandbox; nothing touches the network or your installed Void.
+
+The driven window opens behind your other windows and never takes focus. Your keyboard, mouse and
+clipboard are left alone (clipboard writes, notifications and Finder reveals are captured for the
+script to check instead), so you can keep working while it runs, and several runs can go at once.
+Each step checks that Void never became the frontmost app; `DRIVE_STRICT=1` also fails the run if
+the frontmost app or the mouse moved at all, for runs nobody touches the machine during. The
+driver only starts with both `VOID_HOME` and `VOID_DRIVE` set, and release builds don't contain it.
+
+`scripts/linux-smoke.Dockerfile` builds and tests on Linux and screenshots the app under Xvfb.
 
 ## Project layout
 
