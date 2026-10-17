@@ -74,6 +74,10 @@ Downloads the latest `.dmg` for your architecture, installs to `/Applications`, 
 Grab the installer for your platform from the [Releases page](https://github.com/eladbash/void/releases):
 a `.deb` or `.AppImage` for Linux, an `.msi` or setup `.exe` for Windows.
 
+Every release also lists each file's SHA-256 in `SHA256SUMS` (check a download with
+`shasum -a 256 -c SHA256SUMS --ignore-missing`), and in `manifest.json`, which is signed with
+Void's release key. The app checks that signature before it installs an update.
+
 The desktop app is native on all three: a GPU-rendered [GPUI](https://gpui.rs) window (Metal on macOS,
 DirectX on Windows, Vulkan on Linux), not a webview. On Linux the tray icon uses the
 StatusNotifierItem protocol, which GNOME shows with the AppIndicator extension and KDE shows natively.

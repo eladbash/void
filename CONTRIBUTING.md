@@ -154,6 +154,16 @@ commit with `git commit --no-verify`.
 3. Ensure `cargo test --workspace` and `cargo clippy` pass
 4. Open a PR with a clear description of the changes
 
+## Releasing
+
+Push a `vX.Y.Z` tag. The Release workflow builds every bundle, then writes `manifest.json`
+(each asset's size and SHA-256) and `SHA256SUMS` and signs the manifest with
+`scripts/release-manifest.sh`. Signing needs the `VOID_RELEASE_SIGNING_KEY` repository secret:
+the Ed25519 private key (PEM) whose public half is
+`crates/deepclean-core/src/update/release-key.pem`. The app trusts updates signed by that key
+alone, so keep it out of the repository. If you replace it, commit the new public key in the
+same release, because older apps can't verify anything signed by a key they don't know.
+
 ## Code of Conduct
 
 This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Be kind and constructive.

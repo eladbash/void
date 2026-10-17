@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Every release carries `SHA256SUMS` and a signed `manifest.json` listing each file's size and
+  SHA-256, so downloads and in-app updates can be verified. The manifest is signed with an
+  Ed25519 release key whose public half ships in the app
+
 ### Changed
 - `scripts/drive.py` no longer types, clicks or switches apps through macOS. A debug-only
   `drive` feature lets it send keys and clicks straight into the app over a socket, with the

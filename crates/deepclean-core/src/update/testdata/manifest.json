@@ -1,0 +1,15 @@
+{
+  "version": "1.3.0",
+  "assets": [
+    {
+      "name": "Void_1.3.0_aarch64.dmg",
+      "size": 3,
+      "sha256": "00cbbd0ddbda2762798f7009838ed34ca1f12b93965813c7df22943bc62166d1"
+    },
+    {
+      "name": "void-1.3.0-aarch64-apple-darwin",
+      "size": 3,
+      "sha256": "99bb88401742848e032fd6f51709415fb6be169a72d2e5d7fc44289255160d3c"
+    }
+  ]
+}

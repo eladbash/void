@@ -20,6 +20,8 @@ async-trait = { workspace = true }
 dirs = { workspace = true }
 trash = { workspace = true }
 blake3 = { workspace = true }
+ed25519-dalek = { version = "2", features = ["pkcs8", "pem"] }
+sha2 = "0.10"
 
 [dev-dependencies]
 tempfile = "3"

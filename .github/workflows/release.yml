@@ -100,3 +100,31 @@ jobs:
           name: ${{ github.ref_name }}
           body: 'See the [CHANGELOG](https://github.com/eladbash/void/blob/main/CHANGELOG.md) for details.'
           files: release/*
+
+  # The signed update manifest: every asset's size and SHA-256, signed with the
+  # release key so the app can verify a download before installing it. Runs
+  # once all bundles are attached. Needs the VOID_RELEASE_SIGNING_KEY secret
+  # (an Ed25519 private key in PEM form whose public half is
+  # crates/deepclean-core/src/update/release-key.pem).
+  manifest:
+    needs: bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir release
+
+      - name: Write and sign the manifest
+        env:
+          VOID_RELEASE_SIGNING_KEY: ${{ secrets.VOID_RELEASE_SIGNING_KEY }}
+        run: ./scripts/release-manifest.sh "${GITHUB_REF_NAME#v}" release
+
+      - name: Attach the manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber \
+            release/manifest.json release/manifest.json.sig release/SHA256SUMS
