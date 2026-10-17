@@ -110,8 +110,9 @@ void mcp-config                     # JSON snippet for other MCP clients (Cursor
 void hook install                   # optional: low-disk warning + worktree trim hooks
 ```
 
-To update, pull and run the same `cargo install` command again (add `--force` if cargo says it is
-already installed). To remove: `void hook uninstall` (if you installed hooks), then
+To update, run `void self-update`. A release binary replaces itself after checking the release's
+signature and checksum; a cargo-installed `void` prints the `cargo install --force` command to run
+instead. To remove: `void hook uninstall` (if you installed hooks), then
 `cargo uninstall void-cli`.
 
 ### Desktop app from source
@@ -229,6 +230,8 @@ void usage                     # disk usage by agent
 void plan                      # dry-run cleanup plan, expires after one hour
 void apply <plan-id>           # carry out a plan you have reviewed
 void guard check               # one free-space check
+void version --check           # is a newer void out?
+void self-update               # install it, after verifying its signature and checksum
 ```
 
 A plan is always a dry run first. `void apply` executes exactly the plan it's given, and a

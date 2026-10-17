@@ -99,14 +99,26 @@ pub fn fake_release(
         std::fs::write(&asset, format!("Void {version}\n"))?;
     }
 
-    let bytes = std::fs::read(&asset)?;
-    let sha: String = Sha256::digest(&bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    // The `void` CLI: a script that prints its version.
+    let cli_name = Package::Cli
+        .asset_name(&semver, std::env::consts::OS, std::env::consts::ARCH)
+        .unwrap_or_else(|| format!("void-{version}-unsupported"));
+    std::fs::write(
+        assets.join(&cli_name),
+        format!("#!/bin/sh\necho void {version}\n"),
+    )?;
+
+    let listed = |n: &str| -> std::io::Result<serde_json::Value> {
+        let bytes = std::fs::read(assets.join(n))?;
+        let sha: String = Sha256::digest(&bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        Ok(serde_json::json!({ "name": n, "size": bytes.len(), "sha256": sha }))
+    };
     let manifest = serde_json::to_string_pretty(&serde_json::json!({
         "version": version,
-        "assets": [{ "name": name, "size": bytes.len(), "sha256": sha }],
+        "assets": [listed(&name)?, listed(&cli_name)?],
     }))?;
     let key = test_signing_key();
     let sig: String = key
@@ -119,11 +131,13 @@ pub fn fake_release(
     std::fs::write(assets.join("manifest.json.sig"), sig)?;
     if tamper {
         // Same size, different bytes: only the checksum can catch it.
-        let mut bytes = bytes;
-        if let Some(last) = bytes.last_mut() {
-            *last ^= 0xff;
+        for path in [asset.clone(), assets.join(&cli_name)] {
+            let mut bytes = std::fs::read(&path)?;
+            if let Some(last) = bytes.last_mut() {
+                *last ^= 0xff;
+            }
+            std::fs::write(&path, bytes)?;
         }
-        std::fs::write(&asset, bytes)?;
     }
 
     let public = dir.join("release-key.pem");
@@ -150,7 +164,12 @@ pub fn fake_release(
             "html_url": format!("https://github.com/eladbash/void/releases/tag/v{version}"),
             "draft": false,
             "prerelease": false,
-            "assets": [entry(&name), entry("manifest.json"), entry("manifest.json.sig")],
+            "assets": [
+                entry(&name),
+                entry(&cli_name),
+                entry("manifest.json"),
+                entry("manifest.json.sig"),
+            ],
         }]))?,
     )?;
 

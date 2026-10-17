@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `sudo apt install` command to run. A download that fails verification is deleted, and a failed
   install leaves the current version in place
 - `void dev release <dir>` writes a fake signed release to try updates against in a sandbox
+- `void version --check` says whether a newer `void` is out (`--json` for scripts), and
+  `void self-update` installs it after verifying the release signature and checksum. A
+  cargo-installed `void` gets the `cargo install --force` command instead, and the copy inside the
+  Void app defers to the app's updater
 - Every release carries `SHA256SUMS` and a signed `manifest.json` listing each file's size and
   SHA-256, so downloads and in-app updates can be verified. The manifest is signed with an
   Ed25519 release key whose public half ships in the app
