@@ -991,8 +991,7 @@ impl AppView {
             .child(self.switch_row(
                 "toggle-auto-update",
                 "Check for updates automatically",
-                "Once a day, Void asks GitHub for its latest release. That is the only \
-                 network request it makes, and nothing about you or your disk is sent.",
+                "Once a day, ask GitHub for the latest release. Void's only network request.",
                 auto,
                 cx,
                 |this, cx| {
