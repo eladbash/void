@@ -651,3 +651,38 @@ fn cleaning_a_danger_item_from_the_drawer_goes_through_review(cx: &mut TestAppCo
     cx.simulate_keystrokes("escape");
     assert!(view.read_with(cx, |v, _| v.ui.confirm_only.is_none()));
 }
+
+#[gpui_kit::test]
+fn update_checks_stay_quiet_at_launch_and_report_a_manual_failure(cx: &mut TestAppContext) {
+    use crate::model::update::UpdateStatus;
+    // The test home is a sandbox with no local feed, so nothing may reach the
+    // network: the launch check doesn't even start.
+    let (view, cx, _h) = open(cx, None, None);
+    draw(cx);
+    view.read_with(cx, |v, _| {
+        assert_eq!(v.update, UpdateStatus::Idle);
+        assert!(v.ui.config.updates.last_checked_at.is_none());
+    });
+
+    // "Check for updates" says why it couldn't.
+    view.update(cx, |v, cx| {
+        v.settings_section(SettingsSection::About, cx);
+        v.check_for_updates(true, cx);
+    });
+    settle(cx, &view, |v| matches!(v.update, UpdateStatus::Failed(_)));
+    draw(cx);
+    let summary = view.read_with(cx, |v, _| v.update.summary("1.2.1"));
+    assert!(summary.contains("sandbox"), "{summary}");
+
+    // Turning the automatic check off is saved like any other setting.
+    view.update(cx, |v, cx| {
+        v.ui.config.updates.check_automatically = false;
+        v.commit_config(cx);
+    });
+    assert!(!view.read_with(cx, |v, _| v
+        .backend
+        .state()
+        .config()
+        .updates
+        .check_automatically));
+}

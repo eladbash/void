@@ -11,6 +11,7 @@ pub mod issues;
 pub mod results;
 pub mod settings;
 pub mod theme;
+pub mod update;
 
 use gpui_kit::{App, KeyBinding};
 

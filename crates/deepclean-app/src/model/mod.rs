@@ -8,6 +8,7 @@ pub mod format;
 pub mod labels;
 pub mod selection;
 pub mod ui_state;
+pub mod update;
 
 #[cfg(test)]
 pub mod fixtures;

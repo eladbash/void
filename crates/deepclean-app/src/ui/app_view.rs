@@ -133,6 +133,8 @@ pub struct AppView {
     repaint_task: Option<Task<()>>,
     /// A slider's value was clamped by the model; push it back on next paint.
     pending_slider_sync: bool,
+    pub(crate) update: crate::model::update::UpdateStatus,
+    pub(crate) update_task: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
     _tasks: Vec<Task<()>>,
 }
@@ -251,6 +253,8 @@ impl AppView {
             last_paint: Instant::now(),
             repaint_task: None,
             pending_slider_sync: false,
+            update: Default::default(),
+            update_task: None,
             _subscriptions: subscriptions,
             _tasks: tasks,
         };
@@ -260,6 +264,7 @@ impl AppView {
             this.show_toast(first, None, cx);
         }
         this.refresh_tray();
+        this.maybe_check_for_updates(cx);
         window.focus(&this.focus, cx);
         this
     }
@@ -271,6 +276,7 @@ impl AppView {
     pub(crate) fn drive_busy(&self) -> bool {
         self.ui.scanning
             || self.guard_checking
+            || self.update_task.is_some()
             || self.ui.clean.as_ref().is_some_and(|c| c.done() < c.total)
     }
 
@@ -292,6 +298,8 @@ impl AppView {
             "last_result": self.ui.last_result.is_some(),
             "toast": self.toast.as_ref().map(|t| t.text.clone()),
             "busy": self.drive_busy(),
+            "update": format!("{:?}", self.update),
+            "update_summary": self.update.summary(crate::backend::update::CURRENT_VERSION),
         })
     }
 

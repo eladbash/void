@@ -117,7 +117,7 @@ impl AppView {
             SettingsSection::Safety => self.safety_section(cx),
             SettingsSection::Performance => self.performance_section(window, cx),
             SettingsSection::General => self.general_section(cx),
-            SettingsSection::About => self.about_section(),
+            SettingsSection::About => self.about_section(cx),
         };
 
         let sub = if self.ui.settings_dirty {
@@ -970,7 +970,34 @@ impl AppView {
             .child(list)
     }
 
-    fn about_section(&self) -> Div {
+    fn about_section(&mut self, cx: &mut Context<Self>) -> Div {
+        let p = self.p;
+        let auto = self.ui.config.updates.check_automatically;
+        let updates = pathlist(&p)
+            .child(self.update_status_row(cx))
+            .child(self.switch_row(
+                "toggle-auto-update",
+                "Check for updates automatically",
+                "Once a day, Void asks GitHub for its latest release. That is the only \
+                 network request it makes, and nothing about you or your disk is sent.",
+                auto,
+                cx,
+                |this, cx| {
+                    this.ui.config.updates.check_automatically =
+                        !this.ui.config.updates.check_automatically;
+                    this.save_config(false, cx);
+                },
+            ));
+        div()
+            .child(
+                field()
+                    .child(overline("Updates", p.text_tertiary).mb(px(8.)))
+                    .child(updates),
+            )
+            .child(self.about_facts())
+    }
+
+    fn about_facts(&self) -> Div {
         let p = self.p;
         field()
             .child(overline("About", p.text_tertiary).mb(px(8.)))

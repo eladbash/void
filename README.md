@@ -57,7 +57,9 @@ command line or over MCP.
   `ignore` crate
 - **Nothing runs unseen**: every item shows the exact command or deletion it will perform
 - **Keeps a record**: each clean is stored locally with the paths, commands and bytes recovered
-- **Local only**: no account, no telemetry. Void never uploads anything
+- **Local only**: no account, no telemetry. Void never uploads anything. Its one network request
+  is a once-a-day check of GitHub Releases for a newer version, which you can turn off in
+  Settings → About ([details](#updates))
 
 ## Install
 
@@ -313,6 +315,18 @@ Deleting files is easy to get wrong, so Void is deliberately conservative:
   and never includes Danger actions.
 
 Found a safety gap? Please report it privately — see [SECURITY.md](SECURITY.md).
+
+## Updates
+
+Once a day, the desktop app asks GitHub's public Releases API
+(`api.github.com/repos/eladbash/void/releases`) whether a newer version exists. This is the only
+network request Void makes. It sends nothing but an ordinary HTTPS request with a `Void/<version>`
+user agent. Turn it off with **Check for updates automatically** in Settings → About; with it
+off, Void makes no request unless you click **Check for updates**. A failed check at launch (you're
+offline, or GitHub is rate-limiting) stays quiet and is tried again on the next launch.
+
+`VOID_UPDATE_FEED=<file>` points the check at a local releases JSON instead, for development.
+A sandboxed run (`VOID_HOME`) never touches the network: it checks a local feed or nothing.
 
 ## Configuration
 

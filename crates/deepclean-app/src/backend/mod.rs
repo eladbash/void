@@ -8,6 +8,7 @@ pub mod clean;
 pub mod guard;
 pub mod integrations;
 pub mod scan;
+pub mod update;
 
 use std::path::PathBuf;
 use std::sync::Arc;

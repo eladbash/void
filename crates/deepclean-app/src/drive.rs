@@ -48,6 +48,7 @@ pub enum Effect {
     Notify { title: String, body: String },
     Reveal(std::path::PathBuf),
     FolderPicker,
+    OpenUrl(String),
 }
 
 #[cfg(feature = "drive")]
@@ -78,6 +79,7 @@ mod imp {
         notifications: Vec<Value>,
         revealed: Vec<String>,
         folder_pickers: usize,
+        opened_urls: Vec<String>,
     }
 
     fn outbox() -> &'static Mutex<Outbox> {
@@ -110,6 +112,7 @@ mod imp {
                 .push(json!({ "title": title, "body": body })),
             Effect::Reveal(path) => out.revealed.push(path.display().to_string()),
             Effect::FolderPicker => out.folder_pickers += 1,
+            Effect::OpenUrl(url) => out.opened_urls.push(url),
         }
     }
 
@@ -326,6 +329,7 @@ mod imp {
                     "notifications": out.notifications,
                     "revealed": out.revealed,
                     "folder_pickers": out.folder_pickers,
+                    "opened_urls": out.opened_urls,
                 })
             }
             "quit" => {
