@@ -70,7 +70,8 @@ mod imp {
     use futures::StreamExt;
     use gpui_kit::{
         point, px, size, AnyWindowHandle, App, AppContext, AsyncApp, Entity, Keystroke, Modifiers,
-        MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PlatformInput, Window,
+        MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PlatformInput, ScrollDelta,
+        ScrollWheelEvent, TouchPhase, Window,
     };
     use serde_json::{json, Value};
 
@@ -271,6 +272,32 @@ mod imp {
                             position,
                             modifiers,
                             click_count: count,
+                        }),
+                        cx,
+                    );
+                })?;
+                frame(window, cx).await?;
+                Value::Null
+            }
+            "scroll" => {
+                // Positive `dy` scrolls the content up, revealing what's below.
+                let position = point(px(num("x")?), px(num("y")?));
+                let dy = num("dy")?;
+                with_window(window, cx, |w, cx| {
+                    w.dispatch_event(
+                        PlatformInput::MouseMove(MouseMoveEvent {
+                            position,
+                            pressed_button: None,
+                            modifiers: Modifiers::default(),
+                        }),
+                        cx,
+                    );
+                    w.dispatch_event(
+                        PlatformInput::ScrollWheel(ScrollWheelEvent {
+                            position,
+                            delta: ScrollDelta::Pixels(point(px(0.), px(-dy))),
+                            modifiers: Modifiers::default(),
+                            touch_phase: TouchPhase::Moved,
                         }),
                         cx,
                     );

@@ -403,8 +403,12 @@ clicks over a socket and feeds them straight into GPUI, so nothing goes through 
 ```bash
 cargo build -p void-cli -p deepclean-app --features deepclean-app/drive
 python3 scripts/drive.py target/debug/void-app /tmp/shots screens matrix persistence
+python3 scripts/drive.py target/debug/void-app /tmp/shots updates update-skip update-tampered cli relaunch
 scripts/compare.py /tmp/shots-before /tmp/shots /tmp/compare
 ```
+
+The update scenarios run against a fake signed release (`void dev release`) and update a stand-in
+app inside the sandbox; nothing touches the network or your installed Void.
 
 The driven window opens behind your other windows and never takes focus. Your keyboard, mouse and
 clipboard are left alone (clipboard writes, notifications and Finder reveals are captured for the

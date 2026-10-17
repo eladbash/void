@@ -60,9 +60,10 @@ class App:
     """One driven Void process. Points are window-relative, title bar included,
     like the screenshots."""
 
-    def __init__(self, binary, home, width=900, height=700):
+    def __init__(self, binary, home, width=900, height=700, env=None):
         self.binary = binary
         self.home = home
+        self.env = env or {}
         self.size = (width, height)
         self.proc = None
         self.conn = None
@@ -75,7 +76,7 @@ class App:
 
     def launch(self):
         sock = os.path.join(self.home, "drive.sock")
-        env = dict(os.environ, VOID_HOME=self.home, VOID_DRIVE=sock)
+        env = dict(os.environ, VOID_HOME=self.home, VOID_DRIVE=sock, **self.env)
         if not hasattr(self, "baseline"):
             self.baseline = (frontmost(), mouse())
         self.log = open(os.path.join(self.home, "app.log"), "w")
@@ -180,6 +181,10 @@ class App:
     def click(self, x, y):
         """Click at window-relative point (x, y), title bar included."""
         self.call("click", x=x, y=y - self.titlebar)
+
+    def scroll(self, x, y, dy):
+        """Scroll the view under window-relative (x, y) by dy points (down)."""
+        self.call("scroll", x=x, y=y - self.titlebar, dy=dy)
 
     def wait_idle(self, timeout=30):
         self.call("wait_idle", timeout=timeout)
@@ -424,7 +429,210 @@ def persistence(app, out):
     app.shot(out("p03-no-toast-second-time"))
 
 
-SCENARIOS = {"screens": screens, "matrix": matrix, "persistence": persistence}
+def fake_release(home, tamper=False):
+    """A signed fake Void 9.0.0 release in the sandbox, and the environment
+    that points the app's update check, key and install target at it."""
+    rel = os.path.join(home, "fake-release")
+    args = [VOID_CLI, "dev", "release", rel, "--version", "9.0.0"] + (["--tamper"] if tamper else [])
+    subprocess.run(args, check=True, stdout=subprocess.DEVNULL)
+    return {
+        "VOID_UPDATE_FEED": os.path.join(rel, "releases.json"),
+        "VOID_UPDATE_KEY": os.path.join(rel, "release-key.pem"),
+        "VOID_UPDATE_TARGET": os.path.join(rel, "Applications", "Void.app"),
+    }
+
+
+def bundle_version(app):
+    with open(os.path.join(app, "Contents", "Info.plist")) as f:
+        plist = f.read()
+    after = plist.split("<key>CFBundleShortVersionString</key>")[1]
+    return after.split("<string>")[1].split("</string>")[0]
+
+
+def updates(app, out, theme="dark"):
+    """Launch finds the fake 9.0.0 release: banner, tray item, What's new,
+    then Update now installs it into the sandbox's stand-in app."""
+    results = []
+
+    def check(name, ok, detail=""):
+        results.append((name, ok))
+        print(("  PASS " if ok else "  FAIL ") + name + (f" — {detail}" if detail and not ok else ""))
+
+    app.wait_idle()
+    st = app.state()
+    check("the launch check finds 9.0.0", st["update_banner"] == "9.0.0", st["update_summary"])
+    check("the tray offers the update", st["tray_update"] == "Update to v9.0.0…", st["tray_update"])
+    app.shot(out("u01-banner"))
+
+    app.click(*BANNER["notes"])
+    urls = app.outbox()["opened_urls"]
+    check("What's new opens the release notes", bool(urls) and urls[-1].endswith("/v9.0.0"), urls)
+
+    app.click(*BANNER["update"])
+    st = app.state()
+    check("Update… opens Settings → About", st["route"] == "Settings")
+    app.shot(out("u02-about"))
+    app.click(*BANNER["close"])
+    st = app.state()
+    check("closing the banner hides it", st["update_banner"] is None)
+    check("but keeps the tray item", st["tray_update"] is not None)
+
+    target = app.env["VOID_UPDATE_TARGET"]
+    check("the stand-in app starts at 1.2.1", bundle_version(target) == "1.2.1")
+    app.click(*ABOUT["update_now"])
+    app.wait_idle()
+    st = app.state()
+    check("Update now installs it", st["install"].startswith("Installed"), st["install"])
+    check("the app bundle is now 9.0.0", bundle_version(target) == "9.0.0", bundle_version(target))
+    relaunches = app.outbox()["relaunches"]
+    check("and asks to relaunch it", relaunches == [target], relaunches)
+    app.shot(out("u03-installed"))
+    return results
+
+
+def update_skip(app, out, theme="dark"):
+    """Skip this version hides the notice, and it stays hidden after a relaunch."""
+    results = []
+
+    def check(name, ok, detail=""):
+        results.append((name, ok))
+        print(("  PASS " if ok else "  FAIL ") + name + (f" — {detail}" if detail and not ok else ""))
+
+    app.wait_idle()
+    app.click(*BANNER["skip"])
+    st = app.state()
+    check("Skip hides the banner and tray item", st["update_banner"] is None and st["tray_update"] is None, st)
+    app.shot(out("s01-skipped"))
+    app.quit()
+    app.launch()
+    app.wait_idle()
+    st = app.state()
+    check("still hidden after a relaunch", st["update_banner"] is None and st["tray_update"] is None, st)
+    app.shot(out("s02-relaunched"))
+    return results
+
+
+def update_tampered(app, out, theme="dark"):
+    """A download that doesn't match its signed checksum is refused and deleted."""
+    results = []
+
+    def check(name, ok, detail=""):
+        results.append((name, ok))
+        print(("  PASS " if ok else "  FAIL ") + name + (f" — {detail}" if detail and not ok else ""))
+
+    app.wait_idle()
+    app.click(*BANNER["update"])
+    app.click(*BANNER["close"])
+    app.click(*ABOUT["update_now"])
+    app.wait_idle()
+    st = app.state()
+    check("the tampered download is refused", "checksum" in st["install"], st["install"])
+    target = app.env["VOID_UPDATE_TARGET"]
+    check("the installed app is untouched", bundle_version(target) == "1.2.1", bundle_version(target))
+    updates_dir = os.path.join(app.home, ".void-sandbox-config", "updates")
+    left = os.listdir(updates_dir) if os.path.isdir(updates_dir) else []
+    check("and the download is deleted", left == [], left)
+    check("nothing is relaunched", app.outbox()["relaunches"] == [])
+    app.shot(out("t01-refused"))
+    return results
+
+
+def cli(app, out, theme="dark"):
+    """Install void command links the bundled CLI into the sandbox's
+    ~/.local/bin; MCP and hooks use a stable path."""
+    results = []
+
+    def check(name, ok, detail=""):
+        results.append((name, ok))
+        print(("  PASS " if ok else "  FAIL ") + name + (f" — {detail}" if detail and not ok else ""))
+
+    bundled = os.path.join(os.path.dirname(os.path.abspath(app.binary)), "void")
+    app.key("cmd-2")
+    app.wait_idle()
+    app.scroll(450, 500, 800)
+    st = app.state()
+    check("MCP uses the bundled CLI before it's on the PATH", bundled in (st["mcp_command"] or ""), st["mcp_command"])
+    app.shot(out("c01-card"))
+    app.click(*AGENTS["install_cli"])
+    st = app.state()
+    link = st["cli_installed"] or ""
+    expected = os.path.join(os.path.realpath(app.home), ".local", "bin", "void")
+    check("it links into the sandbox's ~/.local/bin", os.path.realpath(os.path.dirname(link)) == os.path.dirname(expected), link)
+    check("the link points at the bundled CLI", os.path.islink(link) and os.readlink(link) == bundled, link)
+    check("it says how to put the folder on the PATH", "export PATH=" in (st["cli_hint"] or ""), st["cli_hint"])
+    ran = subprocess.run([link, "--version"], capture_output=True, text=True) if link else None
+    check("void --version runs through the link", ran is not None and ran.stdout.startswith("void "), ran and ran.stdout)
+    app.scroll(450, 500, 800)
+    app.shot(out("c02-installed"))
+    return results
+
+
+def relaunch(app, out, theme="dark"):
+    """The last scan is there on relaunch, then refreshed in the background."""
+    results = []
+
+    def check(name, ok, detail=""):
+        results.append((name, ok))
+        print(("  PASS " if ok else "  FAIL ") + name + (f" — {detail}" if detail and not ok else ""))
+
+    app.key("cmd-r")
+    app.wait_idle()
+    found = app.state()["items"]
+    check("a scan finds items", found > 0, found)
+    app.quit()
+
+    # Without the background refresh, what shows is purely the cache.
+    cfg_path = os.path.join(app.home, ".void-sandbox-config", "config.json")
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+    cfg["ui"]["rescan_on_launch"] = False
+    with open(cfg_path, "w") as f:
+        json.dump(cfg, f)
+    app.launch()
+    st = app.state()
+    check("relaunch shows the last scan at once", st["items"] == found and st["has_scanned"], st)
+    check("without rescanning", not st["scanning"])
+    app.shot(out("r01-cached"))
+    app.quit()
+
+    cfg["ui"]["rescan_on_launch"] = True
+    with open(cfg_path, "w") as f:
+        json.dump(cfg, f)
+    app.launch()
+    first = app.state()
+    check("with the refresh on, the rows are there from the start", first["items"] == found, first["items"])
+    app.wait_idle()
+    st = app.state()
+    check("and the refresh ends with the same results", st["items"] == found and not st["refreshing"], st)
+    app.shot(out("r02-refreshed"))
+    return results
+
+
+# Window-relative click targets at 900 wide, measured from the screenshots.
+BANNER = {"notes": (606, 51), "skip": (715, 51), "update": (818, 51), "close": (873, 51)}
+ABOUT = {"update_now": (544, 242)}  # Settings → About, no banner
+AGENTS = {"install_cli": (160, 307)}  # Agents, scrolled to the bottom
+
+
+SCENARIOS = {
+    "screens": screens,
+    "matrix": matrix,
+    "persistence": persistence,
+    "updates": updates,
+    "update-skip": update_skip,
+    "update-tampered": update_tampered,
+    "cli": cli,
+    "relaunch": relaunch,
+}
+# Scenarios that return PASS/FAIL results.
+CHECKED = {"matrix", "updates", "update-skip", "update-tampered", "cli", "relaunch"}
+
+# Environment a scenario's app is launched with, built from its sandbox home.
+SETUP = {
+    "updates": lambda home: fake_release(home),
+    "update-skip": lambda home: fake_release(home),
+    "update-tampered": lambda home: fake_release(home, tamper=True),
+}
 
 
 def main():
@@ -441,12 +649,13 @@ def main():
         for name in names:
             print(f"{name} · {theme} · {density}")
             home = seed(theme, density)
-            app = App(binary, home)
+            env = SETUP[name](home) if name in SETUP else {}
+            app = App(binary, home, env=env)
             try:
                 app.launch()
                 fn = SCENARIOS[name]
                 path = lambda step: os.path.join(out_dir, f"{name}-{theme}-{density}-{step}.png")
-                if name == "matrix":
+                if name in CHECKED:
                     results = fn(app, path, theme)
                     failed |= not all(ok for _, ok in results)
                 else:
