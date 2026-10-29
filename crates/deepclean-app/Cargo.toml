@@ -14,7 +14,7 @@ uuid = { workspace = true }
 sysinfo = { workspace = true }
 chrono = { workspace = true }
 dirs = { workspace = true }
-gpui-kit = { version = "0.7", default-features = false, features = ["component"] }
+gpui-kit = { version = "0.8", default-features = false, features = ["component"] }
 futures = "0.3"
 # ksni: the StatusNotifierItem D-Bus tray on Linux — no GTK event loop to
 # host next to GPUI's. Its dependency is Linux-only, so this is a no-op elsewhere.
@@ -34,7 +34,7 @@ drive = ["dep:raw-window-handle", "dep:objc2"]
 
 [dev-dependencies]
 tempfile = "3"
-gpui-kit = { version = "0.7", default-features = false, features = ["component", "test-support"] }
+gpui-kit = { version = "0.8", default-features = false, features = ["component", "test-support"] }
 
 [lib]
 name = "void_app_lib"
