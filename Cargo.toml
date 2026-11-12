@@ -16,7 +16,7 @@ thiserror = "2"
 tracing = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
 ignore = "0.4"
-sysinfo = "0.39"
+sysinfo = "0.40"
 bytesize = { version = "2", features = ["serde"] }
 async-trait = "0.1"
 dirs = "7"
